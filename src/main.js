@@ -9,7 +9,7 @@ import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, N
 import { createGarden, STREAM } from './garden.js';
 import { createDuel, SWORD, BOT_NAME } from './duel.js';
 import { startAudio, setWaterVolume, setMuted, isMuted, playThump, playBeep } from './audio.js';
-import { Avatar } from './avatar.js';
+import { Avatar, WorkMonster } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
 
@@ -175,8 +175,8 @@ const duel = createDuel({
   },
 });
 const busy = () => game.on || duel.fighting;
-// 😡 분노 인간 (연습 상대, 내 화면에만) · ⚔️ 결투 관리인 (4층 NPC)
-const duelBot = new Avatar(BOT_NAME, '#c62828', 'm');
+// 👾 업무 괴물 (연습 상대, 내 화면에만) · ⚔️ 결투 관리인 (4층 NPC)
+const duelBot = new WorkMonster(BOT_NAME);
 duelBot.setBoxing(true); duelBot.setSword(true);
 duelBot.root.position.set(ARENA.x + 0.95, FLOORS[ARENA.floor].y, ARENA.z); duelBot.root.rotation.y = -Math.PI / 2;
 duelBot.root.visible = false;

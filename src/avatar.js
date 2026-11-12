@@ -202,8 +202,8 @@ export class Avatar {
     void f;
     // 결투용 칼 (오른손에, 평소엔 숨김)
     this.sword = new THREE.Group();
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.62, 0.012), new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.2, metalness: 0.8, emissive: 0x223040 }));
-    blade.position.y = -0.62;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.36, 0.012), new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.2, metalness: 0.8, emissive: 0x223040 }));
+    blade.position.y = -0.49; // 캐릭터 키에 맞춘 짧은 칼
     const guard = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.025, 0.045), new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.3, metalness: 0.7 }));
     guard.position.y = -0.3;
     const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.8 }));
@@ -363,5 +363,58 @@ export class Avatar {
     for (const m of [this.torso, this.legL, this.legR, this.armL, this.armR]) m?.geometry.dispose();
     if (bodyOnly) return;
     this.root.traverse((o) => { if (o.material?.map) o.material.map.dispose(); });
+  }
+}
+
+// 👾 업무 괴물: 서류 더미를 머리에 인 초록 덩어리 괴물 (결투 연습 상대). Avatar와 같은 방식으로 움직임
+export class WorkMonster {
+  constructor(name) {
+    this.root = new THREE.Group();
+    this.body = new THREE.Group();
+    this.root.add(this.body);
+    const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, ...o });
+    const skin = mat(0x6f8f4e), dark = mat(0x3d5229), paper = mat(0xf4f1e8), red = mat(0xd23a2a), yellow = mat(0xf2d04a), black = new THREE.MeshBasicMaterial({ color: 0x141414 }), white = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const m = (geo, mt, x, y, z, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, mt); o.position.set(x, y, z); o.scale.set(sx, sy, sz); return o; };
+    const S = new THREE.SphereGeometry(1, 20, 14);
+    // 몸통 (울퉁불퉁한 덩어리)
+    this.body.add(m(S, skin, 0, 0.55, 0, 0.42, 0.48, 0.36), m(S, skin, 0.1, 0.82, 0.02, 0.3, 0.26, 0.26), m(S, dark, 0, 0.42, 0.25, 0.22, 0.18, 0.1));
+    // 화난 눈 (흰자 + 빨간 눈동자) · 찌푸린 눈썹
+    for (const s of [-1, 1]) {
+      this.body.add(m(S, white, s * 0.12, 0.78, 0.29, 0.085, 0.07, 0.04), m(S, mat(0xe0201a, { emissive: 0x600000 }), s * 0.12, 0.775, 0.32, 0.04, 0.04, 0.02));
+      const brow = m(new THREE.BoxGeometry(0.16, 0.035, 0.03), black, s * 0.12, 0.865, 0.31); brow.rotation.z = s * 0.45; this.body.add(brow);
+    }
+    // 이빨 드러낸 입
+    this.body.add(m(new THREE.BoxGeometry(0.26, 0.08, 0.04), black, 0, 0.6, 0.33));
+    for (let i = 0; i < 4; i++) { const t = m(new THREE.ConeGeometry(0.025, 0.05, 4), white, -0.09 + i * 0.06, 0.625, 0.35); t.rotation.z = Math.PI; this.body.add(t); }
+    // 머리 위 서류 더미 · 포스트잇
+    for (let i = 0; i < 6; i++) { const p = m(new THREE.BoxGeometry(0.32, 0.025, 0.24), paper, (i % 2 ? 0.02 : -0.02), 1.04 + i * 0.03, 0); p.rotation.y = (i - 3) * 0.08; this.body.add(p); }
+    for (const [x, z, c] of [[0.17, 0.05, yellow], [-0.16, -0.03, mat(0xf29ac0)]]) { const n = m(new THREE.BoxGeometry(0.08, 0.005, 0.08), c, x, 1.12, z); n.rotation.z = x > 0 ? -0.5 : 0.5; this.body.add(n); }
+    // 짧은 다리
+    for (const s of [-1, 1]) this.body.add(m(new THREE.CylinderGeometry(0.07, 0.08, 0.2, 10), dark, s * 0.15, 0.1, 0));
+    // 팔: 오른손에 커다란 '결재' 도장, 왼손에 서류
+    const arm = (s) => { const g = new THREE.Group(); g.position.set(s * 0.42, 0.7, 0); g.add(m(new THREE.CapsuleGeometry(0.06, 0.28, 4, 8), skin, 0, -0.18, 0)); this.body.add(g); return g; };
+    this.armL = arm(-1); this.armR = arm(1);
+    this.armR.add(m(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8), dark, 0, -0.42, 0), m(new THREE.CylinderGeometry(0.11, 0.11, 0.09, 16), red, 0, -0.52, 0));
+    this.armL.add(m(new THREE.BoxGeometry(0.2, 0.26, 0.02), paper, 0, -0.42, 0.04));
+    this.root.add(m(new THREE.CircleGeometry(0.4, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }), 0, 0.02, 0, 1, 1, 1));
+    this.root.children[this.root.children.length - 1].rotation.x = -Math.PI / 2;
+    this.name = name;
+    this.label = makeSprite(name, { size: 40, bg: 'rgba(60,90,30,0.85)' }, 0.22);
+    this.label.position.y = 1.42;
+    this.root.add(this.label);
+    this.punchAt = -9; this.hurtAt = -9; this.t = 0; this.jy = 0; this.ground = 0;
+  }
+  punch(now) { this.punchAt = now; }
+  hurt(now) { this.hurtAt = now; }
+  setBoxing() {} setSword() {} setName() {} say() {}
+  animate(dt, speed, now) {
+    this.t += dt;
+    const p = Math.max(0, 1 - (now - this.punchAt) / 0.2), hk = Math.max(0, 1 - (now - this.hurtAt) / 0.22);
+    this.armR.rotation.x = -0.6 - 1.6 * Math.sin(p * Math.PI);  // 도장 쾅!
+    this.armL.rotation.x = -0.4 + Math.sin(this.t * 6) * 0.15;
+    this.armL.rotation.z = -0.3; this.armR.rotation.z = 0.3;
+    this.body.position.y = Math.abs(Math.sin(this.t * 5)) * 0.04;  // 씩씩대며 들썩
+    this.body.rotation.x = -0.3 * hk;
+    this.body.scale.setScalar(1 + 0.03 * Math.sin(this.t * 10));
   }
 }

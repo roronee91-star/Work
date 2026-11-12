@@ -1,12 +1,12 @@
 // ⚔️ 소환의 검 결투
-// 4층 결투 관리인(NPC)에게 정식 신청 → 접속자 중 선택(하루 2번까지) 또는 😡 분노 인간(연습) → 상대 수락 →
+// 4층 결투 관리인(NPC)에게 정식 신청 → 접속자 중 선택(하루 2번까지) 또는 👾 업무 괴물(연습) → 상대 수락 →
 // 모든 층에 "대결이 시작되었습니다" → 4층 결투장에서 연타 → 이기면 Lv +1 / 지면 😵패배자 칭호(다음에 이기면 떨어짐)
 // 서로 결투 알림만 주고받고, 레벨 · 칭호는 각자 기기에 저장
 
 const HP = 100, FIGHT = 30;   // 체력, 제한 시간(초)
 const DAILY = 2;              // 사람에게 하는 도전: 하루 최대 횟수
 export const SWORD = '소환의 검';
-export const BOT_NAME = '😡 분노 인간';
+export const BOT_NAME = '👾 업무 괴물';
 
 export function createDuel(api) {
   const { $, me, peers } = api;
@@ -142,7 +142,7 @@ export function createDuel(api) {
   function result(e) {
     st.phase = 'done';
     let msg;
-    if (st.bot) msg = e.winner === me.id ? `🏆 ${BOT_NAME}을(를) 진정시켰어요! (연습이라 레벨은 그대로)` : !e.winner ? '🤝 무승부! (연습)' : `😤 ${BOT_NAME}의 분노가 이겼어요… (연습이라 칭호는 안 붙어요)`;
+    if (st.bot) msg = e.winner === me.id ? `🏆 ${BOT_NAME}을(를) 물리쳤어요! 오늘 업무도 이렇게만! (연습이라 레벨은 그대로)` : !e.winner ? '🤝 무승부! (연습)' : `📚 ${BOT_NAME}에게 깔렸어요… (연습이라 칭호는 안 붙어요)`;
     else if (!e.winner) msg = '🤝 무승부! 레벨 · 칭호는 그대로예요.';
     else if (e.winner === me.id) { stats.win++; stats.level++; const was = stats.loser; stats.loser = false; msg = `🏆 승리! <b>Lv.${stats.level}</b>로 올랐어요 🎉${was ? '<br>😵패배자 칭호도 떨어졌어요!' : ''}`; api.beep(784, 0.3); }
     else { stats.lose++; stats.loser = true; msg = `😵 패배… 이름표에 <b>패배자</b> 칭호가 붙었어요.<br><small>다음 결투에서 이기면 떨어져요.</small>`; }
@@ -180,7 +180,7 @@ export function createDuel(api) {
     } else if (st.phase === 'fight') {
       st.t -= dt;
       if (st.bot) {
-        // 분노 인간: 화가 나서 마구 휘두름 (사람이 빠르게 연타하면 이길 수 있는 정도)
+        // 업무 괴물: 결재 도장을 마구 휘두름 (사람이 빠르게 연타하면 이길 수 있는 정도)
         st.botNext -= dt;
         if (st.botNext <= 0) { st.botNext = 0.16 + Math.random() * 0.22; api.botSwing(); takeHit(Math.random() < 0.25 ? 2 : 1); }
       } else {
