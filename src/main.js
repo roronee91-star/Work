@@ -224,6 +224,7 @@ function enter() {
   camera.clearViewOffset(); camera.updateProjectionMatrix();
   $('hud').hidden = false;
   $('joy').hidden = !isTouch;
+  $('btnJump').hidden = !isTouch;
   if (isTouch) setChatOpen(false);
   startAudio();
   myAvatar = new Avatar(me.name, me.color, me.gender);
@@ -257,6 +258,7 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Enter') { e.preventDefault(); setChatOpen(true); $('chatInput').focus(); }
   if (e.code === 'KeyE') interact();
+  if (e.code === 'Space') { e.preventDefault(); doJump(); }
   if (e.code === 'Escape') closeModals();
   if (/^Digit[1-5]$/.test(e.code) && !$('floorModal').hidden) chooseFloor(+e.code.slice(5) - 1);
 });
@@ -472,6 +474,13 @@ function tapMove(cx, cy) {
   pingMark.visible = true; pingMark.scale.setScalar(1.6);
 }
 
+// ---------- 점프 ----------
+function doJump() {
+  if (mode !== 'office' || !myAvatar || player.sit || game.on) return;
+  if (myAvatar.jump()) { player.jc = (player.jc || 0) + 1; sendState(true); }
+}
+$('btnJump').addEventListener('pointerdown', (e) => { e.preventDefault(); document.activeElement?.blur?.(); doJump(); });
+
 // ---------- 앉기 ----------
 function sitDown(seat) {
   player.sit = seat;
@@ -513,7 +522,7 @@ function showFloorHud() {
   $('zoneTab').textContent = name;
 }
 function placeAvatar(av, p) {
-  av.root.position.set(p.x, FLOORS[p.floor || 0].y, p.z);
+  av.root.position.set(p.x, FLOORS[p.floor || 0].y + (av.jy || 0), p.z);
   av.root.rotation.y = p.ry;
 }
 function lerpAngle(a, b, t) {
@@ -602,7 +611,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 250) && t - lastSend < 8000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0 });
 }
 
 function onState(p) {
@@ -630,6 +639,8 @@ function onState(p) {
   peer.av.setBoxing(bx >= 0);
   if (bx >= 0 && (p.pc || 0) > (peer.pc || 0)) { peer.av.punch(now); if (peer.floor === player.floor) bld.hitBag(bx, 2); }
   peer.pc = p.pc || 0;
+  if (peer.jc !== undefined && (p.jc || 0) > peer.jc) peer.av.jump();
+  peer.jc = p.jc || 0;
 }
 function removePeer(id, quiet = false) {
   const peer = peers.get(id);
@@ -823,6 +834,7 @@ function startGame(b) {
   $('game').hidden = false; $('gResult').hidden = true; $('gPunch').hidden = false;
   $('gScore').textContent = '0'; $('gCombo').textContent = ''; $('gTime').textContent = '10.0';
   $('joy').hidden = true;
+  $('btnJump').hidden = true;
   sendState(true);
 }
 function punch() {
@@ -876,6 +888,7 @@ function quitGame() {
   myAvatar.setBoxing(false);
   $('game').hidden = true;
   $('joy').hidden = !isTouch;
+  $('btnJump').hidden = !isTouch;
   cam.dist = 3.4;
   sendState(true);
 }

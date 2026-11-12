@@ -183,3 +183,8 @@ input, textarea { font: inherit; color: var(--fg); }
 .place, .place span, .net span { white-space: nowrap; }
 
 .err { margin: -8px 0 12px; color: #ff9a8a; font-size: 13px; line-height: 1.4; }
+
+/* 점프 버튼 (휴대폰) — 조이스틱 오른쪽 */
+#btnJump { position: absolute; left: 172px; bottom: 44px; width: 68px; height: 68px; border-radius: 50%; border: 1px solid var(--line); background: rgba(232,211,160,.85); color: #1a1408; font-size: 22px; font-weight: 900; line-height: 1; display: grid; place-content: center; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+#btnJump span { font-size: 12px; font-weight: 700; }
+#btnJump:active { transform: scale(.92); }

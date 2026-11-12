@@ -183,6 +183,7 @@ export class Avatar {
     this.phase = 0;
     this.speed = 0;
     this.idle = Math.random() * 10;
+    this.jy = 0; this.vy = 0;
     this.sitting = false; this.sitH = 0;
     this.boxing = false; this.punchAt = -9; this.punchSide = false;
     this.working = false; this.workSprite = null;
@@ -257,7 +258,22 @@ export class Avatar {
     if (this.bubble) this.bubble.position.y = this.bubbleBase + lift;
   }
 
+  // 점프: 위로 튀어 올랐다가 중력으로 내려옴 (약 0.6m, 0.7초)
+  jump() {
+    if (this.sitting || this.jy > 0.001) return false;
+    this.vy = 4.0;
+    this.jy = 0.0011;
+    return true;
+  }
+  stepJump(dt) {
+    if (!(this.jy > 0)) { this.jy = 0; return; }
+    this.vy -= 12 * dt;
+    this.jy += this.vy * dt;
+    if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
+  }
+
   animate(dt, speed, now) {
+    this.stepJump(dt);
     if (this.sitting) {
       // 앉은 자세: 다리는 앞으로, 손은 무릎 위
       this.legL.rotation.x = this.legR.rotation.x = -1.45;
@@ -289,6 +305,11 @@ export class Avatar {
     this.armL.rotation.x = -swing * 0.8;
     this.armR.rotation.x = swing * 0.8;
     this.armL.rotation.z = -0.12; this.armR.rotation.z = 0.12;
+    if (this.jy > 0) { // 공중에서는 다리를 살짝 굽히고 팔을 벌림
+      const k = Math.min(1, this.jy * 3);
+      this.legL.rotation.x = -0.5 * k; this.legR.rotation.x = 0.25 * k;
+      this.armL.rotation.z = -0.12 - 0.7 * k; this.armR.rotation.z = 0.12 + 0.7 * k;
+    }
     if (this.boxing) {
       // 가드 자세, 펀치할 때 한쪽 팔을 쭉 뻗음
       const p = Math.max(0, 1 - (now - this.punchAt) / 0.16);
