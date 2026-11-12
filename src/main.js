@@ -65,7 +65,7 @@ $('brandTagline').textContent = CONFIG.companyTagline;
 
 const me = { id: makeId(), name: '', color: AVATAR_COLORS[0], gender: 'm' };
 const player = { floor: SPAWN.floor, x: SPAWN.x, z: SPAWN.z, ry: SPAWN.yaw + Math.PI, speed: 0, zone: 'f1' };
-const cam = { yaw: SPAWN.yaw, pitch: 0.25, dist: 3.8, cur: 3.8 };
+const cam = { yaw: SPAWN.yaw, pitch: 0.28, dist: 3.4, cur: 3.4 };
 const orbit = { angle: 0.35, elev: 0.2, radius: 85, target: new THREE.Vector3(0, 8, 0) };
 let mode = 'intro'; // intro | office | exterior | fly
 let fly = null;
@@ -107,7 +107,7 @@ const pv = { renderer: null, scene: new THREE.Scene(), cam: new THREE.Perspectiv
   pv.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   pv.renderer.setSize(c.clientWidth || 120, c.clientHeight || 160, false);
   pv.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  pv.cam.position.set(0, 0.8, 3.3); pv.cam.lookAt(0, 0.68, 0);
+  pv.cam.position.set(0, 0.65, 2.7); pv.cam.lookAt(0, 0.55, 0);
   pv.scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x3a3028, 2.2));
   const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(2, 3, 4); pv.scene.add(key);
 }
@@ -220,7 +220,7 @@ const joy = { x: 0, y: 0, id: null };
 }
 
 // ---------- 이동 · 충돌 ----------
-const R = 0.32;
+const R = 0.26;
 function collide(x, z) {
   for (let it = 0; it < 3; it++) {
     for (const c of bld.floors[player.floor].colliders) {
@@ -291,9 +291,12 @@ function updatePlayer(dt) {
 function nearWhat() {
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
-  if (player.floor === 0) {
-    let best = null, bd = 1.4;
-    for (const s of garden.seats) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd) { bd = d; best = s; } }
+  {
+    const list = player.floor === 0 ? null : bld.floors[player.floor].seats;
+    let best = null, bd = 1.2;
+    if (list) for (const s of list) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd) { bd = d; best = s; } }
+    if (player.floor === 0)
+    for (const s of [...bld.floors[0].seats, ...garden.seats]) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd) { bd = d; best = s; } }
     if (best) return { seat: best };
   }
   return null;
@@ -309,9 +312,9 @@ function sitDown(seat) {
 function standUp() {
   const s = player.sit;
   player.sit = null;
-  const [nx, nz] = collide(s.x + Math.sin(s.ry) * 0.75, s.z + Math.cos(s.ry) * 0.75);
-  if (Math.abs(nz - STREAM.z) < STREAM.half + 0.35) { const [bx, bz] = collide(s.x - Math.sin(s.ry) * 0.75, s.z - Math.cos(s.ry) * 0.75); player.x = bx; player.z = bz; }
-  else { player.x = nx; player.z = nz; }
+  // 앉았던 자리 뒤쪽으로 일어남 (책상·물 쪽이 아니라)
+  const [bx, bz] = collide(s.x - Math.sin(s.ry) * 0.7, s.z - Math.cos(s.ry) * 0.7);
+  player.x = bx; player.z = bz;
   myAvatar.setSit(false);
   sendState(true);
 }
@@ -352,7 +355,7 @@ function officeCamPose(dt, out) {
   const outside = player.floor === 0 && (Math.abs(player.x) > HX || Math.abs(player.z) > HZ);
   const fy = FLOORS[player.floor].y, top = player.floor === ROOF || outside ? 7 : CEIL - 0.15;
   const bx = player.floor === 0 ? LOT : HX, bz = player.floor === 0 ? LOT : HZ;
-  const tx = player.x, ty = fy + 1.05, tz = player.z;
+  const tx = player.x, ty = fy + 0.85, tz = player.z;
   const dir = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   let allowed = cam.dist;
   for (let t = 0.3; t <= cam.dist; t += 0.12) {
@@ -599,7 +602,12 @@ $('btnView').onclick = () => {
 
 // ---------- 낮 / 밤 ----------
 let dayTarget = 0, dayVal = -1;
-try { dayTarget = localStorage.getItem('work-day') === '1' ? 1 : 0; } catch {}
+{ // 고른 적이 없으면 실제 시간에 맞춤 (7시~18시는 낮)
+  let saved = null;
+  try { saved = localStorage.getItem('work-day'); } catch {}
+  const h = new Date().getHours();
+  dayTarget = saved === '1' ? 1 : saved === '0' ? 0 : (h >= 7 && h < 18 ? 1 : 0);
+}
 function applyDay(d) {
   uniforms.uDay.value = d;
   uniforms.uFogColor.value.copy(FOG_NIGHT).lerp(FOG_DAY, d);

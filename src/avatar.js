@@ -67,7 +67,7 @@ const cap = (r, len) => { const g = new THREE.CapsuleGeometry(r, len, 4, 12); re
 
 const MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, emissive: 0x1c140e });
 const SKIN = 0xffe0c4, HAIR = 0x3b2516, EYE = 0x241a16;
-export const SCALE = 1.3; // 2등신 캐릭터 (약 1.35m)
+export const SCALE = 1.0; // 2등신 캐릭터 (약 1.05m, 교회 메타버스와 같은 크기)
 
 function shade(hex, k) { return new THREE.Color(hex).multiplyScalar(k); }
 function isLight(hex) { const c = new THREE.Color(hex); return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.6; }
@@ -162,13 +162,13 @@ export class Avatar {
     this.color = color;
     this.build();
 
-    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.32, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }));
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.26, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }));
     shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.025;
     this.root.add(shadow);
 
     this.name = name;
     this.label = makeSprite(name, { size: 40 }, 0.22);
-    this.label.position.y = 1.55;
+    this.label.position.y = 1.25;
     this.root.add(this.label);
     this.bubble = null;
     this.bubbleUntil = 0;
@@ -206,7 +206,7 @@ export class Avatar {
     if (this.bubble) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); }
     this.bubble = makeSprite(text, { bg: 'rgba(255,255,255,0.94)', fg: '#111', font: 500, size: 40, maxW: 520 }, 0.3);
     const lines = Math.max(1, Math.round(this.bubble.scale.y / 0.3));
-    this.bubble.position.y = 1.8 + this.bubble.scale.y / 2 - 0.1 * lines;
+    this.bubble.position.y = 1.5 + this.bubble.scale.y / 2 - 0.1 * lines;
     this.root.add(this.bubble);
     this.bubbleUntil = now + 6 + Math.min(text.length / 15, 6);
   }

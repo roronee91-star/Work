@@ -54,11 +54,19 @@ const M = {
   books2: new THREE.MeshStandardMaterial({ color: 0x3a5a7a, roughness: 0.8 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x9ec3e6, roughness: 0.05, transparent: true, opacity: 0.1, depthWrite: false }),
   glassRoom: new THREE.MeshStandardMaterial({ color: 0xc8dcf0, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false }),
-  light: new THREE.MeshBasicMaterial({ color: C(0.85, 0.8, 0.7) }),
+  light: new THREE.MeshBasicMaterial({ color: C(1.0, 0.9, 0.74) }),
   lightWarm: new THREE.MeshBasicMaterial({ color: C(1.35, 0.92, 0.5) }),
   led: new THREE.MeshBasicMaterial({ color: C(1.5, 1.7, 2.2) }),
   bulb: new THREE.MeshBasicMaterial({ color: C(1.25, 0.85, 0.42) }),
-  screen: new THREE.MeshBasicMaterial({ color: C(0.32, 0.5, 0.85) }),
+  screen: new THREE.MeshBasicMaterial({ color: C(0.95, 0.95, 0.95) }),
+  lamp: new THREE.MeshBasicMaterial({ color: C(1.6, 1.2, 0.7) }),
+  paper: new THREE.MeshStandardMaterial({ color: 0xf4f2ec, roughness: 0.9 }),
+  mugRed: new THREE.MeshStandardMaterial({ color: 0xc8483c, roughness: 0.5 }),
+  mugYellow: new THREE.MeshStandardMaterial({ color: 0xe0b04a, roughness: 0.5 }),
+  coffee: new THREE.MeshStandardMaterial({ color: 0x4a2c1c, roughness: 0.6 }),
+  pastry: new THREE.MeshStandardMaterial({ color: 0xc98a4b, roughness: 0.7 }),
+  pastryPink: new THREE.MeshStandardMaterial({ color: 0xf2a7b8, roughness: 0.7 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0x8a9099, roughness: 0.4, metalness: 0.4 }),
   green: new THREE.MeshStandardMaterial({ color: 0x1f5a3a, roughness: 0.7 }),
 };
 
@@ -119,14 +127,18 @@ function panel(parent, tex, w, h, x, y, z, ry, basic = true) {
 }
 
 // ---------- 가구 ----------
+// 지금 만드는 층의 앉을 자리 목록 (의자 · 스툴 · 소파가 스스로 등록)
+let SEATS = null;
 function chair(k, x, y, z, ry, mat = M.black) {
   const s = Math.sin(ry), c = Math.cos(ry);
+  SEATS?.push({ x, z, ry, h: 0.48 });
   k.box(0.5, 0.08, 0.5, x, y + 0.44, z, mat, ry);
   k.box(0.5, 0.55, 0.07, x - s * 0.24, y + 0.52, z - c * 0.24, mat, ry);
   k.cyl(0.03, 0.42, x, y + 0.02, z, M.metal, 6);
   k.cyl(0.27, 0.04, x, y, z, M.metal, 10);
 }
-function stool(k, x, y, z) {
+function stool(k, x, y, z, ry = 0) {
+  SEATS?.push({ x, z, ry, h: 0.78 });
   k.cyl(0.2, 0.06, x, y + 0.72, z, M.walnut, 12);
   k.cyl(0.025, 0.72, x, y, z, M.metal, 6);
   k.cyl(0.18, 0.03, x, y, z, M.metal, 10);
@@ -146,6 +158,14 @@ function sofa(k, col, x, y, z, ry, len = 2.4, mat = M.fabricGray) {
   k.box(0.2, 0.62, 0.9, x - c * (len / 2 - 0.1), y, z + s * (len / 2 - 0.1), mat, ry);
   const hw = Math.abs(c) * len / 2 + Math.abs(s) * 0.45, hd = Math.abs(s) * len / 2 + Math.abs(c) * 0.45;
   col(x - hw, z - hd, x + hw, z + hd);
+  const n = Math.max(1, Math.round(len / 1.0));
+  for (let i = 0; i < n; i++) { const t = (i - (n - 1) / 2) * ((len - 0.5) / n); SEATS?.push({ x: x + c * t + s * 0.05, z: z - s * t + c * 0.05, ry, h: 0.42 }); }
+}
+// 머그잔 (받침 포함)
+function mug(k, x, y, z, mat = M.white) {
+  k.cyl(0.07, 0.01, x, y, z, M.white, 12);
+  k.cyl(0.04, 0.09, x, y + 0.01, z, mat, 10);
+  k.cyl(0.033, 0.005, x, y + 0.095, z, M.coffee, 10);
 }
 function roundTable(k, col, x, y, z, r = 0.45, h = 0.74, top = M.white) {
   k.cyl(r, 0.04, x, y + h - 0.04, z, top, 18);
@@ -165,9 +185,19 @@ export function createBuilding() {
     const group = new THREE.Group();
     group.position.y = f.y;
     const colliders = [];
-    return { ...f, index: i, group, colliders, kit: new Kit(), col: (x1, z1, x2, z2, tall = false) => colliders.push({ x1, z1, x2, z2, tall }) };
+    return { ...f, index: i, group, colliders, seats: [], kit: new Kit(), col: (x1, z1, x2, z2, tall = false) => colliders.push({ x1, z1, x2, z2, tall }) };
   });
   const W = HX * 2, D = HZ * 2;
+  // 모니터 화면 (문서 · 표 · 코드가 섞인 업무 화면 한 장)
+  M.screen.map = canvasTex(256, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#1d2433'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#2b3550'; ctx.fillRect(0, 0, w, 14); ctx.fillRect(0, 14, 48, h);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(56, 22, w - 64, h - 30);
+    ctx.fillStyle = '#4f8cff'; ctx.fillRect(64, 30, 90, 8);
+    for (let i = 0; i < 8; i++) { ctx.fillStyle = i % 3 ? '#c9cfdb' : '#8aa4d8'; ctx.fillRect(64, 46 + i * 12, 40 + ((i * 37) % 110), 5); }
+    ctx.fillStyle = '#3ecf8e'; ctx.fillRect(200, 90, 10, 30); ctx.fillStyle = '#ffb547'; ctx.fillRect(214, 76, 10, 44); ctx.fillStyle = '#4f8cff'; ctx.fillRect(228, 60, 10, 60);
+    for (let i = 0; i < 6; i++) { ctx.fillStyle = '#5d6b8c'; ctx.fillRect(8, 24 + i * 16, 32, 6); }
+  });
 
   // 외피: 슬래브 · 유리 · 멀리언 · 코어
   sk.box(W + 1, 0.3, D + 1, 0, -0.3, 0, M.slab);
@@ -237,6 +267,7 @@ export function createBuilding() {
   // ---------- 1F 로비 · 카페 ----------
   {
     const F = floors[0], { kit: k, col, group } = F;
+    SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.stone);
     k.box(10, 0.03, D - 0.2, 5, 0, 0, M.oak);
     k.box(2.4, 0.02, 1.6, 0, 0.03, HZ - 1, M.carpetWarm); // 입구 매트
@@ -263,38 +294,99 @@ export function createBuilding() {
     // 로비 소파 (창을 바라봄)
     sofa(k, col, -6.3, 0, 2.6, 0, 2.4, M.fabricGray);
     k.box(1.2, 0.38, 0.7, -6.3, 0, 4.1, M.walnut); col(-6.9, 3.75, -5.7, 4.45);
-    // 카페 카운터
-    k.box(3.6, 0.95, 0.6, 7.9, 0, -5.9, M.walnut); col(6.1, -6.3, 9.7, -5.6);
-    k.box(3.6, 0.04, 0.65, 7.9, 0.95, -5.9, M.white);
-    k.box(0.55, 0.5, 0.42, 6.8, 0.97, -5.9, M.metal); k.box(0.55, 0.5, 0.42, 7.5, 0.97, -5.9, M.black);
+    // ===== 사내 카페 =====
+    k.box(5.2, 0.015, 3.6, 4.2, 0.03, 0.4, M.carpetWarm);                        // 테이블 구역 러그
+    // 뒷카운터 (에스프레소 머신 · 그라인더 · 싱크)
+    k.box(3.8, 0.95, 0.6, 7.8, 0, -5.95, M.walnut); col(5.9, -6.3, 9.7, -5.6);
+    k.box(3.9, 0.04, 0.66, 7.8, 0.95, -5.95, M.white);
+    k.box(0.75, 0.45, 0.45, 6.6, 0.99, -5.98, M.steel);                          // 에스프레소 머신
+    k.box(0.75, 0.06, 0.45, 6.6, 1.44, -5.98, M.black);
+    for (const dx of [-0.18, 0.18]) { k.cyl(0.045, 0.08, 6.6 + dx, 1.12, -5.72, M.black, 8); k.cyl(0.03, 0.02, 6.6 + dx, 1.0, -5.7, M.metal, 8); }
+    k.cyl(0.012, 0.18, 6.95, 1.06, -5.72, M.metal, 6);                            // 스팀 노즐
+    for (const dx of [-0.25, -0.08, 0.08, 0.25]) k.cyl(0.035, 0.06, 6.6 + dx, 1.5, -6.0, M.white, 8); // 위에 데워 둔 잔
+    k.cyl(0.09, 0.32, 7.35, 0.99, -6.0, M.black, 12);                             // 그라인더
+    k.cyl(0.12, 0.2, 7.35, 1.31, -6.0, M.glassRoom, 12, 0.07);
+    k.box(0.5, 0.03, 0.36, 8.3, 0.98, -5.95, M.steel);                           // 싱크
+    k.cyl(0.015, 0.25, 8.3, 0.99, -6.12, M.metal, 6);
+    for (let i = 0; i < 3; i++) k.cyl(0.05, 0.13, 9.0 + i * 0.13, 0.99, -6.02, i % 2 ? M.mugRed : M.white, 10); // 우유 · 시럽 병
+    // 벽 선반 + 원두 병 · 컵
+    for (const y of [1.6, 2.0]) {
+      k.box(3.6, 0.03, 0.22, 7.8, y, -6.35, M.walnut);
+      for (let i = 0; i < 8; i++) {
+        const x = 6.2 + i * 0.45;
+        if (y < 1.8) k.cyl(0.06, 0.18, x, y + 0.03, -6.35, i % 3 === 0 ? M.coffee : (i % 3 === 1 ? M.glassRoom : M.mugYellow), 10);
+        else { k.cyl(0.045, 0.08, x, y + 0.03, -6.35, M.white, 8); k.cyl(0.045, 0.08, x, y + 0.11, -6.35, M.white, 8); }
+      }
+    }
+    const menu = canvasTex(768, 384, (ctx, w, h) => {
+      ctx.fillStyle = '#1b1d18'; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#f0e2c0'; ctx.font = `700 50px ${FONT}`; ctx.fillText('MENU', 40, 66);
+      ctx.font = `400 32px ${FONT}`; ctx.fillStyle = '#d8d2c6';
+      [['아메리카노', '2.0'], ['카페라테', '2.5'], ['바닐라라테', '3.0'], ['자몽 에이드', '3.0'], ['오늘의 차', '2.0']].forEach(([a, b], i) => {
+        ctx.fillText(a, 40, 124 + i * 50); ctx.textAlign = 'right'; ctx.fillText(b, w - 40, 124 + i * 50); ctx.textAlign = 'left';
+      });
+      ctx.fillStyle = '#9fcf8f'; ctx.font = `500 26px ${FONT}`; ctx.fillText('직원 할인 50% ☕', w - 260, 66);
+    });
+    panel(group, menu, 2.0, 1.0, 7.8, 2.85, -6.42, 0, false);
+    // 앞카운터 (주문대 · 진열장 · 계산대)
     k.box(3.4, 1.05, 0.6, 7.6, 0, -3.9, M.walnut); col(5.9, -4.2, 9.3, -3.6);
     k.box(3.6, 0.05, 0.75, 7.6, 1.05, -3.9, M.white);
     k.box(3.2, 0.03, 0.03, 7.6, 0.95, -3.58, M.lightWarm);
-    for (const x of [6.6, 7.6, 8.6]) { k.cyl(0.01, 1.1, x, 2.55, -3.9, M.black, 4); k.ball(0.15, x, 2.45, -3.9, M.bulb); }
-    const menu = canvasTex(768, 384, (ctx, w, h) => {
-      ctx.fillStyle = '#121310'; ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = '#f0e2c0'; ctx.font = `700 54px ${FONT}`; ctx.fillText('CAFE', 40, 70);
-      ctx.font = `400 34px ${FONT}`; ctx.fillStyle = '#d8d2c6';
-      [['아메리카노', '3.0'], ['카페라테', '3.5'], ['바닐라라테', '4.0'], ['오늘의 차', '3.0']].forEach(([a, b], i) => {
-        ctx.fillText(a, 40, 140 + i * 58); ctx.textAlign = 'right'; ctx.fillText(b, w - 40, 140 + i * 58); ctx.textAlign = 'left';
-      });
+    k.box(1.1, 0.5, 0.55, 8.65, 1.1, -3.9, M.glassRoom);                         // 빵 진열장
+    k.box(1.1, 0.03, 0.55, 8.65, 1.1, -3.9, M.walnut); k.box(1.04, 0.02, 0.5, 8.65, 1.33, -3.9, M.glassRoom);
+    for (let i = 0; i < 5; i++) {
+      k.ball(0.07, 8.25 + i * 0.2, 1.18, -3.95, i % 2 ? M.pastry : M.pastryPink, 0.6);
+      k.ball(0.06, 8.25 + i * 0.2, 1.4, -3.9, i % 2 ? M.pastryPink : M.pastry, 0.7);
+    }
+    k.box(0.32, 0.08, 0.26, 6.55, 1.1, -3.95, M.black);                          // 계산대
+    k.box(0.3, 0.2, 0.02, 6.55, 1.18, -4.03, M.screen);
+    for (let i = 0; i < 4; i++) k.cyl(0.045, 0.1, 7.15, 1.1 + i * 0.09, -4.0, M.white, 10, 0.05); // 테이크아웃 컵
+    k.cyl(0.05, 0.14, 7.55, 1.1, -3.8, M.glassRoom, 10);                         // 팁 병 · 꽃
+    k.ball(0.07, 7.55, 1.3, -3.8, M.pastryPink);
+    for (const x of [6.6, 7.6, 8.6]) { k.cyl(0.01, 1.1, x, 2.55, -3.9, M.black, 4); k.cyl(0.16, 0.14, x, 2.42, -3.9, M.black, 12, 0.05); k.ball(0.08, x, 2.42, -3.9, M.bulb); }
+    const cafeSign = canvasTex(768, 192, (ctx, w, h) => {
+      ctx.fillStyle = '#14120f'; ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#e8d3a0'; ctx.lineWidth = 6; ctx.strokeRect(10, 10, w - 20, h - 20);
+      ctx.fillStyle = '#f3dfae'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `800 84px ${FONT}`; ctx.fillText(`${CONFIG.companyName} CAFE`, w / 2, h / 2 + 4);
     });
-    panel(group, menu, 2.0, 1.0, 7.9, 2.5, -6.4, 0, false);
-    // 카페 테이블
-    for (const [x, z] of [[2.6, -1.2], [5.6, -1.2], [2.6, 2.0], [5.6, 2.0], [8.6, 0.4]]) {
-      roundTable(k, col, x, 0, z);
+    panel(group, cafeSign, 2.4, 0.6, 7.6, 3.2, -3.88, 0);
+    // 입간판
+    const board = canvasTex(256, 320, (ctx, w, h) => {
+      ctx.fillStyle = '#23271f'; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#f4f1e6'; ctx.font = `700 34px ${FONT}`; ctx.textAlign = 'center';
+      ctx.fillText('오늘의 커피', w / 2, 60);
+      ctx.font = `400 26px ${FONT}`; ctx.fillText('에티오피아', w / 2, 120); ctx.fillText('예가체프', w / 2, 156);
+      ctx.fillStyle = '#ffb547'; ctx.fillText('★ 디카페인 가능', w / 2, 230);
+    });
+    k.box(0.6, 0.85, 0.05, 4.2, 0, -3.0, M.walnut, -0.2); col(3.85, -3.2, 4.55, -2.8);
+    panel(group, board, 0.5, 0.62, 4.2 + Math.sin(-0.2) * 0.03, 0.5, -3.0 + Math.cos(-0.2) * 0.03, -0.2, false);
+    // 카페 테이블 (머그잔과 작은 꽃병)
+    for (const [x, z] of [[2.6, -1.0], [5.6, -1.0], [2.6, 2.0], [5.6, 2.0]]) {
+      roundTable(k, col, x, 0, z, 0.45, 0.74, M.oak);
       chair(k, x - 0.8, 0, z, Math.PI / 2, M.fabricWarm);
       chair(k, x + 0.8, 0, z, -Math.PI / 2, M.fabricWarm);
+      mug(k, x - 0.18, 0.74, z + 0.05, (x + z) % 2 ? M.white : M.mugYellow);
+      mug(k, x + 0.18, 0.74, z - 0.05);
+      k.cyl(0.03, 0.12, x, 0.74, z - 0.15, M.glassRoom, 8); k.ball(0.04, x, 0.9, z - 0.15, M.pastryPink);
     }
-    // 창가 바 (입구 오른쪽)
+    // 동쪽 벽 긴 소파 + 사각 테이블
+    sofa(k, col, 9.35, 0, 1.2, -Math.PI / 2, 3.6, M.fabricGreen);
+    for (const z of [0.3, 2.1]) {
+      k.box(0.7, 0.04, 0.7, 8.35, 0.7, z, M.oak); k.cyl(0.04, 0.7, 8.35, 0, z, M.metal, 6); col(8.0, z - 0.35, 8.7, z + 0.35);
+      chair(k, 7.5, 0, z, Math.PI / 2, M.fabricWarm);
+      mug(k, 8.35, 0.74, z, M.mugRed);
+    }
+    // 창가 바 (입구 오른쪽, 창을 바라봄)
     k.box(7.4, 0.05, 0.45, 5.9, 1.05, HZ - 0.55, M.walnut); col(2.2, HZ - 0.8, 9.6, HZ - 0.3);
-    for (let x = 2.8; x <= 9.2; x += 1.1) stool(k, x, 0, HZ - 1.2);
+    for (let x = 2.8; x <= 9.2; x += 1.1) { stool(k, x, 0, HZ - 1.2, 0); if (Math.round(x * 10) % 3 === 0) mug(k, x, 1.07, HZ - 0.5, M.white); }
     for (const [x, z, s] of [[-9.3, 5.8, 1], [-9.3, 1.2, 0.9], [-2, 5.7, 0.8], [2, -5.8, 0.8]]) plant(k, col, x, 0, z, s);
   }
 
   // ---------- 2F 업무 공간 (16자리) ----------
   {
     const F = floors[1], { kit: k, col, group } = F;
+    SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.stone);
     k.box(13, 0.03, 9.6, 1.2, 0, -1.4, M.carpet);
     for (const zc of [-3.8, 1.2]) {
@@ -303,11 +395,20 @@ export function createBuilding() {
         k.box(3.2, 0.36, 0.03, xc, 0.76, zc, M.fabricBlue);
         k.box(0.05, 0.72, 1.5, xc - 1.55, 0, zc, M.metal); k.box(0.05, 0.72, 1.5, xc + 1.55, 0, zc, M.metal);
         col(xc - 1.6, zc - 0.8, xc + 1.6, zc + 0.8);
+        // 스탠드 조명 (밤에 켜짐)
+        k.cyl(0.012, 0.42, xc, 0.76, zc, M.black, 6); k.box(0.22, 0.05, 0.1, xc, 1.18, zc, M.lamp);
         for (const dx of [-0.8, 0.8]) for (const s of [-1, 1]) {
           const x = xc + dx;
           k.box(0.6, 0.36, 0.03, x, 0.92, zc + s * 0.45, M.black);
           k.box(0.56, 0.32, 0.005, x, 0.94, zc + s * 0.47, M.screen);
-          k.box(0.42, 0.02, 0.14, x, 0.76, zc + s * 0.6, M.black);
+          k.box(0.42, 0.02, 0.14, x, 0.76, zc + s * 0.6, M.black);              // 키보드
+          k.cyl(0.03, 0.12, x, 0.76, zc + s * 0.47, M.metal, 6);                 // 모니터 받침
+          k.box(0.06, 0.02, 0.1, x + 0.3, 0.76, zc + s * 0.6, M.white);          // 마우스
+          const seed = Math.round((x + 10) * 3 + zc * 7 + s * 5);
+          mug(k, x - 0.33, 0.76, zc + s * 0.62, [M.white, M.mugRed, M.mugYellow][Math.abs(seed) % 3]);
+          if (seed % 2) k.box(0.22, 0.03, 0.3, x + 0.1, 0.76, zc + s * 0.3, M.paper, 0.15 * s); // 서류
+          if (seed % 3 === 0) { k.cyl(0.05, 0.08, x - 0.6, 0.76, zc + s * 0.3, M.pot, 8); k.ball(0.08, x - 0.6, 0.9, zc + s * 0.3, M.leaf); } // 작은 화분
+          k.box(0.38, 0.55, 0.45, x + 0.45, 0.02, zc + s * 0.4, M.metal);        // 서랍장
           chair(k, x, 0, zc + s * 1.15, s > 0 ? Math.PI : 0);
         }
       }
@@ -317,12 +418,47 @@ export function createBuilding() {
     col(7.95, -4.7, 8.85, -2.9);
     k.box(0.03, 0.38, 0.6, 8.6, 0.94, -3.8, M.black);
     chair(k, 7.5, 0, -3.8, Math.PI / 2);
+    // 서류장 (북쪽 창가) + 바인더
+    for (let i = 0; i < 3; i++) {
+      const x = 4.9 + i * 0.85;
+      k.box(0.8, 1.0, 0.45, x, 0, -6.15, M.white); k.box(0.7, 0.02, 0.02, x, 0.5, -5.92, M.metal);
+      for (let j = 0; j < 5; j++) k.box(0.06, 0.28, 0.22, x - 0.25 + j * 0.12, 1.0, -6.15, [M.mugRed, M.books2, M.mugYellow, M.books, M.fabricGreen][j]);
+    }
+    col(4.45, -6.4, 7.05, -5.9);
+    // 벽시계 · 팀 보드 (코어 동쪽 면)
+    const clock = canvasTex(256, 256, (ctx) => {
+      ctx.fillStyle = '#f7f5ef'; ctx.beginPath(); ctx.arc(128, 128, 120, 0, 6.29); ctx.fill();
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 8; ctx.stroke();
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * 6.283; ctx.fillStyle = '#333'; ctx.fillRect(128 + Math.sin(a) * 96 - 3, 128 - Math.cos(a) * 96 - 3, 6, 6); }
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#222'; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(128, 128); ctx.lineTo(128 + 50, 128 - 30); ctx.stroke();
+      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(128, 128); ctx.lineTo(128, 40); ctx.stroke();
+    });
+    const clockMesh = new THREE.Mesh(new THREE.CircleGeometry(0.3, 32), new THREE.MeshStandardMaterial({ map: clock, roughness: 0.5 }));
+    clockMesh.position.set(CE + 0.03, 2.8, -3.0); clockMesh.rotation.y = Math.PI / 2; group.add(clockMesh);
+    const team = canvasTex(512, 320, (ctx, w, h) => {
+      ctx.fillStyle = '#c9a77c'; ctx.fillRect(0, 0, w, h);
+      const notes = [['#fff59a', '기획안 마감 금요일'], ['#ffc4d6', '점심 메뉴 투표!'], ['#b9f0c9', '새 팀원 환영해요'], ['#bfe0ff', '회의실 예약 확인']];
+      notes.forEach(([c, t], i) => {
+        const x = 24 + (i % 2) * 248, y = 24 + Math.floor(i / 2) * 148;
+        ctx.fillStyle = c; ctx.fillRect(x, y, 216, 124);
+        ctx.fillStyle = '#d23'; ctx.beginPath(); ctx.arc(x + 108, y + 10, 7, 0, 6.29); ctx.fill();
+        ctx.fillStyle = '#333'; ctx.font = `500 24px ${FONT}`; ctx.fillText(t, x + 14, y + 70);
+      });
+    });
+    panel(group, team, 1.8, 1.12, CE + 0.03, 1.6, -4.9, Math.PI / 2, false);
+    // 옷걸이 · 휴지통
+    k.cyl(0.025, 1.7, -9.4, 0, 0.3, M.walnut, 6); k.cyl(0.22, 0.03, -9.4, 0, 0.3, M.walnut, 10);
+    for (let a = 0; a < 4; a++) k.box(0.18, 0.02, 0.02, -9.4 + Math.cos(a * 1.57) * 0.09, 1.62, 0.3 + Math.sin(a * 1.57) * 0.09, M.walnut, a * 1.57);
+    k.cyl(0.18, 0.2, -9.42, 1.35, 0.3, M.fabricBlue, 8, 0.12);                   // 걸린 겉옷
+    col(-9.65, 0.05, -9.15, 0.55);
+    for (const [x, z] of [[-4.4, -1.25], [4.4, -1.25], [0, -1.25]]) k.cyl(0.13, 0.32, x, 0, z, M.metal, 10, 0.15);
     // 책장 (서쪽 창가)
     k.box(0.5, 2.1, 4.4, -9.5, 0, 3.2, M.walnut); col(-9.8, 1.0, -9.2, 5.4, true);
     for (let i = 0; i < 4; i++) k.box(0.36, 0.38, 4.0, -9.35, 0.15 + i * 0.5, 3.2, i % 2 ? M.books : M.books2);
     // 화이트보드 (책상 쪽을 바라봄)
     k.box(2.6, 1.3, 0.05, -1, 0.9, 4.6, M.white); k.box(0.06, 0.9, 0.06, -2.2, 0, 4.6, M.metal); k.box(0.06, 0.9, 0.06, 0.2, 0, 4.6, M.metal);
-    col(-2.3, 4.5, 0.3, 4.7);
+    col(-2.3, 4.5, 0.3, 4.7, true);
     const wb = canvasTex(512, 256, (ctx) => {
       ctx.fillStyle = '#f4f4f2'; ctx.fillRect(0, 0, 512, 256);
       ctx.font = `600 30px ${FONT}`; ctx.fillStyle = '#2a62c9'; ctx.fillText('이번 주 할 일', 24, 44);
@@ -344,6 +480,7 @@ export function createBuilding() {
   let noticeCanvas, noticeTex;
   {
     const F = floors[2], { kit: k, col, group } = F;
+    SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.stone);
     k.box(17.4, 0.03, 4.4, 1.25, 0, -4.25, M.carpetWarm);
     // 남쪽 칸막이 (z = -2): 나무벽(공지판) | 문A | 유리 | 벽 | 유리 | 문B | 유리
@@ -402,6 +539,7 @@ export function createBuilding() {
   // ---------- 4F 라운지 ----------
   {
     const F = floors[3], { kit: k, col, group } = F;
+    SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.oak);
     k.box(7, 0.03, 4.6, 0.6, 0, 2.6, M.carpetWarm);
     sofa(k, col, 0.2, 0, 1.4, 0, 3.0, M.fabricBlue);
@@ -419,7 +557,7 @@ export function createBuilding() {
     for (const x of [-5.8, -3.9, -2]) k.box(1.5, 0.65, 0.33, x, 1.9, -6.3, M.white);
     // 아일랜드 테이블
     k.box(3, 0.06, 1.0, -3.9, 0.98, -3.8, M.walnut); k.box(2.7, 0.95, 0.75, -3.9, 0, -3.8, M.white); col(-5.4, -4.3, -2.4, -3.3);
-    for (const x of [-5, -3.9, -2.8]) stool(k, x, 0, -2.85);
+    for (const x of [-5, -3.9, -2.8]) stool(k, x, 0, -2.85, Math.PI);
     // 탁구대
     k.box(2.74, 0.05, 1.52, 5.6, 0.74, -3.8, M.green); k.box(0.02, 0.15, 1.6, 5.6, 0.79, -3.8, M.white);
     k.box(2.5, 0.72, 1.3, 5.6, 0.02, -3.8, M.black); col(4.23, -4.56, 6.97, -3.04);
@@ -439,6 +577,7 @@ export function createBuilding() {
   const roofLights = [];
   {
     const F = floors[4], { kit: k, col } = F;
+    SEATS = F.seats;
     k.box(W - 0.2, 0.05, D - 0.2, 0, 0, 0, M.deck);
     for (let x = -9.75; x <= 9.75; x += 0.5) k.box(0.02, 0.01, D - 0.2, x, 0.05, 0, M.walnut);
     sofa(k, col, 0, 0, 1.4, 0, 3.0, M.fabricGray);
@@ -469,6 +608,7 @@ export function createBuilding() {
     for (const [x, y, z] of roofLights) k.ball(0.045, x, y, z, M.bulb);
   }
 
+  SEATS = null;
   floors.forEach((F) => { F.kit.flush(F.group); delete F.kit; });
 
   const group = new THREE.Group();
@@ -480,6 +620,20 @@ export function createBuilding() {
   const rig = [new THREE.PointLight(0xffd8b0, 10, 16, 2), new THREE.PointLight(0xe8eeff, 10, 16, 2), new THREE.PointLight(0xffc890, 10, 16, 2)];
   group.add(hemi, amb, ...rig);
   const LED = M.led.color.clone(), BULB = M.bulb.color.clone();
+  const LIGHT_N = M.light.color.clone(), LIGHT_D = new THREE.Color(0.62, 0.64, 0.66);
+  const WARM_N = M.lightWarm.color.clone(), WARM_D = new THREE.Color(0.75, 0.6, 0.45);
+  const LAMP_N = M.lamp.color.clone(), LAMP_D = new THREE.Color(0.55, 0.52, 0.48);
+  const RIG_N = new THREE.Color(0xffcf9a), RIG_D = new THREE.Color(0xf2f5ff);
+  let dayK = 0, curFloor = 0;
+  // 낮: 햇빛이 들어오니 실내등은 약하고 하얀빛 / 밤: 실내등이 밝고 따뜻한 빛
+  const applyRig = () => {
+    const f = curFloor, roof = f === ROOF;
+    LIGHTS[f].forEach(([x, z], i) => {
+      rig[i].position.set(x, FLOORS[f].y + (roof ? 3.2 : 3.3), z);
+      rig[i].intensity = roof ? 10 * (1 - dayK) : 24 - 14 * dayK;
+      rig[i].color.copy(RIG_N).lerp(RIG_D, dayK);
+    });
+  };
   const LIGHTS = [
     [[-4.5, -2], [5, -1], [3, 4]],
     [[-2.5, -1.3], [3.5, -1.3], [4, 4]],
@@ -495,13 +649,19 @@ export function createBuilding() {
     // 걷는 층만 보이기 (all=true면 모든 층)
     setFloor(f, all = false) {
       floors.forEach((F) => { F.group.visible = all || F.index === f; });
-      LIGHTS[f].forEach(([x, z], i) => { rig[i].position.set(x, FLOORS[f].y + (f === ROOF ? 3.2 : 3.3), z); rig[i].intensity = f === ROOF ? 10 : 20; });
+      curFloor = f;
+      applyRig();
     },
     setDay(d) {
       hemi.intensity = 1.1 + 0.9 * d;
       hemi.color.setRGB(0.6 + 0.3 * d, 0.65 + 0.3 * d, 0.82 + 0.15 * d);
       M.led.color.copy(LED).multiplyScalar(1 - 0.85 * d);
       M.bulb.color.copy(BULB).multiplyScalar(1 - 0.75 * d);
+      M.light.color.copy(LIGHT_N).lerp(LIGHT_D, d);
+      M.lightWarm.color.copy(WARM_N).lerp(WARM_D, d);
+      M.lamp.color.copy(LAMP_N).lerp(LAMP_D, d);
+      dayK = d;
+      applyRig();
     },
     update(dt, player) {
       for (const d of doors) {
