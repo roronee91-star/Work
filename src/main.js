@@ -1043,6 +1043,24 @@ $('noticeForm').addEventListener('submit', async (e) => {
     alert('공지를 올리지 못했어요: ' + (err.message || err));
   }
 });
+// 왼쪽 접속자 목록: 연두색 불 + 이름 + 층 (1초마다, 바뀐 것만 다시 그림)
+let onlineHtml = '';
+function renderOnline() {
+  const box = $('online');
+  const hide = mode !== 'office' && mode !== 'exterior' || game.on || duel.active;
+  box.hidden = hide;
+  if (hide) return;
+  const tb = document.querySelector('.topbar').getBoundingClientRect();
+  box.style.top = `${Math.round(tb.bottom + 6)}px`;
+  const fl = (f) => FLOORS[f]?.label || '';
+  const rows = [{ name: me.name, floor: player.floor, me: true }, ...[...peers.values()].sort((a, b) => (a.floor - b.floor) || String(a.name).localeCompare(b.name, 'ko'))];
+  const html = rows.map((p) => `<li${p.me ? ' class="me"' : ''}><i></i><span>${esc(p.name)}${p.me ? ' (나)' : ''}</span><small>${fl(p.floor)}</small></li>`).join('');
+  $('onlineNum').textContent = rows.length;
+  if (html !== onlineHtml) { onlineHtml = html; $('onlineList').innerHTML = html; }
+}
+setInterval(renderOnline, 1000);
+$('onlineHead').onclick = () => { const f = $('online').classList.toggle('fold'); $('onlineFold').textContent = f ? '▸' : '▾'; try { localStorage.setItem('work-online-fold', f ? '1' : '0'); } catch {} };
+try { if (localStorage.getItem('work-online-fold') === '1') { $('online').classList.add('fold'); $('onlineFold').textContent = '▸'; } } catch {}
 $('btnPeople').onclick = () => {
   const rows = [{ name: me.name + ' (나)', color: me.color, zone: player.zone, lv: duel.level, me: true }, ...[...peers.entries()].map(([id, p]) => ({ ...p, id }))];
   $('peopleList').innerHTML = rows.map((p) => `<li><i style="background:${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#888'}"></i>${esc(lvName(p.name, p.lv || 1, p.me ? duel.loser : p.tt))}<small>${esc(ZONES[p.zone] || '')}</small></li>`).join('');

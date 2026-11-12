@@ -222,3 +222,20 @@ input, textarea { font: inherit; color: var(--fg); }
 .pick button small { margin-left: auto; color: var(--muted); font-size: 12px; }
 .pick button:disabled { opacity: .4; }
 .pick button.bot { border-color: rgba(255,90,90,.5); background: rgba(255,90,90,.1); }
+
+/* 왼쪽 접속자 목록 */
+#online { position: absolute; left: 12px; top: 76px; max-width: 190px; font-size: 13px; }
+#onlineHead { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font-size: 12px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+#onlineHead b { color: #a6f26b; }
+#onlineList { list-style: none; margin: 6px 0 0; padding: 4px 0; max-height: 40vh; overflow-y: auto; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+#online.fold #onlineList { display: none; }
+#onlineList li { display: flex; align-items: center; gap: 7px; padding: 4px 10px; white-space: nowrap; }
+#onlineList li i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #a6f26b; box-shadow: 0 0 6px #a6f26b, 0 0 2px #a6f26b; }
+#onlineList li span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#onlineList li.me span { color: var(--gold); }
+#onlineList li small { margin-left: auto; padding-left: 8px; color: var(--muted); font-weight: 700; }
+@media (pointer: coarse), (max-width: 700px) {
+  #online { left: 8px; max-width: 150px; font-size: 12px; }
+  #onlineList { max-height: 28vh; }
+  #onlineList li { padding: 3px 8px; }
+}
