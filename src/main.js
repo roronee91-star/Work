@@ -40,7 +40,9 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 // ---------- 렌더러 ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.75 : 2)); // 휴대폰도 선명하게
+const PR_MAX = Math.min(devicePixelRatio, isTouch ? 1.75 : 2);
+let prNow = PR_MAX;
+renderer.setPixelRatio(prNow); // 휴대폰도 선명하게 (버벅이면 아래에서 자동으로 조금 낮춤)
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -431,7 +433,11 @@ function updatePlayer(dt) {
       player.ry = lerpAngle(player.ry, Math.atan2(dx, dz), Math.min(1, dt * 12));
       // 막혀서 못 가면 멈춤
       moveTarget.stuck = moved < step * 0.3 ? (moveTarget.stuck || 0) + dt : 0;
-      if (moveTarget.stuck > 0.5 || (moveTarget.until && now > moveTarget.until)) finishTarget();
+      if (moveTarget.stuck > 0.6 && !moveTarget.repathed) {
+        const fin = moveTarget.path?.length ? moveTarget.path[moveTarget.path.length - 1] : [moveTarget.x, moveTarget.z];
+        const keep = { then: moveTarget.then, until: moveTarget.until, repathed: true };
+        if (!walkTo(fin[0], fin[1], keep)) finishTarget();
+      } else if (moveTarget.stuck > 1.2 || (moveTarget.until && now > moveTarget.until)) finishTarget();
     }
   }
   player.speed = dt > 0 ? moved / dt : 0;
@@ -503,9 +509,78 @@ function tapMove(cx, cy) {
   const x = THREE.MathUtils.clamp(hit.x, -lx, lx), z = THREE.MathUtils.clamp(hit.z, -lz, lz);
   if (Math.hypot(x - player.x, z - player.z) > 40) return;
   if (player.sit) standUp();
-  moveTarget = { x, z, stuck: 0 };
-  pingMark.position.set(x, fy + 0.04, z);
+  if (!walkTo(x, z)) { moveTarget = { x, z, stuck: 0 }; pingMark.position.set(x, fy + 0.04, z); pingMark.visible = true; pingMark.scale.setScalar(1.6); }
+}
+
+// ---------- 길 찾기 (가구 · 나무 · 벽을 돌아서 걸어감) ----------
+const CELL = 0.25;
+const GRIDS = new Map();
+function gridFor(f) {
+  if (GRIDS.has(f)) return GRIDS.get(f);
+  const lx = f === 0 ? LOT - 0.4 : HX - 0.4, lz = f === 0 ? LOT - 0.4 : HZ - 0.4;
+  const nx = Math.ceil((2 * lx) / CELL) + 1, nz = Math.ceil((2 * lz) / CELL) + 1;
+  const blocked = new Uint8Array(nx * nz);
+  const pad = R + 0.06;
+  for (const c of bld.floors[f].colliders) {
+    const x1 = Math.max(0, Math.floor((c.x1 - pad + lx) / CELL)), x2 = Math.min(nx - 1, Math.ceil((c.x2 + pad + lx) / CELL));
+    const z1 = Math.max(0, Math.floor((c.z1 - pad + lz) / CELL)), z2 = Math.min(nz - 1, Math.ceil((c.z2 + pad + lz) / CELL));
+    for (let i = x1; i <= x2; i++) for (let j = z1; j <= z2; j++) {
+      const x = -lx + i * CELL, z = -lz + j * CELL;
+      if (c.circle) { if (Math.hypot(x - c.cx, z - c.cz) < c.r + pad) blocked[j * nx + i] = 1; continue; }
+      if (x > c.x1 - pad && x < c.x2 + pad && z > c.z1 - pad && z < c.z2 + pad) blocked[j * nx + i] = 1;
+    }
+  }
+  const g = { lx, lz, nx, nz, blocked };
+  GRIDS.set(f, g);
+  return g;
+}
+function findPath(f, sx, sz, tx, tz) {
+  const g = gridFor(f), { nx, nz, lx, lz, blocked } = g;
+  const toI = (x, z) => [Math.max(0, Math.min(nx - 1, Math.round((x + lx) / CELL))), Math.max(0, Math.min(nz - 1, Math.round((z + lz) / CELL)))];
+  const free = (i, j) => i >= 0 && j >= 0 && i < nx && j < nz && !blocked[j * nx + i];
+  // 막힌 칸에서 시작/끝나면 가장 가까운 빈 칸으로
+  const nearestFree = ([i, j]) => { if (free(i, j)) return [i, j]; for (let rr = 1; rr < 12; rr++) for (let di = -rr; di <= rr; di++) for (let dj = -rr; dj <= rr; dj++) if (free(i + di, j + dj)) return [i + di, j + dj]; return null; };
+  const s = nearestFree(toI(sx, sz)), t = nearestFree(toI(tx, tz));
+  if (!s || !t) return null;
+  const N = nx * nz, gS = new Float32Array(N).fill(Infinity), came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+  const h = (i, j) => { const dx = Math.abs(i - t[0]), dz = Math.abs(j - t[1]); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
+  const open = [[h(...s), s[0], s[1]]]; gS[s[1] * nx + s[0]] = 0;
+  let found = false, steps = 0;
+  while (open.length && steps++ < 40000) {
+    let bi = 0; for (let k = 1; k < open.length; k++) if (open[k][0] < open[bi][0]) bi = k;
+    const [, i, j] = open[bi]; open[bi] = open[open.length - 1]; open.pop();
+    const id = j * nx + i; if (closed[id]) continue; closed[id] = 1;
+    if (i === t[0] && j === t[1]) { found = true; break; }
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      if (!di && !dj) continue;
+      const a = i + di, b = j + dj;
+      if (!free(a, b) || (di && dj && (!free(i + di, j) || !free(i, j + dj)))) continue;
+      const nid = b * nx + a, ng = gS[id] + (di && dj ? 1.414 : 1);
+      if (ng < gS[nid]) { gS[nid] = ng; came[nid] = id; open.push([ng + h(a, b), a, b]); }
+    }
+  }
+  if (!found) return null;
+  const cells = []; for (let id = t[1] * nx + t[0]; id !== -1; id = came[id]) cells.push([id % nx, Math.floor(id / nx)]);
+  cells.reverse();
+  // 곧게 갈 수 있는 구간은 한 번에 (지그재그 없애기)
+  const clear = (a, b) => { const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) * 2); for (let k = 0; k <= n; k++) { const i = Math.round(a[0] + ((b[0] - a[0]) * k) / n), j = Math.round(a[1] + ((b[1] - a[1]) * k) / n); if (!free(i, j)) return false; } return true; };
+  const pts = []; let a = cells[0];
+  for (let k = 1; k < cells.length; k++) if (!clear(a, cells[k])) { a = cells[k - 1]; pts.push(a); }
+  pts.push(cells[cells.length - 1]);
+  const w = pts.map(([i, j]) => [-lx + i * CELL, -lz + j * CELL]);
+  w[w.length - 1] = free(...toI(tx, tz)) ? [tx, tz] : w[w.length - 1];
+  return w;
+}
+// 경로를 따라 걷기 시작
+function walkTo(tx, tz, extra = {}) {
+  const path = findPath(player.floor, player.x, player.z, tx, tz);
+  if (!path || !path.length) return false;
+  const [x, z] = path.shift();
+  moveTarget = { x, z, path, stuck: 0, ...extra };
+  const [fx, fz] = path.length ? path[path.length - 1] : [x, z];
+  pingMark.position.set(fx, FLOORS[player.floor].y + 0.04, fz);
   pingMark.visible = true; pingMark.scale.setScalar(1.6);
+  return true;
 }
 
 // ---------- 가구 위에 서기 ----------
@@ -655,8 +730,8 @@ function sendState(force = false) {
   if (!net) return;
   const t = performance.now();
   const movedEnough = Math.abs(player.x - lastSent.x) + Math.abs(player.z - lastSent.z) > 0.02 || Math.abs(player.ry - lastSent.ry) > 0.05;
-  // 무료 사용량을 아끼려고: 움직일 때 초당 4번, 가만히 있을 땐 8초에 한 번만 보냄
-  if (!force && !(movedEnough && t - lastSend > 250) && t - lastSend < 8000) return;
+    // 무료 사용량을 아끼려고: 움직일 때 초당 약 3번, 가만히 있을 땐 10초에 한 번 (받는 쪽에서 부드럽게 이어 그림)
+  if (!force && !(movedEnough && t - lastSend > 300) && t - lastSend < 10000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
   net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
@@ -679,7 +754,11 @@ function onState(p) {
     updateOnline();
   }
   if (peer.color !== p.color || peer.av.gender !== (p.g === 'f' ? 'f' : 'm')) { peer.av.setLook(p.color, p.g); peer.color = p.color; }
-  if ((p.floor || 0) !== peer.floor) { peer.x = p.x; peer.z = p.z; }
+  // 받은 위치를 시간과 함께 모아 두고, 조금 늦게(0.45초) 그 사이를 부드럽게 이어 그림
+  const tnow = performance.now() / 1000;
+  if ((p.floor || 0) !== peer.floor || !peer.buf) { peer.x = p.x; peer.z = p.z; peer.ry = p.ry; peer.buf = []; }
+  peer.buf.push({ t: tnow, x: p.x, z: p.z, ry: p.ry });
+  if (peer.buf.length > 8) peer.buf.shift();
   Object.assign(peer, { tx: p.x, tz: p.z, tr: p.ry, sp: p.sp || 0, zone: p.zone, floor: p.floor || 0 });
   peer.av.setSit(!!p.st, +p.st || 0);
   peer.av.setWorking(!!p.wk && !!p.st);
@@ -703,9 +782,34 @@ function removePeer(id, quiet = false) {
 function updatePeers(dt) {
   for (const p of peers.values()) {
     if (p.tx === undefined) continue;
-    const k = Math.min(1, dt * 6);
-    p.x += (p.tx - p.x) * k; p.z += (p.tz - p.z) * k;
-    p.ry = lerpAngle(p.ry, p.tr, k);
+    let gx = p.tx, gz = p.tz, gr = p.tr;
+    const b = p.buf || [];
+    if (b.length) {
+      const rt = performance.now() / 1000 - 0.45;
+      if (rt <= b[0].t) { gx = b[0].x; gz = b[0].z; gr = b[0].ry; }
+      else if (rt >= b[b.length - 1].t) {
+        // 새 소식이 늦으면 잠깐(최대 0.3초)만 같은 방향으로 이어 가고 멈춤
+        const L = b[b.length - 1], P = b[b.length - 2];
+        gx = L.x; gz = L.z; gr = L.ry;
+        if (P && L.t - P.t > 0.05 && L.t - P.t < 1.2) {
+          const e = Math.min(rt - L.t, 0.3);
+          gx += ((L.x - P.x) / (L.t - P.t)) * e; gz += ((L.z - P.z) / (L.t - P.t)) * e;
+        }
+      } else {
+        for (let i = 0; i < b.length - 1; i++) if (rt >= b[i].t && rt <= b[i + 1].t) {
+          const u = (rt - b[i].t) / Math.max(1e-3, b[i + 1].t - b[i].t);
+          gx = b[i].x + (b[i + 1].x - b[i].x) * u; gz = b[i].z + (b[i + 1].z - b[i].z) * u; gr = lerpAngle(b[i].ry, b[i + 1].ry, u);
+          break;
+        }
+      }
+    }
+    // 너무 멀면(순간이동 · 층 이동) 바로 옮기고, 아니면 살짝 부드럽게
+    if (Math.hypot(gx - p.x, gz - p.z) > 4) { p.x = gx; p.z = gz; }
+    const k = Math.min(1, dt * 12);
+    const ox = p.x, oz = p.z;
+    p.x += (gx - p.x) * k; p.z += (gz - p.z) * k;
+    p.ry = lerpAngle(p.ry, gr, Math.min(1, dt * 10));
+    p.sp = dt > 0 ? Math.hypot(p.x - ox, p.z - oz) / dt : 0;
     placeAvatar(p.av, p);
     p.av.root.visible = mode !== 'office' || p.floor === player.floor;
     p.av.animate(dt, p.sp, now);
@@ -828,14 +932,8 @@ function chooseFloor(f) {
   if (player.sit) standUp();
   if (game.on) quitGame();
   elevAsked = true;
-  const path = [];
-  // 1층 정원에 있으면 정문으로 들어가서 엘리베이터로
-  if (player.floor === 0 && (Math.abs(player.x) > HX || Math.abs(player.z) > HZ)) path.push([0, HZ + 1.0], [0, HZ - 1.2]);
-  path.push([ELEV.x + 0.4, ELEV.z + 0.2]);
-  const [x, z] = path.shift();
-  moveTarget = { x, z, path, stuck: 0, until: now + 15, then: () => goFloor(f) };
-  pingMark.position.set(ELEV.x + 0.4, FLOORS[player.floor].y + 0.04, ELEV.z + 0.2);
-  pingMark.visible = true; pingMark.scale.setScalar(1.6);
+  // 가구 · 나무를 돌아 엘리베이터까지 걸어감 (길이 없으면 바로 이동)
+  if (!walkTo(ELEV.x + 0.4, ELEV.z + 0.2, { until: now + 25, then: () => goFloor(f) })) { goFloor(f); return; }
   sysMessage(`🛗 ${FLOORS[f].label} ${FLOORS[f].name}(으)로 가요. 엘리베이터까지 걸어가는 중…`);
 }
 function arrive() {
@@ -984,7 +1082,7 @@ setDayButtons();
 
 // ---------- 루프 ----------
 const clock = new THREE.Clock();
-let now = 0, idleTime = 10;
+let now = 0, idleTime = 10, fpsN = 0, fpsT = 0;
 orbitPose(pose);
 camera.position.copy(pose.pos);
 camera.lookAt(pose.look);
@@ -1012,6 +1110,14 @@ function frame() {
   sky.position.copy(camera.position);
   labelCam.copy(camera); labelCam.layers.set(1);
   composer.render();
+  // 버벅임 자동 조절: 2초마다 초당 화면 수를 보고 해상도를 조금씩 올리고 내림
+  fpsN++; fpsT += dt;
+  if (fpsT > 2) {
+    const fps = fpsN / fpsT; fpsN = 0; fpsT = 0;
+    const want = fps < 32 ? prNow - 0.25 : fps > 55 ? prNow + 0.25 : prNow;
+    const nv = Math.max(1, Math.min(PR_MAX, want));
+    if (nv !== prNow && !document.hidden) { prNow = nv; renderer.setPixelRatio(prNow); composer.setPixelRatio(prNow); resize(); }
+  }
   requestAnimationFrame(frame);
 }
 if (returning) $('intro').hidden = true; // 바로 출근하므로 시작 화면은 건너뜀
@@ -1022,5 +1128,5 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__work = { get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
+window.__work = { findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
 window.__workMain = true;
