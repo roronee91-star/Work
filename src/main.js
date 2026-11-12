@@ -8,7 +8,7 @@ import { sharedUniforms, createSky, createMountains, createGround, createCity, c
 import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA } from './building.js';
 import { createGarden, STREAM } from './garden.js';
 import { createDuel, SWORD, BOT_NAME } from './duel.js';
-import { startAudio, setWaterVolume, setMuted, isMuted, playThump, playBeep } from './audio.js';
+import { startAudio, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar, WorkMonster } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
@@ -78,7 +78,6 @@ const NPC_LINES = [
   '2층은 업무 공간, 3층은 회의실, 4층은 라운지와 오락존이에요.',
   '4층 오락존에서 샌드백 치기 한 판 어떠세요? 🥊',
   '옥상 테라스에서 보는 야경이 정말 예뻐요 🌙',
-  '정원 개울가에 앉으면 물소리가 들려요.',
 ];
 let npcLine = 0, npcGreetAt = -99;
 function npcTalk() { npc.say(NPC_LINES[npcLine % NPC_LINES.length], now); npcLine++; }
@@ -711,18 +710,6 @@ function standUp() {
   myAvatar.setWorking(false);
   sendState(true);
 }
-// 물소리: 개울·분수에 가까울수록 크게, 앉아 있으면 조금 더
-function updateWaterSound() {
-  let v = 0;
-  if (player.floor === 0 && (mode === 'office' || mode === 'fly')) {
-    const ds = Math.max(0, Math.abs(player.z - STREAM.z) - STREAM.half);
-    const vs = Math.pow(Math.max(0, 1 - ds / 14), 2) * 0.55;
-    const df = Math.max(0, Math.hypot(player.x, player.z - 17) - 3.7);
-    const vf = Math.pow(Math.max(0, 1 - df / 11), 2) * 0.4;
-    v = Math.max(vs, vf) * (player.sit ? 1.35 : 1);
-  }
-  setWaterVolume(v);
-}
 function showFloorHud() {
   $('floorLabel').textContent = FLOORS[player.floor].label;
   const name = ZONES[player.zone].replace(/^\dF /, '');
@@ -1202,7 +1189,6 @@ function frame() {
   duelHost.root.visible = !(mode === 'office' && player.floor !== ARENA.floor); duelHost.animate(dt, 0, now);
   if (duelBot.root.visible) duelBot.animate(dt, 0, now);
   if (pingMark.visible) { pingMark.scale.setScalar(Math.max(1, pingMark.scale.x - dt * 3)); pingMark.rotation.z += dt * 2; }
-  if (myAvatar) updateWaterSound();
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
     if (mode === 'office') updatePlayer(dt); else myAvatar.animate(dt, 0, now);
     sendState();
