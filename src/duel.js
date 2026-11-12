@@ -1,7 +1,7 @@
 // ⚔️ 칼싸움 결투: 신청 → 수락 → 모든 층에 알림 → 4층 결투장에서 연타 대결 → 승패 · 레벨
 // 서로 메시지(결투 알림)만 주고받고, 점수 · 레벨은 각자 기기에 저장 (서버 표 필요 없음)
 
-export const BETS = ['☕ 커피 쏘기', '🍪 간식 쏘기', '🎫 가상 휴가권 (배지)', '🏅 명예만 걸기'];
+export const BETS = ['☕ 커피 쏘기', '🍪 간식 쏘기', '🎫 가상 휴가권 (배지)', '😵 패배자 칭호 (하루)', '🏅 명예만 걸기'];
 const HP = 100, FIGHT = 30; // 체력, 제한 시간(초)
 
 // 레벨: 이기면 경험치 30, 지거나 비기면 10. Lv.n 까지 필요한 경험치 = 20 × (n-1)²
@@ -149,12 +149,17 @@ export function createDuel(api) {
       stats.win++; stats.xp += 30;
       if (/휴가권/.test(e.bet)) stats.vacation++;
       msg = `🏆 승리! 경험치 +30${/휴가권/.test(e.bet) ? ` · 🎫 가상 휴가권 ${stats.vacation}장` : ''}<br>내기: ${esc(e.bet)} — ${esc(st.oppName)}님이 갚을 차례!`;
-    } else { stats.lose++; stats.xp += 10; msg = `😵 패배… 경험치 +10<br>내기: ${esc(e.bet)} — ${esc(st.oppName)}님께!`; }
+    } else {
+      stats.lose++; stats.xp += 10; msg = `😵 패배… 경험치 +10<br>내기: ${esc(e.bet)} — ${esc(st.oppName)}님께!`;
+      // 패배자 칭호: 하루 동안 이름표 앞에 붙음 (모두에게 보임)
+      if (/패배자/.test(e.bet)) { stats.loserUntil = Date.now() + 24 * 3600 * 1000; msg += '<br>😵 오늘 하루 이름표에 <b>패배자</b> 칭호가 붙어요…'; }
+    }
     save();
     const after = levelOf(stats.xp);
     $('dResText').innerHTML = `${msg}<br><small>전적 ${stats.win}승 ${stats.lose}패 ${stats.draw}무 · Lv.${after}${after > before ? ' 🎉 레벨 업!' : ''}</small>`;
     $('dResult').hidden = false; $('dAttack').hidden = true;
-    if (after > before) { api.levelChanged(after); api.beep(784, 0.3); }
+    if (after > before) api.beep(784, 0.3);
+    api.levelChanged(after); // 레벨 · 칭호가 바뀌면 이름표 다시 그림
   }
   function leave() {
     Object.assign(st, { active: false, phase: 'idle', id: null });
@@ -201,6 +206,7 @@ export function createDuel(api) {
     get active() { return st.active; },
     get fighting() { return st.active && st.phase !== 'done'; },
     get level() { return levelOf(stats.xp); },
+    get loser() { return (stats.loserUntil || 0) > Date.now(); },
     get swings() { return st.sc; },
   };
 }

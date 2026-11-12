@@ -139,7 +139,8 @@ let myAvatar = null;
 let net = null;
 const peers = new Map();
 // ⚔️ 결투 (아래 함수들은 실행될 때 찾으므로 여기서 만들어도 됨)
-const lvName = (name, lv) => (lv > 1 ? `Lv.${lv} ${name}` : name);
+// 이름표: (패배자 칭호) + (Lv) + 이름 — 직함은 바꾸지 않음
+const lvName = (name, lv, loser = false) => `${loser ? '😵패배자 ' : ''}${lv > 1 ? `Lv.${lv} ` : ''}${name}`;
 const duel = createDuel({
   $, me, peers, isTouch,
   net: () => net,
@@ -148,7 +149,7 @@ const duel = createDuel({
   beep: (f, d) => playBeep(f, d), thump: (p) => playThump(p),
   hurtMe: () => myAvatar?.hurt(now), peerHurt: (id) => peers.get(id)?.av.hurt(now),
   swing: () => myAvatar?.punch(now), sendNow: () => sendState(true),
-  levelChanged: (lv) => { myAvatar?.setName(lvName(me.name, lv)); sendState(true); },
+  levelChanged: (lv) => { myAvatar?.setName(lvName(me.name, lv, duel.loser)); sendState(true); },
   enterArena(side) {
     clearTarget();
     if (player.sit) standUp();
@@ -169,7 +170,10 @@ const duel = createDuel({
     sendState(true);
   },
 });
-const busy = () => game.on || duel.fighting; // 게임 · 결투 중에는 걸어다니기 멈춤
+const busy = () => game.on || duel.fighting;
+// 패배자 칭호가 하루 지나 풀리면 이름표 다시 그림
+let wasLoser = null;
+setInterval(() => { if (myAvatar && wasLoser !== duel.loser) { wasLoser = duel.loser; myAvatar.setName(lvName(me.name, duel.level, duel.loser)); sendState(true); } }, 30000); // 게임 · 결투 중에는 걸어다니기 멈춤
 let chatTab = 'all';
 resize();
 
@@ -264,7 +268,7 @@ function saveProfile() {
   me.name = name;
   try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
   myAvatar.setLook(me.color, me.gender);
-  if (renamed) myAvatar.setName(lvName(me.name, duel.level));
+  if (renamed) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   closeProfile();
   sysMessage('캐릭터를 바꿨어요.');
   sendState(true);
@@ -293,7 +297,7 @@ function enter() {
   if (isTouch) setChatOpen(false);
   startAudio();
   myAvatar = new Avatar(me.name, me.color, me.gender);
-  if (duel.level > 1) myAvatar.setName(lvName(me.name, duel.level));
+  if (duel.level > 1 || duel.loser) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   scene.add(myAvatar.root);
   placeAvatar(myAvatar, player);
   me.jt = Date.now();
@@ -781,7 +785,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 300) && t - lastSend < 10000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, dl: duel.fighting ? 1 : 0, sc: duel.swings, lv: duel.level, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, dl: duel.fighting ? 1 : 0, sc: duel.swings, lv: duel.level, tt: duel.loser ? 1 : 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
 }
 
 function onState(p) {
@@ -814,7 +818,7 @@ function onState(p) {
   peer.av.setSword(!!p.dl);
   if (p.dl && (p.sc || 0) > (peer.sc || 0)) peer.av.punch(now);
   peer.sc = p.sc || 0;
-  if ((p.lv || 1) !== peer.lv) { peer.lv = p.lv || 1; peer.av.setName(lvName(p.name, peer.lv)); }
+  if ((p.lv || 1) !== peer.lv || !!p.tt !== !!peer.tt) { peer.lv = p.lv || 1; peer.tt = !!p.tt; peer.av.setName(lvName(p.name, peer.lv, peer.tt)); }
   if (bx >= 0 && (p.pc || 0) > (peer.pc || 0)) { peer.av.punch(now); if (peer.floor === player.floor) bld.hitBag(bx, 2); }
   peer.pc = p.pc || 0;
   if (peer.jc !== undefined && (p.jc || 0) > peer.jc) peer.av.jump();
@@ -1011,7 +1015,7 @@ $('noticeForm').addEventListener('submit', async (e) => {
 });
 $('btnPeople').onclick = () => {
   const rows = [{ name: me.name + ' (나)', color: me.color, zone: player.zone, lv: duel.level, me: true }, ...[...peers.entries()].map(([id, p]) => ({ ...p, id }))];
-  $('peopleList').innerHTML = rows.map((p) => `<li><i style="background:${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#888'}"></i>${esc(lvName(p.name, p.lv || 1))}<small>${esc(ZONES[p.zone] || '')}</small>${p.me || duel.active ? '' : `<button class="duel" data-id="${esc(p.id)}">⚔️ 결투</button>`}</li>`).join('');
+  $('peopleList').innerHTML = rows.map((p) => `<li><i style="background:${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#888'}"></i>${esc(lvName(p.name, p.lv || 1, p.me ? duel.loser : p.tt))}<small>${esc(ZONES[p.zone] || '')}</small>${p.me || duel.active ? '' : `<button class="duel" data-id="${esc(p.id)}">⚔️ 결투</button>`}</li>`).join('');
   $('peopleList').querySelectorAll('button.duel').forEach((b) => (b.onclick = () => duel.openInvite(b.dataset.id)));
   openModal('peopleModal');
 };
