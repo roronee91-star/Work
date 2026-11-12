@@ -40,7 +40,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 // ---------- 렌더러 ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.75 : 2)); // 휴대폰도 선명하게
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -61,7 +61,7 @@ const sun = new THREE.DirectionalLight(0xfff1dc, 0);
 sun.position.set(45, 54, 72);
 scene.add(sun);
 
-const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: isTouch ? 0 : 4 });
+const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }); // 계단 현상(픽셀 깨짐) 줄이기
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.4, 0.92);
@@ -79,6 +79,8 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
+
+const VIEW_OUT = '<i>🏢</i><span>외관 보기</span>', VIEW_IN = '<i>🚪</i><span>안으로</span>';
 
 // ---------- 상태 ----------
 document.title = CONFIG.companyName;
@@ -680,7 +682,7 @@ function interact() {
   else if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
   else if (what === 'elev') openFloorMenu();
 }
-$('btnSound').onclick = () => { setMuted(!isMuted()); $('btnSound').textContent = isMuted() ? '🔇' : '🔊'; startAudio(); try { localStorage.setItem('work-mute', isMuted() ? '1' : '0'); } catch {} };
+$('btnSound').onclick = () => { setMuted(!isMuted()); $('btnSound').innerHTML = isMuted() ? '🔇' : '🔊'; startAudio(); try { localStorage.setItem('work-mute', isMuted() ? '1' : '0'); } catch {} };
 try { if (localStorage.getItem('work-mute') === '1') { setMuted(true); $('btnSound').textContent = '🔇'; } } catch {}
 
 // ---------- 엘리베이터 · 층 이동 ----------
@@ -694,7 +696,7 @@ function goFloor(f) {
   clearTarget();
   if (player.sit) standUp();
   if (game.on) quitGame();
-  if (mode === 'exterior') { player.floor = f; arrive(); startFly('office', 2.6); $('btnView').textContent = '외관 보기'; return; }
+  if (mode === 'exterior') { player.floor = f; arrive(); startFly('office', 2.6); $('btnView').innerHTML = VIEW_OUT; return; }
   if (mode !== 'office') return;
   const fade = $('fade');
   fade.classList.add('on');
@@ -733,8 +735,8 @@ $('btnPeople').onclick = () => {
   openModal('peopleModal');
 };
 $('btnView').onclick = () => {
-  if (mode === 'office') { orbit.radius = 80; orbit.elev = 0.2; orbit.angle = Math.atan2(camera.position.x, camera.position.z); bld.setFloor(player.floor, true); startFly('exterior', 2.2); $('btnView').textContent = '안으로'; $('zoneLabel').textContent = '건물 밖에서 보기'; }
-  else if (mode === 'exterior') { startFly('office', 2.2); $('btnView').textContent = '외관 보기'; showFloorHud(); }
+  if (mode === 'office') { orbit.radius = 80; orbit.elev = 0.2; orbit.angle = Math.atan2(camera.position.x, camera.position.z); bld.setFloor(player.floor, true); startFly('exterior', 2.2); $('btnView').innerHTML = VIEW_IN; $('zoneLabel').textContent = '건물 밖에서 보기'; }
+  else if (mode === 'exterior') { startFly('office', 2.2); $('btnView').innerHTML = VIEW_OUT; showFloorHud(); }
 };
 
 // ---------- 오락존: 샌드백 치기 ----------
@@ -833,7 +835,7 @@ function applyDay(d) {
 }
 function setDayButtons() {
   const label = dayTarget > 0.5 ? '🌙 밤' : '☀️ 낮';
-  $('btnDay').textContent = label;
+  $('btnDay').innerHTML = dayTarget > 0.5 ? '<i>🌙</i><span>밤</span>' : '<i>☀️</i><span>낮</span>'; void label;
   $('introDay').textContent = dayTarget > 0.5 ? '🌙 밤으로 보기' : '☀️ 낮으로 보기';
 }
 function toggleDay() {

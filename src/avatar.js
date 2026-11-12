@@ -223,7 +223,8 @@ export class Avatar {
     if (this.bubble) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); }
     this.bubble = makeSprite(text, { bg: 'rgba(255,255,255,0.94)', fg: '#111', font: 500, size: 40, maxW: 520 }, 0.3);
     const lines = Math.max(1, Math.round(this.bubble.scale.y / 0.3));
-    this.bubble.position.y = 1.5 + this.bubble.scale.y / 2 - 0.1 * lines;
+    this.bubbleBase = 1.55 + this.bubble.scale.y / 2 - 0.1 * lines;
+    this.bubble.position.y = this.bubbleBase;
     this.root.add(this.bubble);
     this.bubbleUntil = now + 6 + Math.min(text.length / 15, 6);
   }
@@ -246,6 +247,14 @@ export class Avatar {
   }
   punch(now) { this.punchAt = now; this.punchSide = !this.punchSide; }
 
+  // 앉으면 몸이 올라가므로 이름표·풍선도 같이 올림
+  liftLabels() {
+    const lift = this.sitting ? Math.max(0, this.body.position.y) + 0.06 : 0;
+    this.label.position.y = 1.25 + lift;
+    if (this.workSprite) this.workSprite.position.y = 1.52 + lift;
+    if (this.bubble) this.bubble.position.y = this.bubbleBase + lift;
+  }
+
   animate(dt, speed, now) {
     if (this.sitting) {
       // 앉은 자세: 다리는 앞으로, 손은 무릎 위
@@ -263,6 +272,7 @@ export class Avatar {
         }
       }
       if (this.bubble && this.workSprite) this.workSprite.visible = false; else if (this.workSprite) this.workSprite.visible = true;
+      this.liftLabels();
       this.body.position.y = this.sitH + 0.03 - 0.25 * SCALE + Math.sin(this.idle * 1.8) * 0.004;
       this.speed = 0;
       if (this.bubble && now > this.bubbleUntil) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); this.bubble = null; }
@@ -297,6 +307,7 @@ export class Avatar {
       this.bubble.material.map.dispose(); this.bubble.material.dispose();
       this.bubble = null;
     }
+    this.liftLabels();
   }
 
   dispose(bodyOnly = false) {
