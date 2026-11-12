@@ -892,7 +892,7 @@ export function createBuilding() {
     bk.cyl(0.196, 0.05, 0, -1.7, 0, capMat, 18);
     bk.flush(pivot);
     floors[3].group.add(pivot);
-    return { pivot, ang: 0, vel: 0, wob: Math.random() * 6 };
+    return { pivot, ang: 0, vel: 0, wob: Math.random() * 6, squash: 0 };
   });
 
   // 불꽃 (옥상 불멍존) — 겹친 원뿔 몇 개가 일렁임 + 따뜻한 불빛
@@ -949,7 +949,8 @@ export function createBuilding() {
     floors,
     notice: { canvas: noticeCanvas, texture: noticeTex },
     bags,
-    hitBag(i, power) { const b = bags[i]; if (b) b.vel += power; },
+    // 무거운 샌드백: 조금만 밀리고 맞은 자리가 움푹 들어갔다 돌아옴 (멀리 날아가지 않게)
+    hitBag(i, power) { const b = bags[i]; if (b) { b.vel += power * 0.22; b.squash = Math.min(1, b.squash + 0.55 + power * 0.1); } },
     // 걷는 층만 보이기 (all=true면 모든 층)
     setFloor(f, all = false) {
       floors.forEach((F) => { F.group.visible = all || F.index === f; });
@@ -982,12 +983,16 @@ export function createBuilding() {
       }
       // 샌드백 흔들림 (스프링처럼 돌아옴)
       for (const b of bags) {
-        b.vel += (-14 * b.ang - 1.6 * b.vel) * dt;
+        b.vel += (-40 * b.ang - 7 * b.vel) * dt;
         b.ang += b.vel * dt;
-        b.ang = Math.max(-0.7, Math.min(0.7, b.ang));
+        b.ang = Math.max(-0.22, Math.min(0.22, b.ang));
         b.wob += dt * 3;
         b.pivot.rotation.z = b.ang;
-        b.pivot.rotation.x = Math.sin(b.wob) * Math.min(Math.abs(b.ang), 0.15) * 0.4;
+        b.pivot.rotation.x = Math.sin(b.wob) * Math.min(Math.abs(b.ang), 0.08) * 0.4;
+        // 맞으면 순간 찌그러졌다가 출렁이며 돌아옴
+        b.squash = Math.max(0, b.squash - dt * 6);
+        const q = b.squash * b.squash * (1 + 0.3 * Math.sin(b.squash * 18));
+        b.pivot.scale.set(1 - 0.12 * q, 1, 1 + 0.07 * q);
       }
       for (const d of doors) {
         const near = player && player.floor === d.floor && Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 2.2;

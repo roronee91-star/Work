@@ -1081,6 +1081,7 @@ function punch() {
   bld.hitBag(game.booth.i, 1.4 + game.combo * 0.6);
   myAvatar.punch(now);
   playThump(game.combo);
+  camShake = Math.max(camShake, 0.05 + game.combo * 0.03); // 칠 때마다 화면이 살짝 툭
   $('gScore').textContent = game.score;
   $('gCombo').textContent = game.combo > 1.05 ? `콤보 x${game.combo.toFixed(1)}` : '';
   const f = document.createElement('span');
