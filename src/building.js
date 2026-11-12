@@ -779,8 +779,7 @@ export function createBuilding() {
     // 아일랜드 테이블
     k.box(3, 0.06, 1.0, -3.9, 0.72, -3.8, M.walnut); k.box(2.7, 0.7, 0.75, -3.9, 0, -3.8, M.white); col(-5.4, -4.3, -2.4, -3.3, false, 0.78);
     for (const x of [-5, -3.9, -2.8]) stool(k, x, 0, -2.85, Math.PI);
-    // 탁구대
-    // 탁구대: 샌드백 부스에서 넉넉히 떨어뜨림 (가운데 쪽)
+    // (탁구대 자리 — 지금은 비워 둠)
     const TX = 1.6, TZ = -4.3;
     // ===== 결투장 (칼싸움) =====
     k.cyl(1.75, 0.012, ARENA.x, 0.03, ARENA.z, M.black, 40);
@@ -793,8 +792,7 @@ export function createBuilding() {
       ctx.fillStyle = '#ffcf6b'; ctx.fillText('⚔️ DUEL ARENA', w / 2, h / 2 + 4);
     });
     panel(group, arenaSign, 2.2, 0.46, ARENA.x, 2.6, -HZ + 0.15, 0);
-    k.box(2.74, 0.05, 1.52, TX, 0.74, TZ, M.green); k.box(0.02, 0.15, 1.6, TX, 0.79, TZ, M.white);
-    k.box(2.5, 0.72, 1.3, TX, 0.02, TZ, M.black); col(TX - 1.37, TZ - 0.76, TX + 1.37, TZ + 0.76);
+    void TX; void TZ; // 탁구대는 뺐음
     // 대형 TV (코어 동쪽 면)
     k.box(0.06, 1.4, 2.4, CE + 0.03, 1.1, CZ, M.black);
     const tv = canvasTex(640, 360, (ctx, w, h) => {
