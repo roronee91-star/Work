@@ -55,6 +55,9 @@ const M = {
   rim: new THREE.MeshStandardMaterial({ color: 0xd9d6cf, roughness: 0.3, metalness: 0.5 }),
   leafLight: new THREE.MeshStandardMaterial({ color: 0x86ad55, roughness: 0.8, flatShading: true }),
   orb: new THREE.MeshBasicMaterial({ color: C(1.25, 1.18, 1.02) }),
+  chairFrame: new THREE.MeshStandardMaterial({ color: 0xeae4d8, roughness: 0.35, metalness: 0.1 }),   // 아이보리 프레임
+  chairMesh: new THREE.MeshStandardMaterial({ color: 0xf6f2ea, roughness: 0.85 }),                    // 하얀 메시
+  caster: new THREE.MeshStandardMaterial({ color: 0xcfc9bd, roughness: 0.5 }),
   slat: new THREE.MeshStandardMaterial({ color: 0xd2a874, roughness: 0.6 }),
   black: new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.5 }),
   metal: new THREE.MeshStandardMaterial({ color: 0x9da2aa, roughness: 0.35, metalness: 0.6 }),
@@ -163,8 +166,32 @@ function panel(parent, tex, w, h, x, y, z, ry, basic = true) {
 
 // ---------- 가구 ----------
 // 지금 만드는 층의 앉을 자리 목록 (의자 · 스툴 · 소파가 스스로 등록)
-let SEATS = null, DESK = false; // DESK: 컴퓨터 책상 의자 (일하기 가능)
+let SEATS = null, DESK = false, TASK = false; // DESK: 컴퓨터 책상 의자 (일하기 가능), TASK: 사무용 메시 의자로 그림
+// 사무용 메시 의자 (하얀·아이보리): 메시 등받이 · 메시 좌판 · L자 팔걸이 · 가스 실린더 · 바퀴 5개
+function taskChair(k, x, y, z, ry) {
+  const s = Math.sin(ry), c = Math.cos(ry);
+  const at = (lx, lz) => [x + c * lx + s * lz, z - s * lx + c * lz]; // 의자 기준 좌표 → 바닥 좌표
+  for (let i = 0; i < 5; i++) {
+    const a = ry + (i / 5) * Math.PI * 2;
+    const ex = x + Math.sin(a) * 0.28, ez = z + Math.cos(a) * 0.28;
+    k.box(0.3, 0.035, 0.05, x + Math.sin(a) * 0.14, y + 0.06, z + Math.cos(a) * 0.14, M.chairFrame, a + Math.PI / 2);
+    k.ball(0.032, ex, y + 0.035, ez, M.caster);
+  }
+  k.cyl(0.025, 0.3, x, y + 0.08, z, M.metal, 8);                                   // 가스 실린더
+  k.box(0.2, 0.05, 0.22, x, y + 0.36, z, M.chairFrame, ry);                         // 좌판 받침
+  { const [sx, sz] = at(0, 0.02); k.box(0.48, 0.06, 0.46, sx, y + 0.41, sz, M.chairMesh, ry); }   // 메시 좌판
+  { const [fx, fz] = at(0, -0.24); k.box(0.07, 0.36, 0.04, fx, y + 0.42, fz, M.chairFrame, ry); }  // 등받이 기둥
+  { const [bx, bz] = at(0, -0.26); k.box(0.36, 0.2, 0.035, bx, y + 0.58, bz, M.chairMesh, ry); }   // 허리 부분 (좁게)
+  { const [bx, bz] = at(0, -0.28); k.box(0.46, 0.3, 0.035, bx, y + 0.76, bz, M.chairMesh, ry); }   // 등 위쪽 (넓게)
+  { const [bx, bz] = at(0, -0.285); k.box(0.48, 0.03, 0.045, bx, y + 1.05, bz, M.chairFrame, ry); } // 위쪽 테두리
+  for (const sd of [-1, 1]) {
+    const [ax, az] = at(sd * 0.27, -0.05); k.box(0.035, 0.24, 0.05, ax, y + 0.44, az, M.chairFrame, ry);   // 팔걸이 기둥
+    const [px, pz] = at(sd * 0.27, 0.03); k.box(0.07, 0.03, 0.26, px, y + 0.68, pz, M.chairFrame, ry);    // 팔걸이 패드
+  }
+  SEATS?.push({ x, z, ry, h: 0.48, desk: DESK });
+}
 function chair(k, x, y, z, ry, mat = M.chairGray) {
+  if (TASK) { taskChair(k, x, y, z, ry); return; }
   const s = Math.sin(ry), c = Math.cos(ry);
   SEATS?.push({ x, z, ry, h: 0.48, desk: DESK });
   k.box(0.5, 0.08, 0.5, x, y + 0.44, z, mat, ry);
@@ -514,6 +541,7 @@ export function createBuilding() {
   {
     const F = floors[1], { kit: k, col, group } = F;
     SEATS = F.seats;
+    TASK = true; // 2층 · 3층은 사무용 메시 의자
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.stone);
     carpetBlob(k, 0, -1.3, 12.5, 8.6, 0, 0.12);                                    // 책상 구역 곡선 카펫
     carpetBlob(k, 6.5, 3.6, 4.0, 3.2, 0.3, 0.2, M.carpetWarm);
@@ -679,6 +707,7 @@ export function createBuilding() {
   {
     const F = floors[3], { kit: k, col, group } = F;
     SEATS = F.seats;
+    TASK = false;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.oak);
     // 곡선 올리브 카펫 위에 라임 · 크림 콩 소파, 파스텔 빈백, 스테인리스 원탁
     carpetBlob(k, 0.5, 2.6, 8.5, 4.8, -0.08, 0.3);
