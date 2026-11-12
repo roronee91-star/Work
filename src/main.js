@@ -441,7 +441,7 @@ function updatePlayer(dt) {
     }
   }
   player.speed = dt > 0 ? moved / dt : 0;
-  { const g = player.sit ? 0 : groundAt(player.x, player.z, myAvatar.jy); if (Math.abs(g - myAvatar.ground) > 0.05) { myAvatar.ground = g; sendState(true); } else myAvatar.ground = g; }
+  { const g = player.sit ? 0 : groundAt(player.x, player.z, myAvatar.jy); if (Math.abs(g - myAvatar.ground) > 0.05 && performance.now() - lastSend > 300) { myAvatar.ground = g; sendState(true); } else myAvatar.ground = g; }
   placeAvatar(myAvatar, player);
   myAvatar.animate(dt, player.speed, now);
 
@@ -590,7 +590,8 @@ function groundAt(x, z, feet) {
   for (const c of bld.floors[player.floor].colliders) {
     if (c.tall || c.noStand || c.circle) continue;
     const top = c.top ?? 0.6;
-    if (top <= feet + 0.03 && top > g && x > c.x1 && x < c.x2 && z > c.z1 && z < c.z2) g = top;
+    const e = 0.18; // 가장자리에 걸쳐도 위에 서게 (밀려나며 덜컥거리지 않게)
+    if (top <= feet + 0.03 && top > g && x > c.x1 - e && x < c.x2 + e && z > c.z1 - e && z < c.z2 + e) g = top;
   }
   return g;
 }
@@ -663,7 +664,8 @@ function officeCamPose(dt, out) {
   const fy = FLOORS[player.floor].y, top = player.floor === ROOF || outside ? 7 : CEIL - 0.15;
   const bx = player.floor === 0 ? LOT : HX, bz = player.floor === 0 ? LOT : HZ;
   camLift += (((myAvatar && !player.sit) ? myAvatar.ground : 0) - camLift) * 0.1;
-  const tx = player.x, ty = fy + 0.85 + camLift, tz = player.z;
+  const jumpLift = myAvatar && !player.sit ? Math.max(0, myAvatar.jy - myAvatar.ground) * 0.4 : 0;
+  const tx = player.x, ty = fy + 0.85 + camLift + jumpLift, tz = player.z;
   const dir = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   let allowed = cam.dist;
   for (let t = 0.3; t <= cam.dist; t += 0.12) {
@@ -1082,7 +1084,7 @@ setDayButtons();
 
 // ---------- 루프 ----------
 const clock = new THREE.Clock();
-let now = 0, idleTime = 10, fpsN = 0, fpsT = 0;
+let now = 0, idleTime = 10, fpsN = 0, fpsT = 0, slowRuns = 0, prDrops = 0;
 orbitPose(pose);
 camera.position.copy(pose.pos);
 camera.lookAt(pose.look);
@@ -1111,12 +1113,15 @@ function frame() {
   labelCam.copy(camera); labelCam.layers.set(1);
   composer.render();
   // 버벅임 자동 조절: 2초마다 초당 화면 수를 보고 해상도를 조금씩 올리고 내림
+  // (해상도를 바꾸는 순간 화면이 한 번 멈칫하므로: 3초씩 두 번 연속 느릴 때만, 낮추기만, 최대 두 번)
   fpsN++; fpsT += dt;
-  if (fpsT > 2) {
+  if (fpsT > 3) {
     const fps = fpsN / fpsT; fpsN = 0; fpsT = 0;
-    const want = fps < 32 ? prNow - 0.25 : fps > 55 ? prNow + 0.25 : prNow;
-    const nv = Math.max(1, Math.min(PR_MAX, want));
-    if (nv !== prNow && !document.hidden) { prNow = nv; renderer.setPixelRatio(prNow); composer.setPixelRatio(prNow); resize(); }
+    slowRuns = fps < 26 ? slowRuns + 1 : 0;
+    if (slowRuns >= 2 && prDrops < 2 && prNow > 1 && !document.hidden) {
+      slowRuns = 0; prDrops++;
+      prNow = Math.max(1, prNow - 0.35); renderer.setPixelRatio(prNow); composer.setPixelRatio(prNow); resize();
+    }
   }
   requestAnimationFrame(frame);
 }
