@@ -94,7 +94,7 @@ scene.add(sun);
 const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }); // 계단 현상(픽셀 깨짐) 줄이기
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.4, 0.92);
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.3, 1.1);
 composer.addPass(bloom);
 // 이름표 · 말풍선 전용 카메라(층 1): 빛 번짐(bloom) 뒤에 그려서 밤에도 빛나지 않음
 const labelCam = new THREE.PerspectiveCamera();
@@ -960,8 +960,10 @@ function applyDay(d) {
   uniforms.uFogColor.value.copy(FOG_NIGHT).lerp(FOG_DAY, d);
   renderer.setClearColor(BG.setRGB(0.008, 0.012, 0.035).lerp(FOG_DAY, d));
   sun.intensity = 2.6 * d;
-  bloom.strength = 0.55 - 0.4 * d;
-  bloom.threshold = 0.92 + 0.08 * d;
+  // 밤에도 은은하게: 아주 밝은 것(줄 전구 · 간판 LED)만 살짝 번지게
+  bloom.strength = 0.3 - 0.18 * d;
+  bloom.threshold = 1.1 + 0.1 * d;
+  bloom.radius = 0.3;
   renderer.toneMappingExposure = 1.0 - 0.1 * d;
   bld.setDay(d);
   garden.setDay(d);

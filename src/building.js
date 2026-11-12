@@ -75,7 +75,7 @@ const M = {
   books2: new THREE.MeshStandardMaterial({ color: 0x3a5a7a, roughness: 0.8 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x9ec3e6, roughness: 0.05, transparent: true, opacity: 0.1, depthWrite: false }),
   glassRoom: new THREE.MeshStandardMaterial({ color: 0xc8dcf0, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false }),
-  light: new THREE.MeshBasicMaterial({ color: C(1.15, 1.12, 1.05) }),
+  light: new THREE.MeshBasicMaterial({ color: C(0.98, 0.95, 0.88) }),
   lightWarm: new THREE.MeshBasicMaterial({ color: C(1.35, 0.92, 0.5) }),
   led: new THREE.MeshBasicMaterial({ color: C(1.5, 1.7, 2.2) }),
   bulb: new THREE.MeshBasicMaterial({ color: C(1.25, 0.85, 0.42) }),
@@ -888,14 +888,14 @@ export function createBuilding() {
   const LIGHT_N = M.light.color.clone(), LIGHT_D = new THREE.Color(0.62, 0.64, 0.66);
   const WARM_N = M.lightWarm.color.clone(), WARM_D = new THREE.Color(0.75, 0.6, 0.45);
   const LAMP_N = M.lamp.color.clone(), LAMP_D = new THREE.Color(0.55, 0.52, 0.48);
-  const RIG_N = new THREE.Color(0xffcf9a), RIG_D = new THREE.Color(0xf2f5ff);
+  const RIG_N = new THREE.Color(0xffe2c2), RIG_D = new THREE.Color(0xf2f5ff);
   let dayK = 0, curFloor = 0;
   // 낮: 햇빛이 들어오니 실내등은 약하고 하얀빛 / 밤: 실내등이 밝고 따뜻한 빛
   const applyRig = () => {
     const f = curFloor, roof = f === ROOF;
     LIGHTS[f].forEach(([x, z], i) => {
       rig[i].position.set(x, FLOORS[f].y + (roof ? 3.2 : 3.3), z);
-      rig[i].intensity = roof ? 10 * (1 - dayK) : 18 - 10 * dayK;
+      rig[i].intensity = roof ? 7 * (1 - dayK) : 8; // 밤에도 너무 환하지 않게
       rig[i].color.copy(RIG_N).lerp(RIG_D, dayK);
     });
   };
@@ -920,7 +920,8 @@ export function createBuilding() {
       applyRig();
     },
     setDay(d) {
-      hemi.intensity = 1.1 + 0.9 * d;
+      hemi.intensity = 0.9 + 1.1 * d;
+      M.ceiling.emissive.setRGB(0.2 + 0.28 * d, 0.19 + 0.27 * d, 0.17 + 0.25 * d); // 밤에는 천장도 어둡게
       hemi.color.setRGB(0.6 + 0.3 * d, 0.65 + 0.3 * d, 0.82 + 0.15 * d);
       M.led.color.copy(LED).multiplyScalar(1 - 0.85 * d);
       M.bulb.color.copy(BULB).multiplyScalar(1 - 0.75 * d);
