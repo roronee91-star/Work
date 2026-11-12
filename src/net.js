@@ -1,7 +1,9 @@
 // 실시간 접속: Supabase Realtime (설정 시) 또는 같은 브라우저 탭끼리(BroadcastChannel)
 import { CONFIG } from './config.js';
 
-export const supa = (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey && window.supabase)
+// siteHost가 정해져 있으면 그 주소에서 열 때만 Supabase에 연결 (복사해 간 사이트는 로컬 데모 모드)
+const hostOk = !CONFIG.siteHost || location.hostname === CONFIG.siteHost;
+export const supa = (hostOk && CONFIG.supabaseUrl && CONFIG.supabaseAnonKey && window.supabase)
   ? window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey)
   : null;
 

@@ -5,6 +5,10 @@ export const CONFIG = {
 
   // Supabase 프로젝트 주소와 공개(anon) 키. 비워 두면 "로컬 데모 모드"로 동작합니다.
   // (로컬 데모 모드: 같은 브라우저의 여러 탭끼리만 서로 보입니다.)
+  // ⚠️ 이 소스를 복사(Fork)해서 쓰는 분은 아래 세 줄을 꼭 내 것으로 바꾸세요. (README 3단계)
+  //    siteHost: 내 사이트 주소의 앞부분 (예: 'myid.github.io'). 이 주소에서 열 때만 아래 Supabase에 연결합니다.
+  //    → 남의 소스를 그대로 올려도 원래 주인의 Supabase에 섞여 들어가지 않습니다.
+  siteHost: 'roronee91-star.github.io',
   supabaseUrl: 'https://gayvbnowiuxzfwadoqtg.supabase.co',
   supabaseAnonKey: 'sb_publishable_J1alIW63mRsTQ_MBR_7JkA_PWL8ijPG', // 공개용(Publishable) 키 — 비밀 키는 절대 넣지 않음
 
