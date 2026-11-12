@@ -55,9 +55,9 @@ const M = {
   rim: new THREE.MeshStandardMaterial({ color: 0xd9d6cf, roughness: 0.3, metalness: 0.5 }),
   leafLight: new THREE.MeshStandardMaterial({ color: 0x86ad55, roughness: 0.8, flatShading: true }),
   orb: new THREE.MeshBasicMaterial({ color: C(1.25, 1.18, 1.02) }),
-  chairFrame: new THREE.MeshStandardMaterial({ color: 0xe2d9c8, roughness: 0.4, metalness: 0.05, side: THREE.DoubleSide }),   // 아이보리 프레임
-  chairMesh: new THREE.MeshStandardMaterial({ color: 0xfaf8f3, roughness: 0.9, side: THREE.DoubleSide }),                    // 하얀 메시
-  caster: new THREE.MeshStandardMaterial({ color: 0xcfc9bd, roughness: 0.5 }),
+  chairFrame: new THREE.MeshStandardMaterial({ color: 0x6e7177, roughness: 0.4, metalness: 0.15, side: THREE.DoubleSide }),  // 그레이 프레임   // 아이보리 프레임
+  chairMesh: new THREE.MeshStandardMaterial({ color: 0x9a9da3, roughness: 0.9, side: THREE.DoubleSide }),   // 그레이 메시                    // 하얀 메시
+  caster: new THREE.MeshStandardMaterial({ color: 0x4a4c51, roughness: 0.5 }),
   slat: new THREE.MeshStandardMaterial({ color: 0xd2a874, roughness: 0.6 }),
   black: new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.5 }),
   metal: new THREE.MeshStandardMaterial({ color: 0x9da2aa, roughness: 0.35, metalness: 0.6 }),
