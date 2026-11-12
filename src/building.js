@@ -295,22 +295,30 @@ function steelTable(k, col, x, z, r = 0.28, h = 0.45) {
 // 가는 실내 나무
 function slimTree(k, x, z, h = 2.4) {
   k.cyl(0.03, h * 0.75, x, 0.2, z, M.walnut, 6, 0.015);
-  for (let i = 0; i < 9; i++) {
-    const a = i * 2.4, rr = 0.2 + (i % 3) * 0.12, y = 0.2 + h * (0.45 + (i % 4) * 0.12);
+  for (let i = 0; i < 6; i++) {
+    const a = i * 2.4, rr = 0.22 + (i % 3) * 0.12, y = 0.2 + h * (0.45 + (i % 4) * 0.12);
     k.ball(0.11 + (i % 2) * 0.04, x + Math.cos(a) * rr, y, z + Math.sin(a) * rr, M.leafLight, 0.75);
   }
 }
 // 하얀 자갈 화단 (곡선) + 고사리 · 가는 나무 · 동그란 바닥 조명
 function slatArc(k, col, cx, cz, r, a0, a1) {
-  const n = Math.max(3, Math.round(((a1 - a0) * r) / 0.7));
-  for (let i = 0; i <= n; i++) {
-    const a = a0 + ((a1 - a0) * i) / n, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
-    k.cyl(0.42, 0.14, x, 0, z, M.pebble, 16);
-    k.cyl(0.43, 0.02, x, 0.13, z, M.rim, 16, 0.43);
-    if (i % 2 === 0) { k.add(new THREE.ConeGeometry(0.12, 0.55, 5), M.leafLight, x + 0.1, 0.42, z - 0.05, a); k.add(new THREE.ConeGeometry(0.1, 0.45, 5), M.leaf, x - 0.12, 0.37, z + 0.08, a + 1); }
-    if (i % 3 === 1) k.ball(0.12, x, 0.24, z, M.orb);
-    if (i % 4 === 2) slimTree(k, x, z, 2.3);
-    col(x - 0.35, z - 0.35, x + 0.35, z + 0.35);
+  // 매끈한 곡선 화단 하나 (하얀 자갈 + 은색 테두리), 위에는 나무 하나와 풀 두 포기만 — 단정하게
+  const shape = new THREE.Shape();
+  const w = 0.32, seg = 24;
+  for (let i = 0; i <= seg; i++) { const a = a0 + ((a1 - a0) * i) / seg; const p = [Math.cos(a) * (r + w), Math.sin(a) * (r + w)]; i ? shape.lineTo(...p) : shape.moveTo(...p); }
+  for (let i = seg; i >= 0; i--) { const a = a0 + ((a1 - a0) * i) / seg; shape.lineTo(Math.cos(a) * (r - w), Math.sin(a) * (r - w)); }
+  const bed = new THREE.ExtrudeGeometry(shape, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 1, curveSegments: 8 });
+  bed.rotateX(Math.PI / 2); bed.translate(0, 0.14, 0);
+  k.add(bed, M.pebble, cx, 0, cz);
+  const mid = (a0 + a1) / 2, at = (t) => { const a = a0 + (a1 - a0) * t; return [cx + Math.cos(a) * r, cz + Math.sin(a) * r, a]; };
+  { const [x, z] = at(0.5); slimTree(k, x, z, 2.2); }
+  for (const t of [0.2, 0.8]) { const [x, z, a] = at(t); k.add(new THREE.ConeGeometry(0.11, 0.42, 6), M.leafLight, x, 0.35, z, a); }
+  for (const t of [0.33, 0.67]) { const [x, z] = at(t); k.ball(0.09, x, 0.22, z, M.orb); }
+  void mid;
+  const n = Math.max(2, Math.round(((a1 - a0) * r) / 0.5));
+  for (let i = 0; i < n; i++) {
+    const a = a0 + ((a1 - a0) * (i + 0.5)) / n, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    col(x - 0.3, z - 0.3, x + 0.3, z + 0.3);
   }
 }
 // 라운지 한 묶음: 곡선 카펫 + 콩 소파 2개 + 빈백 + 스테인리스 원탁
@@ -463,10 +471,13 @@ export function createBuilding() {
     panel(group, logo, 3.6, 1.35, CE + 0.03, 1.95, CZ, Math.PI / 2).material.transparent = true;
     k.box(0.04, 0.04, 3.8, CE + 0.04, 2.75, CZ, M.lightWarm);
     // 안내 데스크
-    k.box(0.8, 1.05, 2.6, -5.4, 0, -4.3, M.white); col(-5.8, -5.6, -5.0, -3.0);
-    k.box(0.9, 0.04, 2.7, -5.4, 1.05, -4.3, M.walnut);
-    k.box(0.03, 0.03, 2.4, -4.98, 0.9, -4.3, M.lightWarm);
-    chair(k, -6.4, 0, -4.3, Math.PI / 2);
+    k.box(0.7, 0.72, 2.6, -5.4, 0, -4.3, M.white); col(-5.75, -5.6, -5.05, -3.0);
+    k.box(0.8, 0.04, 2.7, -5.4, 0.72, -4.3, M.oak);
+    k.box(0.03, 0.03, 2.4, -5.03, 0.6, -4.3, M.lightWarm);
+    k.box(0.4, 0.26, 0.03, -5.55, 0.76, -4.0, M.black, Math.PI / 2);          // 비서 모니터
+    k.cyl(0.05, 0.12, -5.3, 0.76, -4.9, M.pot, 8); k.ball(0.08, -5.3, 0.93, -4.9, M.leafLight); // 작은 화분
+    chair(k, -6.1, 0, -4.3, Math.PI / 2);
+    F.seats.pop(); // 비서 자리는 비워 둠 (NPC가 앉음)
     // 로비 소파 (창을 바라봄)
     // 로비 라운지: 둥근 러그 + 달걀 의자 + 원목 루버 칸막이
     loungeSet(k, col, -5.4, 3.5, 3, 0);
@@ -541,19 +552,20 @@ export function createBuilding() {
     panel(group, board, 0.5, 0.62, 4.2 + Math.sin(-0.2) * 0.03, 0.5, -3.0 + Math.cos(-0.2) * 0.03, -0.2, false);
     // 카페 테이블 (머그잔과 작은 꽃병)
     for (const [x, z] of [[2.6, -1.0], [5.6, -1.0], [2.6, 2.0], [5.6, 2.0]]) {
-      roundTable(k, col, x, 0, z, 0.45, 0.74, M.oak);
+      const TH = 0.56; // 캐릭터 눈높이에 맞춘 낮은 테이블
+      roundTable(k, col, x, 0, z, 0.45, TH, M.oak);
       chair(k, x - 0.8, 0, z, Math.PI / 2, M.fabricWarm);
       chair(k, x + 0.8, 0, z, -Math.PI / 2, M.fabricWarm);
-      mug(k, x - 0.18, 0.74, z + 0.05, (x + z) % 2 ? M.white : M.mugYellow);
-      mug(k, x + 0.18, 0.74, z - 0.05);
-      k.cyl(0.03, 0.12, x, 0.74, z - 0.15, M.glassRoom, 8); k.ball(0.04, x, 0.9, z - 0.15, M.pastryPink);
+      mug(k, x - 0.18, TH, z + 0.05, (x + z) % 2 ? M.white : M.mugYellow);
+      mug(k, x + 0.18, TH, z - 0.05);
+      k.cyl(0.03, 0.12, x, TH, z - 0.15, M.glassRoom, 8); k.ball(0.04, x, TH + 0.16, z - 0.15, M.pastryPink);
     }
     // 동쪽 벽 긴 소파 + 사각 테이블
     sofa(k, col, 9.35, 0, 1.2, -Math.PI / 2, 3.6, M.fabricGreen);
     for (const z of [0.3, 2.1]) {
-      k.box(0.7, 0.04, 0.7, 8.35, 0.7, z, M.oak); k.cyl(0.04, 0.7, 8.35, 0, z, M.metal, 6); col(8.0, z - 0.35, 8.7, z + 0.35);
+      k.box(0.7, 0.04, 0.7, 8.35, 0.52, z, M.oak); k.cyl(0.04, 0.52, 8.35, 0, z, M.metal, 6); col(8.0, z - 0.35, 8.7, z + 0.35);
       chair(k, 7.5, 0, z, Math.PI / 2, M.fabricWarm);
-      mug(k, 8.35, 0.74, z, M.mugRed);
+      mug(k, 8.35, 0.56, z, M.mugRed);
     }
     // 창가 바 (입구 오른쪽, 창을 바라봄)
     k.box(7.4, 0.05, 0.45, 5.9, 1.05, HZ - 0.55, M.walnut); col(2.2, HZ - 0.8, 9.6, HZ - 0.3);

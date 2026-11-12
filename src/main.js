@@ -57,6 +57,34 @@ const bld = createBuilding();
 scene.add(bld.group);
 bld.setFloor(0, true);
 const garden = createGarden(uniforms);
+
+// ---------- 1층 안내 비서 (NPC) ----------
+const NPC_SPOT = { x: -6.1, z: -4.3 };
+const npc = new Avatar('안내 비서', '#a8c4de', 'f');
+npc.setSit(true, 0.48);
+npc.root.position.set(NPC_SPOT.x, 0, NPC_SPOT.z);
+npc.root.rotation.y = Math.PI / 2; // 로비 쪽을 바라봄
+scene.add(npc.root);
+bld.floors[0].colliders.push({ x1: NPC_SPOT.x - 0.35, z1: NPC_SPOT.z - 0.35, x2: NPC_SPOT.x + 0.3, z2: NPC_SPOT.z + 0.35, tall: false });
+const NPC_LINES = [
+  '어서 오세요! WORK 사옥에 오신 걸 환영해요 😊',
+  '엘리베이터는 왼쪽 뒤에 있어요. 가까이 가면 층을 고를 수 있어요.',
+  '카페는 오른쪽이에요. 오늘의 커피는 예가체프예요 ☕',
+  '2층은 업무 공간, 3층은 회의실, 4층은 라운지와 오락존이에요.',
+  '4층 오락존에서 샌드백 치기 한 판 어떠세요? 🥊',
+  '옥상 테라스에서 보는 야경이 정말 예뻐요 🌙',
+  '정원 개울가에 앉으면 물소리가 들려요.',
+];
+let npcLine = 0, npcGreetAt = -99;
+function npcTalk() { npc.say(NPC_LINES[npcLine % NPC_LINES.length], now); npcLine++; }
+function updateNpc(dt) {
+  npc.root.visible = !(mode === 'office' && player.floor !== 0);
+  npc.animate(dt, 0, now);
+  // 가까이 오면 먼저 인사 (1분에 한 번)
+  if (mode === 'office' && player.floor === 0 && Math.hypot(player.x - (NPC_SPOT.x + 1.5), player.z - NPC_SPOT.z) < 2.6 && now - npcGreetAt > 60) {
+    npcGreetAt = now; npcLine = 0; npcTalk();
+  }
+}
 scene.add(garden.group);
 bld.floors[0].colliders.push(...garden.colliders);
 const sun = new THREE.DirectionalLight(0xfff1dc, 0);
@@ -332,8 +360,11 @@ const joy = { x: 0, y: 0, id: null };
 // ---------- 이동 · 충돌 ----------
 const R = 0.26;
 function collide(x, z) {
+  // 점프해서 높이 떠 있으면 낮은 가구(의자 · 테이블 · 소파 · 화단)는 넘어감. 벽 · 유리 · 큰 가구는 그대로 막힘
+  const air = myAvatar && myAvatar.jy > 0.3;
   for (let it = 0; it < 3; it++) {
     for (const c of bld.floors[player.floor].colliders) {
+      if (air && !c.tall) continue;
       if (c.circle) {
         const dx = x - c.cx, dz = z - c.cz, d = Math.hypot(dx, dz), m = c.r + R;
         if (d < m) { if (d > 1e-6) { x = c.cx + (dx / d) * m; z = c.cz + (dz / d) * m; } else z = c.cz + m; }
@@ -425,6 +456,7 @@ function updatePlayer(dt) {
   else if (player.sit) { pr.textContent = isTouch ? '일어나기 (누르기)' : '이동 키를 누르면 일어나요'; pr.hidden = false; }
   else if (what && what.seat && what.seat.desk) { pr.textContent = isTouch ? '💻 일하기 (누르기)' : 'E  💻 일하기'; pr.hidden = false; }
   else if (what && what.seat) { pr.textContent = isTouch ? '앉기 (누르기)' : 'E  앉기'; pr.hidden = false; }
+  else if (what === 'npc') { pr.textContent = isTouch ? '💬 비서에게 말 걸기 (누르기)' : 'E  💬 비서에게 말 걸기'; pr.hidden = false; }
   else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
   else pr.hidden = true;
@@ -437,6 +469,7 @@ function seatTaken(s) {
 }
 function nearWhat() {
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
+  if (player.floor === 0 && Math.hypot(player.x - (NPC_SPOT.x + 1.4), player.z - NPC_SPOT.z) < 1.3) return 'npc';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
   if (player.floor === 3) for (const b of BOOTHS) if (Math.hypot(player.x - b.spot.x, player.z - b.spot.z) < 0.85) return { booth: b };
   {
@@ -740,6 +773,7 @@ function interact() {
   if (player.sit) { standUp(); return; }
   if (what && what.booth) startGame(what.booth);
   else if (what && what.seat) sitDown(what.seat);
+  else if (what === 'npc') npcTalk();
   else if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
   else if (what === 'elev') openFloorMenu();
 }
@@ -954,6 +988,7 @@ function frame() {
     sendState();
   }
   updatePeers(dt);
+  updateNpc(dt);
   updateCamera(dt);
   if (!$('intro').hidden && pv.av) { pv.av.root.rotation.y += dt * 0.6; pv.av.animate(dt, 0, now); pv.renderer.render(pv.scene, pv.cam); }
   sky.position.copy(camera.position);
