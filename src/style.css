@@ -159,3 +159,9 @@ input, textarea { font: inherit; color: var(--fg); }
 
 .g-btns .primary { background: linear-gradient(90deg, #d4b06c, #f3dfae); color: #1a1408; border: 0; }
 @media (min-width: 701px) and (pointer: fine) { .g-panel { left: 16px; transform: none; top: 76px; width: 300px; } }
+
+/* 앱 안 브라우저 안내 */
+#inApp { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; align-items: center; gap: 8px; padding: max(8px, env(safe-area-inset-top)) 12px 8px; background: #fee500; color: #191600; font-size: 13px; font-weight: 600; }
+#inApp span { flex: 1; }
+#inApp button { border: 0; border-radius: 8px; padding: 8px 12px; background: #191600; color: #fee500; font-weight: 800; }
+#inApp .x { background: transparent; color: #191600; padding: 8px; }

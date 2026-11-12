@@ -15,6 +15,28 @@ import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches;
 
+// ---------- 앱 안 브라우저 안내 ----------
+{
+  const ua = navigator.userAgent || '';
+  const IN_APP = /KAKAOTALK|NAVER\(inapp|BAND\/|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|; wv\)/i.test(ua);
+  const outsideUrl = () => {
+    const url = location.href;
+    if (/KAKAOTALK/i.test(ua)) return 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
+    if (/Line\//i.test(ua)) return url + (url.includes('?') ? '&' : '?') + 'openExternalBrowser=1';
+    if (/Android/i.test(ua)) return 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+    return '';
+  };
+  if (IN_APP) {
+    $('inApp').hidden = false;
+    $('inAppOpen').onclick = () => {
+      const to = outsideUrl();
+      if (to) location.href = to;
+      else alert('화면 아래(또는 위) ⋯ 메뉴에서 "Safari로 열기" 또는 "다른 브라우저로 열기"를 눌러 주세요.');
+    };
+    $('inAppClose').onclick = () => { $('inApp').hidden = true; };
+  }
+}
+
 // ---------- 렌더러 ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
@@ -759,3 +781,4 @@ requestAnimationFrame(() => {
 
 // 테스트용 훅
 window.__work = { get mode() { return mode; }, toggleDay, game, bld, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor };
+window.__workMain = true;

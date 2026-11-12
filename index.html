@@ -5,6 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#05070d">
   <title>WORK</title>
+  <script>
+    // 카카오톡 안에서 링크를 열면 들어오자마자 기본 브라우저(크롬·사파리)로 넘김 (한 번만 시도)
+    (function () {
+      try {
+        if (!/KAKAOTALK/i.test(navigator.userAgent || '')) return;
+        if (sessionStorage.getItem('work_out_tried')) return;
+        sessionStorage.setItem('work_out_tried', '1');
+        location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+        // 못 넘어가서 화면 불러오기가 끊겼으면 한 번 다시 불러옴 (이번엔 넘기지 않음 → 위쪽 '브라우저로 열기' 단추로 안내)
+        var tries = 0, chk = setInterval(function () {
+          tries++;
+          if (window.__workMain || tries > 40) { clearInterval(chk); return; }
+          if (document.readyState === 'complete' && !document.hidden) { clearInterval(chk); location.reload(); }
+        }, 500);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="src/style.css">
   <script src="vendor/supabase/supabase.js"></script>
   <script type="importmap">
@@ -13,6 +30,13 @@
 </head>
 <body>
   <canvas id="c"></canvas>
+
+  <!-- 앱 안 브라우저(카카오톡·밴드·네이버 등)에서 열었을 때 -->
+  <div id="inApp" hidden>
+    <span>앱 안에서는 소리·화면이 잘 안 될 수 있어요</span>
+    <button id="inAppOpen">브라우저로 열기</button>
+    <button id="inAppClose" class="x">✕</button>
+  </div>
 
   <!-- 시작 화면 -->
   <section id="intro">
