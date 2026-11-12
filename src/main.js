@@ -152,6 +152,8 @@ const duel = createDuel({
   levelChanged: (lv) => { myAvatar?.setName(lvName(me.name, lv, duel.loser)); sendState(true); },
   label: (p) => lvName(p.name, p.lv || 1, p.tt), zoneName: (z) => ZONES[z] || '',
   botSwing: () => duelBot.punch(now), botHurt: () => duelBot.hurt(now),
+  knockout: (id) => { if (id === me.id) myAvatar?.knockout(true); else if (id === 'bot') duelBot.knockout(true); else peers.get(id)?.av.knockout(true); },
+  spark: (power) => hitSpark(power), shake: (amt) => { camShake = Math.max(camShake, amt); },
   enterArena(side, vsBot) {
     duelBot.root.visible = !!vsBot;
     clearTarget();
@@ -160,14 +162,14 @@ const duel = createDuel({
     myAvatar.setBoxing(true); myAvatar.setSword(true);
     $('joy').hidden = true; $('btnJump').hidden = true;
     const go = () => {
-      player.x = ARENA.x + side * 0.95; player.z = ARENA.z; player.ry = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+      player.x = ARENA.x + side * 0.42; player.z = ARENA.z; player.ry = side < 0 ? Math.PI / 2 : -Math.PI / 2;
       cam.yaw = 0; cam.pitch = 0.22; cam.dist = 3.6;
       sendState(true);
     };
     if (player.floor !== ARENA.floor || mode !== 'office') { goFloor(ARENA.floor); setTimeout(go, 560); } else go();
   },
   exitArena() {
-    duelBot.root.visible = false;
+    duelBot.root.visible = false; duelBot.knockout(false); myAvatar.knockout(false);
     myAvatar.setBoxing(false); myAvatar.setSword(false);
     $('joy').hidden = !isTouch; $('btnJump').hidden = !isTouch;
     cam.dist = 3.4;
@@ -175,10 +177,28 @@ const duel = createDuel({
   },
 });
 const busy = () => game.on || duel.fighting;
+// 칼이 맞는 자리에 번쩍 (두 사람 사이) · 맞으면 화면 흔들림
+let camShake = 0;
+const sparkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.0, 1.2), transparent: true, depthWrite: false });
+const sparks = [];
+function hitSpark(power = 1) {
+  const g = new THREE.Mesh(new THREE.OctahedronGeometry(0.09 + 0.04 * power, 0), sparkMat.clone());
+  g.position.set(ARENA.x + (Math.random() - 0.5) * 0.15, FLOORS[ARENA.floor].y + 0.65 + Math.random() * 0.2, ARENA.z + (Math.random() - 0.5) * 0.2);
+  g.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+  scene.add(g); sparks.push({ g, t: 0 });
+}
+function updateSparks(dt) {
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i]; s.t += dt;
+    const k = s.t / 0.18;
+    s.g.scale.setScalar(1 + k * 2.2); s.g.material.opacity = Math.max(0, 1 - k); s.g.rotation.z += dt * 8;
+    if (k >= 1) { scene.remove(s.g); s.g.geometry.dispose(); s.g.material.dispose(); sparks.splice(i, 1); }
+  }
+}
 // 👾 업무 괴물 (연습 상대, 내 화면에만) · ⚔️ 결투 관리인 (4층 NPC)
 const duelBot = new WorkMonster(BOT_NAME);
 duelBot.setBoxing(true); duelBot.setSword(true);
-duelBot.root.position.set(ARENA.x + 0.95, FLOORS[ARENA.floor].y, ARENA.z); duelBot.root.rotation.y = -Math.PI / 2;
+duelBot.root.position.set(ARENA.x + 0.42, FLOORS[ARENA.floor].y, ARENA.z); duelBot.root.rotation.y = -Math.PI / 2;
 duelBot.root.visible = false;
 scene.add(duelBot.root);
 const HOST = { x: 3.3, z: -6.0 };
@@ -774,6 +794,10 @@ function updateCamera(dt) {
     camera.position.copy(pose.pos);
     curLook.copy(pose.look);
     camera.lookAt(curLook);
+    if (camShake > 0.001) { // 맞았을 때 화면 흔들림
+      camera.position.x += (Math.random() - 0.5) * camShake * 0.5; camera.position.y += (Math.random() - 0.5) * camShake * 0.4;
+      camShake *= Math.pow(0.002, dt);
+    }
   } else {
     if (idleTime > 4) orbit.angle += dt * 0.04;
     orbitPose(pose);
@@ -799,7 +823,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 300) && t - lastSend < 10000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, dl: duel.fighting ? 1 : 0, sc: duel.swings, lv: duel.level, tt: duel.loser ? 1 : 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, dl: duel.active ? 1 : 0, sc: duel.swings, lv: duel.level, tt: duel.loser ? 1 : 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
 }
 
 function onState(p) {
@@ -830,6 +854,7 @@ function onState(p) {
   const bx = Number.isInteger(p.bx) ? p.bx : -1;
   peer.av.setBoxing(bx >= 0 || !!p.dl);
   peer.av.setSword(!!p.dl);
+  if (!p.dl && peer.av.ko) peer.av.knockout(false);
   if (p.dl && (p.sc || 0) > (peer.sc || 0)) peer.av.punch(now);
   peer.sc = p.sc || 0;
   if ((p.lv || 1) !== peer.lv || !!p.tt !== !!peer.tt) { peer.lv = p.lv || 1; peer.tt = !!p.tt; peer.av.setName(lvName(p.name, peer.lv, peer.tt)); }
@@ -1170,6 +1195,7 @@ function frame() {
   traffic.update(dt);
   if (game.on) updateGame(dt);
   duel.update(dt);
+  updateSparks(dt);
   duelHost.root.visible = !(mode === 'office' && player.floor !== ARENA.floor); duelHost.animate(dt, 0, now);
   if (duelBot.root.visible) duelBot.animate(dt, 0, now);
   if (pingMark.visible) { pingMark.scale.setScalar(Math.max(1, pingMark.scale.x - dt * 3)); pingMark.rotation.z += dt * 2; }

@@ -215,6 +215,18 @@ export class Avatar {
     this.body.add(this.torso, this.legL, this.legR, this.armL, this.armR);
   }
   setSword(on) { this.swordOn = on; if (this.sword) this.sword.visible = on; }
+  // 결투에서 지면 뒤로 쓰러짐
+  knockout(on) { this.ko = on; this.koStart = null; if (!on) { this.body.rotation.x = 0; this.body.position.z = 0; } }
+  applyKO(now) {
+    if (!this.ko) return;
+    if (this.koStart == null) this.koStart = now;
+    const k = Math.min(1, (now - this.koStart) / 0.45);
+    const e = 1 - Math.pow(1 - k, 3);
+    this.body.rotation.x = -1.5 * e;
+    this.body.position.z = -0.25 * e;
+    this.body.position.y = 0.12 * Math.sin(k * Math.PI) * (1 - k) + 0.05 * e;
+    this.armL.rotation.x = this.armR.rotation.x = -2.6 * e;
+  }
   hurt(now) { this.hurtAt = now; }
 
   setLook(color, gender) {
@@ -346,11 +358,15 @@ export class Avatar {
     // 맞으면 뒤로 휘청
     const hk = Math.max(0, 1 - (now - (this.hurtAt ?? -9)) / 0.22);
     this.body.rotation.x = -0.3 * hk;
+    // 결투: 벨 때 앞으로 쑥 들어가고, 맞으면 뒤로 밀림
+    const lp = this.boxing && this.swordOn ? Math.max(0, 1 - (now - this.punchAt) / 0.18) : 0;
+    this.body.position.z = 0.2 * Math.sin(lp * Math.PI) - 0.14 * hk;
     // 서 있을 때 숨쉬기
     this.idle += dt;
     const breathe = Math.sin(this.idle * 1.8) * 0.006 * (1 - Math.min(s * 3, 1));
     this.body.position.y = Math.abs(Math.cos(this.phase)) * 0.04 * Math.min(s, 1) + breathe;
     this.torso.scale.y = 1 + breathe * 0.5;
+    this.applyKO(now);
     if (this.bubble && now > this.bubbleUntil) {
       this.root.remove(this.bubble);
       this.bubble.material.map.dispose(); this.bubble.material.dispose();
@@ -415,6 +431,15 @@ export class WorkMonster {
     this.armL.rotation.z = -0.3; this.armR.rotation.z = 0.3;
     this.body.position.y = Math.abs(Math.sin(this.t * 5)) * 0.04;  // 씩씩대며 들썩
     this.body.rotation.x = -0.3 * hk;
+    this.body.position.z = 0.22 * Math.sin(p * Math.PI) - 0.16 * hk; // 내리찍을 때 앞으로, 맞으면 뒤로
     this.body.scale.setScalar(1 + 0.03 * Math.sin(this.t * 10));
+    if (this.ko) { // 쓰러짐: 뒤로 벌러덩
+      if (this.koStart == null) this.koStart = now;
+      const k = Math.min(1, (now - this.koStart) / 0.5), e = 1 - Math.pow(1 - k, 3);
+      this.body.rotation.x = -1.5 * e; this.body.position.z = -0.3 * e; this.body.position.y = 0.04 * e;
+      this.body.scale.setScalar(1);
+      this.armR.rotation.x = this.armL.rotation.x = -2.8 * e;
+    }
   }
+  knockout(on) { this.ko = on; this.koStart = null; if (!on) { this.body.rotation.x = 0; this.body.position.z = 0; } }
 }

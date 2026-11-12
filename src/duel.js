@@ -101,6 +101,7 @@ export function createDuel(api) {
       const wName = e.winner ? (e.winner === me.id ? me.name : e.winnerName) : '';
       banner(e.winner ? `🏆 ${wName} 승리!${e.bot ? ' (연습)' : ''}` : `🤝 무승부! (${e.aName} vs ${e.bName})`, 5);
       api.chatLine(e.winner ? `🏆 ${e.aName} vs ${e.bName} — ${wName} 승리!` : `🤝 ${e.aName} vs ${e.bName} 무승부`);
+      if (e.loser) api.knockout(e.loser); // 진 사람은 뒤로 쓰러짐
       if (st.active && e.id === st.id) result(e);
       if (watch && e.id === watch.id) { watch = null; showBars(false); }
     }
@@ -119,7 +120,7 @@ export function createDuel(api) {
   function takeHit(dmg) {
     if (st.phase !== 'fight') return;
     st.myHp = Math.max(0, st.myHp - dmg);
-    api.hurtMe(); api.thump(1.2); floatText(`-${dmg}`, true);
+    api.hurtMe(); api.thump(1.2); floatText(`-${dmg}`, true); api.shake(0.12 + dmg * 0.03);
     if (st.myHp <= 0) finish(st.opp);
   }
   function attack() {
@@ -128,14 +129,15 @@ export function createDuel(api) {
     st.combo = now - st.last < 0.4 ? Math.min(st.combo + 0.1, 2) : 1;
     st.last = now;
     const dmg = Math.max(1, Math.round((0.7 + Math.random() * 0.8) * st.combo));
-    st.sc++; api.swing(); api.thump(st.combo); floatText(`+${dmg}`, false);
+    st.sc++; api.swing(); api.thump(st.combo); floatText(`+${dmg}`, false); api.spark(st.combo);
     if (st.bot) { st.oppHp = Math.max(0, st.oppHp - dmg); api.botHurt(); if (st.oppHp <= 0) finish(me.id); }
     else st.pending += dmg;
   }
   function finish(winnerId) {
     if (st.phase === 'done') return;
     st.phase = 'done';
-    const e = { t: 'end', id: st.id, winner: winnerId, winnerName: winnerId === me.id ? me.name : st.oppName, bot: st.bot ? 1 : 0,
+    const loser = !winnerId ? null : winnerId === me.id ? st.opp : me.id;
+    const e = { t: 'end', id: st.id, winner: winnerId, loser, winnerName: winnerId === me.id ? me.name : st.oppName, bot: st.bot ? 1 : 0,
       aName: st.role === 'a' ? me.name : st.oppName, bName: st.role === 'a' ? st.oppName : me.name };
     send(e); onEvent(e);
   }
