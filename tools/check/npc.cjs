@@ -1,0 +1,23 @@
+const { chromium } = require('playwright');
+const fs = require('fs');
+(async () => {
+  const out = process.argv[2];
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const ctx = await browser.newContext({ viewport: { width: 900, height: 520 } });
+  const cfg = fs.readFileSync('/home/user/work/src/config.js', 'utf8').replace(/supabaseUrl: '[^']*'/, "supabaseUrl: ''");
+  await ctx.route('**/src/config.js', (r) => r.fulfill({ body: cfg, contentType: 'text/javascript' }));
+  const page = await ctx.newPage();
+  const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+  await page.addInitScript(() => { localStorage.setItem('work-day', '1'); localStorage.setItem('work-tower-me', JSON.stringify({ name: '엘리', color: '#ff6b6b', gender: 'f' })); });
+  await page.goto('http://127.0.0.1:8123/', { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__work && __work.mode === 'office', null, { timeout: 300000 });
+  await page.evaluate(() => { document.querySelector('#chatToggle').click(); const w = __work; w.player.x = -4.6; w.player.z = -3.4; w.cam.yaw = 0.9; w.cam.pitch = 0.2; w.cam.dist = 3.4; });
+  await page.waitForTimeout(3000);
+  console.log('prompt:', await page.textContent('#prompt'));
+  await page.screenshot({ path: out + '/npc.png', timeout: 120000 });
+  await page.evaluate(() => { const w = __work; w.player.x = 1.5; w.player.z = 0.4; w.cam.yaw = Math.PI * 0.62; w.cam.pitch = 0.18; w.cam.dist = 3.6; });
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: out + '/cafe-low.png', timeout: 120000 });
+  console.log('errors:', errs.join('|') || 'none');
+  await browser.close();
+})();

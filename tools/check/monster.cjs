@@ -1,0 +1,30 @@
+const { chromium } = require('playwright');
+const fs = require('fs');
+(async () => {
+  const out = process.argv[2];
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-proxy-server'] });
+  const ctx = await browser.newContext({ viewport: { width: 900, height: 520 } });
+  const cfg = fs.readFileSync('/home/user/work/src/config.js', 'utf8').replace(/supabaseUrl: '[^']*'/, "supabaseUrl: ''");
+  await ctx.route('**/src/config.js', (r) => r.fulfill({ body: cfg, contentType: 'text/javascript' }));
+  const page = await ctx.newPage();
+  const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+  await page.addInitScript(() => { localStorage.setItem('work-day', '1'); localStorage.setItem('work-tower-me', JSON.stringify({ name: '엘리', color: '#ff6b6b', gender: 'f' })); });
+  await page.goto('http://127.0.0.1:8123/', { waitUntil: 'commit', timeout: 60000 });
+  await page.waitForFunction(() => window.__work && __work.mode === 'office', null, { timeout: 300000 });
+  await page.evaluate(() => { document.querySelector('#chatToggle').click(); __work.goFloor(3); });
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => { __work.duel.openPicker(); document.querySelector('#dPickList button.bot').click(); });
+  await page.waitForFunction(() => __work.duel.active, null, { timeout: 30000 });
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => { __work.duel.st.t = 0.01; });
+  await page.waitForFunction(() => __work.duel.st.phase === 'fight', null, { timeout: 60000 });
+  await page.evaluate(() => { const w = __work; w.cam.yaw = -0.55; w.cam.dist = 3.2; w.cam.pitch = 0.2; });
+  for (let i = 0; i < 4; i++) { await page.evaluate(() => __work.duel.attack()); await page.waitForTimeout(30); }
+  await page.screenshot({ path: out + '/fight-close.png', timeout: 120000 });
+  await page.evaluate(() => { __work.duel.st.oppHp = 2; __work.duel.attack(); __work.duel.attack(); });
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => { document.getElementById('dResult').hidden = true; });
+  await page.screenshot({ path: out + '/monster-down.png', timeout: 120000 });
+  console.log('errors:', errs.join('|') || 'none');
+  await browser.close();
+})();
