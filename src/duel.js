@@ -1,7 +1,9 @@
 // ⚔️ 소환의 검 결투
 // 4층 결투 관리인(NPC)에게 정식 신청 → 접속자 중 선택(하루 2번까지) 또는 👾 업무 괴물(연습) → 상대 수락 →
 // 모든 층에 "대결이 시작되었습니다" → 4층 결투장에서 연타 → 이기면 Lv +1 / 지면 😵패배자 칭호(다음에 이기면 떨어짐)
-// 서로 결투 알림만 주고받고, 레벨 · 칭호는 각자 기기에 저장
+// 서로 결투 알림만 주고받고, 레벨 · 칭호는 Supabase 'duel_stats' 표에 이름별로 저장 (어느 기기로 들어와도 같음)
+// 표가 없거나 로컬 데모 모드면 이 기기(localStorage)에만 저장
+import { supa } from './net.js';
 
 const HP = 100, FIGHT = 30;   // 체력, 제한 시간(초)
 const DAILY = 2;              // 사람에게 하는 도전: 하루 최대 횟수
@@ -13,7 +15,27 @@ export function createDuel(api) {
   const st = { active: false, phase: 'idle', id: null, opp: null, oppName: '', role: '', t: 0, myHp: HP, oppHp: HP, last: 0, combo: 1, pending: 0, sendAt: 0, sc: 0, referee: false, oppGoneAt: 0, bot: false, botNext: 0 };
   let stats = { level: 1, loser: false, win: 0, lose: 0, day: '', challenges: 0 };
   try { const s = JSON.parse(localStorage.getItem('work-duel2') || '{}'); stats = { ...stats, ...s }; } catch {}
-  const save = () => { try { localStorage.setItem('work-duel2', JSON.stringify(stats)); } catch {} };
+  let owner = '';   // 지금 레벨이 누구(이름) 것인지
+  const KEYS = ['level', 'loser', 'win', 'lose', 'day', 'challenges'];
+  const pick = (o) => Object.fromEntries(KEYS.map((k) => [k, o[k]]));
+  const save = () => {
+    try { localStorage.setItem('work-duel2', JSON.stringify(stats)); } catch {}
+    if (supa && owner) supa.from('duel_stats').upsert({ name: owner, ...pick(stats), updated_at: new Date().toISOString() }, { onConflict: 'name' })
+      .then(({ error }) => { if (error) console.warn('결투 기록 저장 실패', error.message); });
+  };
+  // 들어올 때 · 이름을 바꿨을 때: 그 이름의 기록을 불러옴 (없으면 이 기기 기록을 그 이름으로 올림)
+  async function load(name) {
+    owner = name;
+    if (!supa || !name) return;
+    const { data, error } = await supa.from('duel_stats').select('*').eq('name', name).maybeSingle();
+    if (owner !== name) return;
+    if (error) { console.warn('결투 기록 불러오기 실패', error.message); return; }
+    if (data) {
+      stats = { ...stats, ...pick(data), level: Math.max(1, data.level | 0), loser: !!data.loser };
+      try { localStorage.setItem('work-duel2', JSON.stringify(stats)); } catch {}
+      api.levelChanged(stats.level);
+    } else save();
+  }
   const today = () => new Date().toLocaleDateString('ko-KR');
   const left = () => { if (stats.day !== today()) { stats.day = today(); stats.challenges = 0; save(); } return Math.max(0, DAILY - stats.challenges); };
   let invite = null, outgoing = null;
@@ -196,7 +218,7 @@ export function createDuel(api) {
   }
 
   return {
-    st, onEvent, update, openPicker, attack, leave,
+    st, onEvent, update, openPicker, attack, leave, load,
     get active() { return st.active; },
     get fighting() { return st.active && st.phase !== 'done'; },
     get level() { return stats.level; },

@@ -305,6 +305,7 @@ function saveProfile() {
   try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
   myAvatar.setLook(me.color, me.gender);
   if (renamed) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
+  if (renamed) duel.load(me.name);
   closeProfile();
   sysMessage('캐릭터를 바꿨어요.');
   sendState(true);
@@ -334,6 +335,7 @@ function enter() {
   startAudio();
   myAvatar = new Avatar(me.name, me.color, me.gender);
   if (duel.level > 1 || duel.loser) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
+  duel.load(me.name); // 결투 레벨 · 칭호 (Supabase)
   scene.add(myAvatar.root);
   placeAvatar(myAvatar, player);
   me.jt = Date.now();
@@ -671,9 +673,10 @@ function walkTo(tx, tz, extra = {}) {
 function groundAt(x, z, feet) {
   let g = 0;
   for (const c of bld.floors[player.floor].colliders) {
-    if (c.tall || c.noStand || c.circle) continue;
+    if (c.tall || c.noStand) continue;
     const top = c.top ?? 0.6;
     const e = 0.18; // 가장자리에 걸쳐도 위에 서게 (밀려나며 덜컥거리지 않게)
+    if (c.circle) { if (top <= feet + 0.03 && top > g && Math.hypot(x - c.cx, z - c.cz) < c.r + e) g = top; continue; }
     if (top <= feet + 0.03 && top > g && x > c.x1 - e && x < c.x2 + e && z > c.z1 - e && z < c.z2 + e) g = top;
   }
   return g;

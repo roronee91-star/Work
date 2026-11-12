@@ -295,7 +295,7 @@ function beanBag(k, col, x, z, mat = M.pastelYellow) {
 function steelTable(k, col, x, z, r = 0.28, h = 0.45) {
   k.cyl(r, h, x, 0, z, M.steel, 24);
   k.cyl(r * 0.98, 0.01, x, h, z, M.white, 24);
-  col(x - r, z - r, x + r, z + r, false, h);
+  col(x - r, z - r, x + r, z + r, false, h, { circle: true, cx: x, cz: z, r }); // 둥근 탁자는 둥글게 막음
 }
 // 가는 실내 나무
 function slimTree(k, x, z, h = 2.4) {
@@ -326,7 +326,7 @@ function slatArc(k, col, cx, cz, r, a0, a1) {
   const n = Math.max(2, Math.round(((a1 - a0) * r) / 0.5));
   for (let i = 0; i < n; i++) {
     const a = a0 + ((a1 - a0) * (i + 0.5)) / n, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
-    col(x - 0.3, z - 0.3, x + 0.3, z + 0.3, false, 0.16);
+    col(x - 0.3, z - 0.3, x + 0.3, z + 0.3, false, 0.16, { circle: true, cx: x, cz: z, r: 0.3 }); // 곡선 화단도 둥글게 (사이로 걸어갈 수 있게)
   }
 }
 // 라운지 한 묶음: 곡선 카펫 + 콩 소파 2개 + 빈백 + 스테인리스 원탁
@@ -353,7 +353,7 @@ function roundTable(k, col, x, y, z, r = 0.45, h = 0.74, top = M.white) {
   k.cyl(r, 0.04, x, y + h - 0.04, z, top, 18);
   k.cyl(0.04, h - 0.04, x, y, z, M.metal, 6);
   k.cyl(0.25, 0.03, x, y, z, M.metal, 10);
-  col(x - r, z - r, x + r, z + r, false, h);
+  col(x - r, z - r, x + r, z + r, false, h, { circle: true, cx: x, cz: z, r }); // 둥근 탁자는 둥글게 막음
 }
 
 // ---------- 건물 ----------
@@ -368,7 +368,7 @@ export function createBuilding() {
     const group = new THREE.Group();
     group.position.y = f.y;
     const colliders = [];
-    return { ...f, index: i, group, colliders, seats: [], kit: new Kit(), col: (x1, z1, x2, z2, tall = false, top = 0.6) => colliders.push({ x1, z1, x2, z2, tall, top }) };
+    return { ...f, index: i, group, colliders, seats: [], kit: new Kit(), col: (x1, z1, x2, z2, tall = false, top = 0.6, round = null) => colliders.push({ x1, z1, x2, z2, tall, top, ...(round || {}) }) };
   });
   const W = HX * 2, D = HZ * 2;
   // 모니터 화면 (문서 · 표 · 코드가 섞인 업무 화면 한 장)
