@@ -109,3 +109,12 @@ input, textarea { font: inherit; color: var(--fg); }
   .actions { margin-left: 0; width: 100%; }
   .actions button { flex: 1; }
 }
+
+/* 엘리베이터 층 버튼 */
+#floorList { display: grid; gap: 8px; margin-top: 14px; }
+#floorList button { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.05); text-align: left; font-size: 16px; }
+#floorList button b { width: 34px; color: var(--gold); font-size: 18px; }
+#floorList button.here { border-color: rgba(232,211,160,.6); background: rgba(232,211,160,.12); }
+#floorList button:hover { background: rgba(255,255,255,.1); }
+#fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s; z-index: 30; }
+#fade.on { opacity: 1; }

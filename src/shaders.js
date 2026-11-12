@@ -17,8 +17,8 @@ vec3 applyFog(vec3 col, vec3 worldPos){
 // 강 중심선 (JS와 GLSL이 같은 값을 써야 합니다)
 export const RIVER_HALF = 230;
 export function riverCenter(x) {
-  return 900 + 140 * Math.sin(x / 850) + 60 * Math.sin(x / 310 + 1.3);
+  return 300 + 90 * Math.sin(x / 900) + 30 * Math.sin(x / 310 + 1.3);
 }
 export const RIVER_GLSL = /* glsl */`
-float riverC(float x){ return 900.0 + 140.0 * sin(x / 850.0) + 60.0 * sin(x / 310.0 + 1.3); }
+float riverC(float x){ return 300.0 + 90.0 * sin(x / 900.0) + 30.0 * sin(x / 310.0 + 1.3); }
 `;

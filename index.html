@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#05070d">
-  <title>WORK TOWER · 88F</title>
+  <title>WORK</title>
   <link rel="stylesheet" href="src/style.css">
   <script src="vendor/supabase/supabase.js"></script>
   <script type="importmap">
@@ -17,8 +17,8 @@
   <!-- 시작 화면 -->
   <section id="intro">
     <div class="intro-card">
-      <div class="brand" id="brandName">WORK TOWER</div>
-      <div class="tagline" id="brandTagline">서울의 야경이 내려다보이는 88층 오피스</div>
+      <div class="brand" id="brandName">WORK</div>
+      <div class="tagline" id="brandTagline">강이 내려다보이는 우리 회사 사옥</div>
       <label class="field">
         <span>이름</span>
         <input id="nameInput" maxlength="16" placeholder="이름을 입력하세요" autocomplete="nickname">
@@ -27,7 +27,7 @@
         <span>옷 색깔</span>
         <div id="colorPick" class="colors"></div>
       </div>
-      <button id="enterBtn" class="primary">88층으로 올라가기</button>
+      <button id="enterBtn" class="primary">출근하기</button>
       <p class="sub">화면을 드래그하면 건물을 둘러볼 수 있어요</p>
     </div>
   </section>
@@ -36,11 +36,12 @@
   <section id="hud" hidden>
     <header class="topbar">
       <div class="place">
-        <b id="floorLabel">88F</b>
-        <span id="zoneLabel">로비</span>
+        <b id="floorLabel">1F</b>
+        <span id="zoneLabel">로비·카페</span>
       </div>
       <div class="net"><i id="netDot"></i><span id="netText">연결 중…</span></div>
       <nav class="actions">
+        <button id="btnFloor">층 이동</button>
         <button id="btnNotice">공지</button>
         <button id="btnPeople">접속자 <b id="onlineCount">1</b></button>
         <button id="btnView">외관 보기</button>
@@ -62,7 +63,7 @@
     <button id="chatOpen" class="round" hidden>💬</button>
 
     <div id="prompt" hidden></div>
-    <div id="hint">WASD·방향키 이동 · Shift 달리기 · 드래그 회전 · 휠 줌 · Enter 채팅</div>
+    <div id="hint">WASD·방향키 이동 · Shift 달리기 · 드래그 회전 · 휠 줌 · Enter 채팅 · E 엘리베이터/공지판</div>
 
     <div id="joy" hidden><div id="joyKnob"></div></div>
   </section>
@@ -89,7 +90,16 @@
     </div>
   </div>
 
-  <div id="loading"><div class="spinner"></div><p>88층 오피스를 준비하고 있어요…</p></div>
+  <!-- 엘리베이터 -->
+  <div id="floorModal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>엘리베이터</h2><button class="close" data-close>✕</button></header>
+      <div id="floorList"></div>
+    </div>
+  </div>
+
+  <div id="fade"></div>
+  <div id="loading"><div class="spinner"></div><p>사옥을 준비하고 있어요…</p></div>
 
   <script type="module" src="src/main.js"></script>
 </body>

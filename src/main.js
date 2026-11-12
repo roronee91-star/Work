@@ -4,9 +4,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
-import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges } from './world.js';
-import { createTower } from './tower.js';
-import { createOffice, zoneAt, ZONES, S, CEIL, SPAWN, NOTICE_SPOT } from './office.js';
+import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite } from './world.js';
+import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, CEIL, ROOF, ELEV, NOTICE, SPAWN } from './building.js';
 import { Avatar } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
@@ -27,11 +26,10 @@ const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 12000);
 
 const uniforms = sharedUniforms();
 const sky = createSky(uniforms);
-scene.add(sky, createMountains(uniforms), createGround(uniforms), createCity(uniforms), createBridges(uniforms));
-const tower = createTower(uniforms);
-scene.add(tower.group);
-const office = createOffice();
-scene.add(office.group);
+scene.add(sky, createMountains(uniforms), createGround(uniforms), createCity(uniforms), createBridges(uniforms), createSite());
+const bld = createBuilding();
+scene.add(bld.group);
+bld.setFloor(0, true);
 
 const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: isTouch ? 0 : 4 });
 const composer = new EffectComposer(renderer, rt);
@@ -47,27 +45,27 @@ function resize() {
   bloom.setSize(w / 2, h / 2);
   camera.aspect = w / h;
   camera.fov = w < h ? 70 : 60;
+  if (mode === 'intro' && w > 760) camera.setViewOffset(w, h, -w * 0.2, 0, w, h); else camera.clearViewOffset();
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
-resize();
 
 // ---------- 상태 ----------
-document.title = `${CONFIG.companyName} · ${CONFIG.floorLabel}`;
+document.title = CONFIG.companyName;
 $('brandName').textContent = CONFIG.companyName;
 $('brandTagline').textContent = CONFIG.companyTagline;
-$('floorLabel').textContent = CONFIG.floorLabel;
 
 const me = { id: makeId(), name: '', color: AVATAR_COLORS[0] };
-const player = { x: SPAWN.x, z: SPAWN.z, ry: SPAWN.yaw + Math.PI, speed: 0, zone: 'lobby' };
+const player = { floor: SPAWN.floor, x: SPAWN.x, z: SPAWN.z, ry: SPAWN.yaw + Math.PI, speed: 0, zone: 'f1' };
 const cam = { yaw: SPAWN.yaw, pitch: 0.22, dist: 4.4, cur: 4.4 };
-const orbit = { angle: Math.PI - 0.55, elev: 0.08, radius: 900, target: new THREE.Vector3(0, -110, 0) };
+const orbit = { angle: 0.35, elev: 0.2, radius: 85, target: new THREE.Vector3(0, 8, 0) };
 let mode = 'intro'; // intro | office | exterior | fly
 let fly = null;
 let myAvatar = null;
 let net = null;
 const peers = new Map();
 let chatTab = 'all';
+resize();
 
 // 저장된 이름/색
 try {
@@ -94,6 +92,7 @@ function enter() {
   me.name = ($('nameInput').value.trim() || '게스트' + Math.floor(Math.random() * 900 + 100)).slice(0, 16);
   try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color })); } catch {}
   $('intro').hidden = true;
+  camera.clearViewOffset(); camera.updateProjectionMatrix();
   $('hud').hidden = false;
   $('joy').hidden = !isTouch;
   if (isTouch) setChatOpen(false);
@@ -104,7 +103,8 @@ function enter() {
     onState, onChat: receiveChat, onLeave: removePeer,
     onStatus(text, online) { $('netText').textContent = text; $('netDot').classList.toggle('on', online); },
   });
-  sysMessage(`${CONFIG.floorLabel}에 오신 걸 환영해요, ${me.name}님! 창가로 가서 야경을 보세요.`);
+  sysMessage(`${CONFIG.companyName}에 오신 걸 환영해요, ${me.name}님! 엘리베이터를 타고 옥상 테라스에서 야경을 보세요.`);
+  showFloorHud();
   if (!supa) sysMessage('지금은 로컬 데모 모드예요. 같은 브라우저에서 탭을 하나 더 열면 다른 사람처럼 보여요.');
   startFly('office', 3.2);
   sendState(true);
@@ -120,6 +120,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Enter') { e.preventDefault(); setChatOpen(true); $('chatInput').focus(); }
   if (e.code === 'KeyE') interact();
   if (e.code === 'Escape') closeModals();
+  if (/^Digit[1-5]$/.test(e.code) && !$('floorModal').hidden) goFloor(+e.code.slice(5) - 1);
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -160,7 +161,7 @@ canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY * 0.
 function pinchLen() { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); }
 function zoom(d) {
   if (mode === 'office') cam.dist = THREE.MathUtils.clamp(cam.dist * (1 + d), 1.2, 9);
-  else orbit.radius = THREE.MathUtils.clamp(orbit.radius * (1 + d), 160, 2200);
+  else orbit.radius = THREE.MathUtils.clamp(orbit.radius * (1 + d), 30, 700);
 }
 
 // 가상 조이스틱
@@ -187,7 +188,7 @@ const joy = { x: 0, y: 0, id: null };
 const R = 0.32;
 function collide(x, z) {
   for (let it = 0; it < 3; it++) {
-    for (const c of office.colliders) {
+    for (const c of bld.floors[player.floor].colliders) {
       const cx = Math.max(c.x1, Math.min(x, c.x2));
       const cz = Math.max(c.z1, Math.min(z, c.z2));
       let dx = x - cx, dz = z - cz;
@@ -204,8 +205,8 @@ function collide(x, z) {
       }
     }
   }
-  const lim = S - 0.4;
-  return [Math.max(-lim, Math.min(lim, x)), Math.max(-lim, Math.min(lim, z))];
+  const lx = HX - 0.5, lz = HZ - 0.5;
+  return [Math.max(-lx, Math.min(lx, x)), Math.max(-lz, Math.min(lz, z))];
 }
 
 function updatePlayer(dt) {
@@ -235,21 +236,32 @@ function updatePlayer(dt) {
   placeAvatar(myAvatar, player);
   myAvatar.animate(dt, player.speed, now);
 
-  const z = zoneAt(player.x, player.z);
+  const z = zoneAt(player.floor, player.x, player.z);
   if (z !== player.zone) {
     player.zone = z;
-    $('zoneLabel').textContent = ZONES[z];
-    $('zoneTab').textContent = ZONES[z];
+    showFloorHud();
     sendState(true);
   }
-  const nearNotice = Math.hypot(player.x - NOTICE_SPOT.x, player.z - NOTICE_SPOT.z) < 2.6;
   const pr = $('prompt');
-  if (nearNotice) { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
+  const what = nearWhat();
+  if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
+  else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
   else pr.hidden = true;
 }
 
+function nearWhat() {
+  if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
+  if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
+  return null;
+}
+function showFloorHud() {
+  $('floorLabel').textContent = FLOORS[player.floor].label;
+  const name = ZONES[player.zone].replace(/^\dF /, '');
+  $('zoneLabel').textContent = name;
+  $('zoneTab').textContent = name;
+}
 function placeAvatar(av, p) {
-  av.root.position.set(p.x, 0, p.z);
+  av.root.position.set(p.x, FLOORS[p.floor || 0].y, p.z);
   av.root.rotation.y = p.ry;
 }
 function lerpAngle(a, b, t) {
@@ -260,16 +272,17 @@ function lerpAngle(a, b, t) {
 // ---------- 카메라 ----------
 const tmpV = new THREE.Vector3();
 function insideTall(x, z) {
-  for (const c of office.colliders) if (c.tall && x > c.x1 - 0.15 && x < c.x2 + 0.15 && z > c.z1 - 0.15 && z < c.z2 + 0.15) return true;
+  for (const c of bld.floors[player.floor].colliders) if (c.tall && x > c.x1 - 0.15 && x < c.x2 + 0.15 && z > c.z1 - 0.15 && z < c.z2 + 0.15) return true;
   return false;
 }
 function officeCamPose(dt, out) {
-  const tx = player.x, ty = 1.5, tz = player.z;
+  const fy = FLOORS[player.floor].y, top = player.floor === ROOF ? 7 : CEIL - 0.15;
+  const tx = player.x, ty = fy + 1.5, tz = player.z;
   const dir = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   let allowed = cam.dist;
   for (let t = 0.3; t <= cam.dist; t += 0.12) {
     const x = tx + dir.x * t, y = ty + dir.y * t, z = tz + dir.z * t;
-    if (Math.abs(x) > S - 0.15 || Math.abs(z) > S - 0.15 || y > CEIL - 0.15 || y < 0.15 || insideTall(x, z)) { allowed = Math.max(0.3, t - 0.12); break; }
+    if (Math.abs(x) > HX - 0.15 || Math.abs(z) > HZ - 0.15 || y > fy + top || y < fy + 0.15 || insideTall(x, z)) { allowed = Math.max(0.3, t - 0.12); break; }
   }
   if (dt === null) cam.cur = allowed;
   else cam.cur = allowed < cam.cur ? allowed : cam.cur + (allowed - cam.cur) * Math.min(1, dt * 3);
@@ -299,11 +312,11 @@ function updateCamera(dt) {
     if (fly.to === 'office') officeCamPose(null, pose); else orbitPose(pose);
     // 위로 솟구쳤다가 내려오는 곡선
     const p = fly.fromPos.clone().lerp(pose.pos, k);
-    p.y += Math.sin(k * Math.PI) * (fly.to === 'office' ? 60 : 40);
+    p.y += Math.sin(k * Math.PI) * (fly.to === 'office' ? 25 : 15);
     camera.position.copy(p);
     curLook.copy(fly.fromLook).lerp(pose.look, Math.min(1, k * 1.15));
     camera.lookAt(curLook);
-    if (fly.t >= 1) { mode = fly.to; fly = null; }
+    if (fly.t >= 1) { mode = fly.to; fly = null; bld.setFloor(player.floor, mode !== 'office'); }
   } else if (mode === 'office') {
     officeCamPose(dt, pose);
     camera.position.copy(pose.pos);
@@ -317,8 +330,8 @@ function updateCamera(dt) {
     camera.lookAt(curLook);
   }
   // 거리 따라 near 조절 (먼 경치 깊이 정밀도)
-  const inside = Math.abs(camera.position.y) < 30 && Math.hypot(camera.position.x, camera.position.z) < 40;
-  const near = inside ? 0.08 : THREE.MathUtils.clamp(camera.position.distanceTo(curLook) * 0.004, 0.1, 3);
+  const inside = Math.abs(camera.position.x) < HX + 1 && Math.abs(camera.position.z) < HZ + 1 && camera.position.y < 25;
+  const near = inside ? 0.1 : THREE.MathUtils.clamp(camera.position.distanceTo(curLook) * 0.004, 0.1, 1);
   if (Math.abs(camera.near - near) > 0.01) { camera.near = near; camera.updateProjectionMatrix(); }
   if (myAvatar) myAvatar.root.visible = !(mode === 'office' && cam.cur < 0.7);
 }
@@ -332,7 +345,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 120) && t - lastSend < 2000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone });
+  net.sendState({ id: me.id, name: me.name, color: me.color, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone });
 }
 
 function onState(p) {
@@ -341,14 +354,15 @@ function onState(p) {
   if (!peer || peer.name !== p.name) {
     if (peer) { scene.remove(peer.av.root); peer.av.dispose(); }
     const fresh = !peer;
-    peer = { av: new Avatar(p.name, p.color), x: p.x, z: p.z, ry: p.ry, name: p.name, color: p.color };
+    peer = { av: new Avatar(p.name, p.color), x: p.x, z: p.z, ry: p.ry, floor: p.floor || 0, name: p.name, color: p.color };
     scene.add(peer.av.root);
     peers.set(p.id, peer);
     if (fresh) { sysMessage(`${p.name}님이 들어왔어요.`); sendState(true); }
     updateOnline();
   }
   if (peer.color !== p.color) { peer.av.setColor(p.color); peer.color = p.color; }
-  Object.assign(peer, { tx: p.x, tz: p.z, tr: p.ry, sp: p.sp || 0, zone: p.zone });
+  if ((p.floor || 0) !== peer.floor) { peer.x = p.x; peer.z = p.z; }
+  Object.assign(peer, { tx: p.x, tz: p.z, tr: p.ry, sp: p.sp || 0, zone: p.zone, floor: p.floor || 0 });
 }
 function removePeer(id) {
   const peer = peers.get(id);
@@ -366,6 +380,7 @@ function updatePeers(dt) {
     p.x += (p.tx - p.x) * k; p.z += (p.tz - p.z) * k;
     p.ry = lerpAngle(p.ry, p.tr, k);
     placeAvatar(p.av, p);
+    p.av.root.visible = mode !== 'office' || p.floor === player.floor;
     p.av.animate(dt, p.sp, now);
   }
 }
@@ -426,8 +441,8 @@ $('chatOpen').onclick = () => setChatOpen(true);
 let notices = [];
 async function refreshNotices() {
   notices = await listNotices();
-  drawNoticeBoard(office.notice.canvas, notices);
-  office.notice.texture.needsUpdate = true;
+  drawNoticeBoard(bld.notice.canvas, notices);
+  bld.notice.texture.needsUpdate = true;
   $('noticeList').innerHTML = notices.map((n) => {
     const d = n.created_at ? new Date(n.created_at).toLocaleDateString('ko-KR') : '';
     return `<li><h3>${esc(n.title)}</h3><p>${esc(n.body || '')}</p><small>${esc(n.author || '')} · ${d}</small></li>`;
@@ -444,8 +459,39 @@ $('btnNotice').onclick = () => { refreshNotices(); openModal('noticeModal'); };
 $('prompt').onclick = () => interact();
 function interact() {
   if (mode !== 'office') return;
-  if (Math.hypot(player.x - NOTICE_SPOT.x, player.z - NOTICE_SPOT.z) < 2.6) { refreshNotices(); openModal('noticeModal'); }
+  const what = nearWhat();
+  if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
+  else if (what === 'elev') openFloorMenu();
 }
+
+// ---------- 엘리베이터 · 층 이동 ----------
+function openFloorMenu() {
+  $('floorList').innerHTML = FLOORS.map((f, i) => `<button data-f="${i}" class="${i === player.floor ? 'here' : ''}"><b>${f.label}</b>${f.name}</button>`).join('');
+  $('floorList').querySelectorAll('button').forEach((b) => (b.onclick = () => goFloor(+b.dataset.f)));
+  openModal('floorModal');
+}
+function goFloor(f) {
+  closeModals();
+  if (mode === 'exterior') { player.floor = f; arrive(); startFly('office', 2.6); $('btnView').textContent = '외관 보기'; return; }
+  if (mode !== 'office') return;
+  const fade = $('fade');
+  fade.classList.add('on');
+  setTimeout(() => {
+    player.floor = f;
+    arrive();
+    bld.setFloor(f);
+    officeCamPose(null, pose);
+    fade.classList.remove('on');
+  }, 450);
+}
+function arrive() {
+  player.x = ELEV.x + 1.6; player.z = ELEV.z + 0.6; player.ry = Math.PI / 2;
+  cam.yaw = -Math.PI / 2; cam.pitch = 0.2;
+  player.zone = zoneAt(player.floor, player.x, player.z);
+  showFloorHud();
+  sendState(true);
+}
+$('btnFloor').onclick = () => { if (mode === 'office' || mode === 'exterior') openFloorMenu(); };
 $('noticeForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const title = $('noticeTitle').value.trim(), body = $('noticeBody').value.trim();
@@ -465,8 +511,8 @@ $('btnPeople').onclick = () => {
   openModal('peopleModal');
 };
 $('btnView').onclick = () => {
-  if (mode === 'office') { orbit.radius = 520; orbit.elev = 0.15; orbit.angle = Math.atan2(camera.position.x, camera.position.z); startFly('exterior', 2.6); $('btnView').textContent = '사무실로'; $('zoneLabel').textContent = '외관'; }
-  else if (mode === 'exterior') { startFly('office', 2.6); $('btnView').textContent = '외관 보기'; $('zoneLabel').textContent = ZONES[player.zone]; }
+  if (mode === 'office') { orbit.radius = 80; orbit.elev = 0.2; orbit.angle = Math.atan2(camera.position.x, camera.position.z); bld.setFloor(player.floor, true); startFly('exterior', 2.2); $('btnView').textContent = '안으로'; $('zoneLabel').textContent = '건물 밖에서 보기'; }
+  else if (mode === 'exterior') { startFly('office', 2.2); $('btnView').textContent = '외관 보기'; showFloorHud(); }
 };
 
 // ---------- 루프 ----------
@@ -481,7 +527,7 @@ function frame() {
   now += dt;
   idleTime += dt;
   uniforms.uTime.value = now;
-  tower.update(now);
+  bld.update(dt, myAvatar ? player : null);
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
     if (mode === 'office') updatePlayer(dt); else myAvatar.animate(dt, 0, now);
     sendState();
@@ -498,4 +544,4 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__tower = { get mode() { return mode; }, player, cam, orbit, peers, enter, keys };
+window.__work = { get mode() { return mode; }, player, cam, orbit, peers, enter, keys, goFloor };
