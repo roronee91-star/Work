@@ -430,7 +430,8 @@ function sendState(force = false) {
   if (!net) return;
   const t = performance.now();
   const movedEnough = Math.abs(player.x - lastSent.x) + Math.abs(player.z - lastSent.z) > 0.02 || Math.abs(player.ry - lastSent.ry) > 0.05;
-  if (!force && !(movedEnough && t - lastSend > 120) && t - lastSend < 2000) return;
+  // 무료 사용량을 아끼려고: 움직일 때 초당 4번, 가만히 있을 땐 8초에 한 번만 보냄
+  if (!force && !(movedEnough && t - lastSend > 250) && t - lastSend < 8000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
   net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc });
@@ -469,7 +470,7 @@ function removePeer(id) {
 function updatePeers(dt) {
   for (const p of peers.values()) {
     if (p.tx === undefined) continue;
-    const k = Math.min(1, dt * 8);
+    const k = Math.min(1, dt * 6);
     p.x += (p.tx - p.x) * k; p.z += (p.tz - p.z) * k;
     p.ry = lerpAngle(p.ry, p.tr, k);
     placeAvatar(p.av, p);
@@ -649,7 +650,7 @@ function punch() {
   if (game.combo > 1.8) f.classList.add('big');
   $('gFloat').appendChild(f);
   setTimeout(() => f.remove(), 700);
-  if (performance.now() - lastSend > 150) sendState(true);
+  if (performance.now() - lastSend > 250) sendState(true);
 }
 function updateGame(dt) {
   if (game.phase === 'count') {

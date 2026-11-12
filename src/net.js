@@ -56,7 +56,7 @@ export function connect(me, handlers) {
   const sweep = setInterval(() => {
     const now = performance.now();
     for (const [id, t] of lastSeen) {
-      if (now - t > 12000) { lastSeen.delete(id); handlers.onLeave(id); }
+      if (now - t > 25000) { lastSeen.delete(id); handlers.onLeave(id); }
     }
   }, 3000);
 

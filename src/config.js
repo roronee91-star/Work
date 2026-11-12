@@ -5,8 +5,8 @@ export const CONFIG = {
 
   // Supabase 프로젝트 주소와 공개(anon) 키. 비워 두면 "로컬 데모 모드"로 동작합니다.
   // (로컬 데모 모드: 같은 브라우저의 여러 탭끼리만 서로 보입니다.)
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://gayvbnowiuxzfwadoqtg.supabase.co',
+  supabaseAnonKey: 'sb_publishable_J1alIW63mRsTQ_MBR_7JkA_PWL8ijPG', // 공개용(Publishable) 키 — 비밀 키는 절대 넣지 않음
 
   // Supabase가 없을 때 공지판에 보여 줄 기본 공지
   defaultNotices: [
