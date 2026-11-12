@@ -176,6 +176,7 @@ export class Avatar {
     this.speed = 0;
     this.idle = Math.random() * 10;
     this.sitting = false; this.sitH = 0;
+    this.boxing = false; this.punchAt = -9; this.punchSide = false;
   }
 
   build() {
@@ -212,6 +213,8 @@ export class Avatar {
   }
 
   setSit(on, h = 0.42) { this.sitting = on; this.sitH = h; }
+  setBoxing(on) { this.boxing = on; }
+  punch(now) { this.punchAt = now; this.punchSide = !this.punchSide; }
 
   animate(dt, speed, now) {
     if (this.sitting) {
@@ -232,6 +235,17 @@ export class Avatar {
     this.legR.rotation.x = -swing;
     this.armL.rotation.x = -swing * 0.8;
     this.armR.rotation.x = swing * 0.8;
+    this.armL.rotation.z = -0.12; this.armR.rotation.z = 0.12;
+    if (this.boxing) {
+      // 가드 자세, 펀치할 때 한쪽 팔을 쭉 뻗음
+      const p = Math.max(0, 1 - (now - this.punchAt) / 0.16);
+      this.armL.rotation.x = this.armR.rotation.x = -1.2;
+      this.armL.rotation.z = 0.32; this.armR.rotation.z = -0.32;
+      const arm = this.punchSide ? this.armR : this.armL;
+      arm.rotation.x = -1.2 - 0.45 * p;
+      arm.rotation.z *= 1 - p;
+      this.body.rotation.y = (this.punchSide ? -1 : 1) * 0.18 * p;
+    } else this.body.rotation.y = 0;
     // 서 있을 때 숨쉬기
     this.idle += dt;
     const breathe = Math.sin(this.idle * 1.8) * 0.006 * (1 - Math.min(s * 3, 1));

@@ -5,9 +5,9 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
 import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, FOG_NIGHT, FOG_DAY } from './world.js';
-import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN } from './building.js';
+import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS } from './building.js';
 import { createGarden, STREAM } from './garden.js';
-import { startAudio, setWaterVolume, setMuted, isMuted } from './audio.js';
+import { startAudio, setWaterVolume, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
@@ -151,6 +151,11 @@ const isTyping = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.ta
 addEventListener('keydown', (e) => {
   if (isTyping()) { if (e.key === 'Escape') document.activeElement.blur(); return; }
   if (mode === 'intro') return;
+  if (game.on) {
+    if (['Space', 'KeyE', 'KeyJ', 'KeyF'].includes(e.code)) { e.preventDefault(); if (!e.repeat) punch(); }
+    if (e.code === 'Escape') quitGame();
+    return;
+  }
   keys.add(e.code);
   if (e.code === 'Enter') { e.preventDefault(); setChatOpen(true); $('chatInput').focus(); }
   if (e.code === 'KeyE') interact();
@@ -255,8 +260,9 @@ function updatePlayer(dt) {
   const mag = Math.min(Math.hypot(f, s), 1);
   const run = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(joy.x, joy.y) > 0.95;
   let moved = 0;
-  if (player.sit && mag > 0.05) standUp();
-  if (!player.sit && mag > 0.05) {
+  if (game.on) { f = 0; s = 0; }
+  if (player.sit && mag > 0.05 && !game.on) standUp();
+  if (!player.sit && !game.on && mag > 0.05) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
     const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     let mx = fx * f + rx * s, mz = fz * f + rz * s;
@@ -281,7 +287,9 @@ function updatePlayer(dt) {
   }
   const pr = $('prompt');
   const what = nearWhat();
-  if (player.sit) { pr.textContent = isTouch ? '일어나기 (누르기)' : '이동 키를 누르면 일어나요'; pr.hidden = false; }
+  if (game.on) pr.hidden = true;
+  else if (what && what.booth) { pr.textContent = isTouch ? `🥊 ${what.booth.i + 1}번 샌드백 치기 (누르기)` : `E  🥊 ${what.booth.i + 1}번 샌드백 치기`; pr.hidden = false; }
+  else if (player.sit) { pr.textContent = isTouch ? '일어나기 (누르기)' : '이동 키를 누르면 일어나요'; pr.hidden = false; }
   else if (what && what.seat) { pr.textContent = isTouch ? '앉기 (누르기)' : 'E  앉기'; pr.hidden = false; }
   else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
@@ -291,6 +299,7 @@ function updatePlayer(dt) {
 function nearWhat() {
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
+  if (player.floor === 3) for (const b of BOOTHS) if (Math.hypot(player.x - b.spot.x, player.z - b.spot.z) < 0.85) return { booth: b };
   {
     const list = player.floor === 0 ? null : bld.floors[player.floor].seats;
     let best = null, bd = 1.2;
@@ -424,7 +433,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 120) && t - lastSend < 2000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc });
 }
 
 function onState(p) {
@@ -443,6 +452,10 @@ function onState(p) {
   if ((p.floor || 0) !== peer.floor) { peer.x = p.x; peer.z = p.z; }
   Object.assign(peer, { tx: p.x, tz: p.z, tr: p.ry, sp: p.sp || 0, zone: p.zone, floor: p.floor || 0 });
   peer.av.setSit(!!p.st, +p.st || 0);
+  const bx = Number.isInteger(p.bx) ? p.bx : -1;
+  peer.av.setBoxing(bx >= 0);
+  if (bx >= 0 && (p.pc || 0) > (peer.pc || 0)) { peer.av.punch(now); if (peer.floor === player.floor) bld.hitBag(bx, 2); }
+  peer.pc = p.pc || 0;
 }
 function removePeer(id) {
   const peer = peers.get(id);
@@ -541,7 +554,8 @@ function interact() {
   if (mode !== 'office') return;
   const what = nearWhat();
   if (player.sit) { standUp(); return; }
-  if (what && what.seat) sitDown(what.seat);
+  if (what && what.booth) startGame(what.booth);
+  else if (what && what.seat) sitDown(what.seat);
   else if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
   else if (what === 'elev') openFloorMenu();
 }
@@ -557,6 +571,7 @@ function openFloorMenu() {
 function goFloor(f) {
   closeModals();
   if (player.sit) standUp();
+  if (game.on) quitGame();
   if (mode === 'exterior') { player.floor = f; arrive(); startFly('office', 2.6); $('btnView').textContent = '외관 보기'; return; }
   if (mode !== 'office') return;
   const fade = $('fade');
@@ -599,6 +614,80 @@ $('btnView').onclick = () => {
   if (mode === 'office') { orbit.radius = 80; orbit.elev = 0.2; orbit.angle = Math.atan2(camera.position.x, camera.position.z); bld.setFloor(player.floor, true); startFly('exterior', 2.2); $('btnView').textContent = '안으로'; $('zoneLabel').textContent = '건물 밖에서 보기'; }
   else if (mode === 'exterior') { startFly('office', 2.2); $('btnView').textContent = '외관 보기'; showFloorHud(); }
 };
+
+// ---------- 오락존: 샌드백 치기 ----------
+const game = { on: false, booth: null, phase: 'idle', t: 0, score: 0, hits: 0, combo: 1, maxCombo: 1, last: 0, pc: 0, beepAt: 4 };
+let best = 0;
+try { best = +localStorage.getItem('work-punch-best') || 0; } catch {}
+function startGame(b) {
+  if (player.sit) standUp();
+  Object.assign(game, { on: true, booth: b, phase: 'count', t: 3, score: 0, hits: 0, combo: 1, maxCombo: 1, last: 0, beepAt: 4 });
+  player.x = b.spot.x; player.z = b.spot.z; player.ry = Math.PI / 2;
+  cam.yaw = -0.75; cam.pitch = 0.2; cam.dist = 2.2; // 부스 앞 비스듬히에서 사람과 샌드백이 함께 보이게
+  myAvatar.setBoxing(true);
+  $('game').hidden = false; $('gResult').hidden = true; $('gPunch').hidden = false;
+  $('gScore').textContent = '0'; $('gCombo').textContent = ''; $('gTime').textContent = '10.0';
+  $('joy').hidden = true;
+  sendState(true);
+}
+function punch() {
+  if (!game.on || game.phase !== 'play') return;
+  const since = now - game.last;
+  game.combo = since < 0.42 ? Math.min(game.combo + 0.12, 2.5) : 1;
+  game.maxCombo = Math.max(game.maxCombo, game.combo);
+  game.last = now;
+  const dmg = Math.round((8 + Math.random() * 7) * game.combo);
+  game.score += dmg; game.hits++; game.pc++;
+  bld.hitBag(game.booth.i, 1.4 + game.combo * 0.6);
+  myAvatar.punch(now);
+  playThump(game.combo);
+  $('gScore').textContent = game.score;
+  $('gCombo').textContent = game.combo > 1.05 ? `콤보 x${game.combo.toFixed(1)}` : '';
+  const f = document.createElement('span');
+  f.className = 'gfloat'; f.textContent = `+${dmg}`;
+  f.style.left = `${45 + Math.random() * 10}%`;
+  if (game.combo > 1.8) f.classList.add('big');
+  $('gFloat').appendChild(f);
+  setTimeout(() => f.remove(), 700);
+  if (performance.now() - lastSend > 150) sendState(true);
+}
+function updateGame(dt) {
+  if (game.phase === 'count') {
+    game.t -= dt;
+    const n = Math.ceil(game.t);
+    $('gBig').textContent = n > 0 ? n : '시작!';
+    $('gBig').hidden = false;
+    if (n < game.beepAt && n > 0) { game.beepAt = n; playBeep(660); }
+    if (game.t <= 0) { game.phase = 'play'; game.t = 10; playBeep(990, 0.25); setTimeout(() => { if (game.phase === 'play') $('gBig').hidden = true; }, 500); }
+  } else if (game.phase === 'play') {
+    game.t -= dt;
+    $('gTime').textContent = Math.max(0, game.t).toFixed(1);
+    if (game.combo > 1 && now - game.last > 0.6) { game.combo = 1; $('gCombo').textContent = ''; }
+    if (game.t <= 0) endGame();
+  }
+}
+function endGame() {
+  game.phase = 'result';
+  const newBest = game.score > best;
+  if (newBest) { best = game.score; try { localStorage.setItem('work-punch-best', String(best)); } catch {} }
+  $('gBig').hidden = true; $('gPunch').hidden = true; $('gResult').hidden = false;
+  $('gResText').innerHTML = `<b>${game.score}점</b> · ${game.hits}번 펀치 · 최대 콤보 x${game.maxCombo.toFixed(1)}<br>${newBest ? '🎉 내 최고 기록!' : `내 최고 기록 ${best}점`}`;
+  playBeep(523, 0.15); setTimeout(() => playBeep(784, 0.3), 160);
+  const m = { id: me.id, name: me.name, color: me.color, text: `🥊 ${game.booth.i + 1}번 부스 샌드백 ${game.score}점!${newBest ? ' (최고 기록)' : ''}`, scope: 'all', ts: Date.now() };
+  net?.sendChat(m); showChat(m);
+}
+function quitGame() {
+  game.on = false; game.phase = 'idle';
+  myAvatar.setBoxing(false);
+  $('game').hidden = true;
+  $('joy').hidden = !isTouch;
+  cam.dist = 3.4;
+  sendState(true);
+}
+$('gPunch').addEventListener('pointerdown', (e) => { e.preventDefault(); punch(); });
+$('gAgain').onclick = () => startGame(game.booth);
+$('gQuit').onclick = quitGame;
+$('gClose').onclick = quitGame;
 
 // ---------- 낮 / 밤 ----------
 let dayTarget = 0, dayVal = -1;
@@ -649,6 +738,7 @@ function frame() {
   else if (Math.abs(dayVal - dayTarget) > 0.001) { dayVal += Math.sign(dayTarget - dayVal) * Math.min(Math.abs(dayTarget - dayVal), dt * 0.8); applyDay(dayVal); }
   bld.update(dt, myAvatar ? player : null);
   garden.update(dt);
+  if (game.on) updateGame(dt);
   if (myAvatar) updateWaterSound();
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
     if (mode === 'office') updatePlayer(dt); else myAvatar.animate(dt, 0, now);
@@ -667,4 +757,4 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__work = { get mode() { return mode; }, toggleDay, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor };
+window.__work = { get mode() { return mode; }, toggleDay, game, bld, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor };

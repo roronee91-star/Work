@@ -133,3 +133,29 @@ input, textarea { font: inherit; color: var(--fg); }
   .intro-card { margin: 0 0 0 3vw; max-height: calc(100vh - 32px); overflow: auto; padding: 24px 26px; }
   .tagline { margin-bottom: 16px; }
 }
+
+/* 샌드백 게임 */
+#game { position: absolute; inset: 0; pointer-events: none; }
+#game > * { pointer-events: auto; }
+.g-panel { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); width: min(340px, calc(100% - 24px)); padding: 12px 16px; border-radius: 16px; background: rgba(12,14,22,.78); border: 1px solid var(--line); text-align: center; backdrop-filter: blur(10px); }
+.g-top { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.g-top .g-time { margin-left: auto; color: var(--gold); }
+.g-score { margin: 6px 0 2px; }
+.g-score b { font-size: 40px; color: #ffd36b; }
+.g-score span { margin-left: 4px; }
+.g-score em { display: block; font-style: normal; color: #ff7a9a; font-weight: 800; min-height: 20px; }
+.g-help { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+#gResult p { margin: 6px 0 10px; line-height: 1.5; }
+.g-btns { display: flex; gap: 8px; }
+.g-btns button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); font-weight: 700; }
+#gBig { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 96px; font-weight: 900; color: #fff; text-shadow: 0 4px 24px rgba(0,0,0,.6); pointer-events: none !important; }
+#gPunch { position: absolute; right: 24px; bottom: 28px; width: 128px; height: 128px; border-radius: 50%; border: 4px solid #fff; background: radial-gradient(circle at 35% 30%, #ff8a7a, #d8343c); color: #fff; font-size: 26px; font-weight: 900; box-shadow: 0 8px 24px rgba(216,52,60,.5); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+#gPunch:active { transform: scale(.94); }
+#gFloat { position: absolute; left: 0; right: 0; top: 34%; height: 0; pointer-events: none !important; }
+.gfloat { position: absolute; font-size: 28px; font-weight: 900; color: #ffd36b; text-shadow: 0 2px 8px rgba(0,0,0,.6); animation: gup .7s ease-out forwards; }
+.gfloat.big { font-size: 40px; color: #ff6b8a; }
+@keyframes gup { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-70px); opacity: 0; } }
+@media (pointer: coarse), (max-width: 700px) { .g-panel { top: 110px; } #gPunch { bottom: 150px; } }
+
+.g-btns .primary { background: linear-gradient(90deg, #d4b06c, #f3dfae); color: #1a1408; border: 0; }
+@media (min-width: 701px) and (pointer: fine) { .g-panel { left: 16px; transform: none; top: 76px; width: 300px; } }

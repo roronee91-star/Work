@@ -7,7 +7,7 @@ export const FLOORS = [
   { label: '1F', name: '로비·카페', y: 0 },
   { label: '2F', name: '업무 공간', y: 4 },
   { label: '3F', name: '회의실', y: 8 },
-  { label: '4F', name: '라운지', y: 12 },
+  { label: '4F', name: '라운지·오락존', y: 12 },
   { label: 'RF', name: '옥상 테라스', y: 16 },
 ];
 export const HX = 10, HZ = 6.5;         // 바깥 유리벽 위치 (한 층 20m × 13m)
@@ -16,14 +16,20 @@ export const CEIL = 3.65;               // 바닥에서 천장까지
 export const ROOF = 4;                  // 옥상 층 번호
 export const ELEV = { x: -8.75, z: -0.9 }; // 엘리베이터 앞
 export const NOTICE = { floor: 2, x: -5.85, z: -0.8 };
+// 4층 오락존: 동쪽 창가 투명 부스 5칸, 칸마다 샌드백
+export const BOOTHS = Array.from({ length: 5 }, (_, i) => {
+  const z1 = -6.4 + i * 1.7, z2 = z1 + 1.7, zc = (z1 + z2) / 2;
+  return { i, z1, z2, zc, bagX: 9.35, spot: { x: 8.72, z: zc } };
+});
 export const SPAWN = { floor: 0, x: -2.5, z: -3.2, yaw: Math.PI / 2 };
 
 export const ZONES = {
-  garden: '1F 정원', f1: '1F 로비·카페', f2: '2F 업무 공간', f3: '3F 회의실 홀', meetA: '3F 회의실 A', meetB: '3F 회의실 B', f4: '4F 라운지', roof: '옥상 테라스',
+  garden: '1F 정원', f1: '1F 로비·카페', f2: '2F 업무 공간', f3: '3F 회의실 홀', meetA: '3F 회의실 A', meetB: '3F 회의실 B', f4: '4F 라운지', arcade: '4F 오락존', roof: '옥상 테라스',
 };
 export function zoneAt(f, x, z) {
   if (f === 0 && (Math.abs(x) > HX || Math.abs(z) > HZ)) return 'garden';
   if (f === 2 && z < -2) return x < 1.5 ? 'meetA' : 'meetB';
+  if (f === 3 && x > 7.6 && z < 2.6) return 'arcade';
   return ['f1', 'f2', 'f3', 'f4', 'roof'][f];
 }
 
@@ -570,7 +576,35 @@ export function createBuilding() {
       ctx.font = `400 26px ${FONT}`; ctx.fillStyle = '#c8c0dd'; ctx.fillText('오늘도 수고했어요 :)', w / 2, h / 2 + 50);
     });
     panel(group, tv, 2.3, 1.3, CE + 0.07, 1.8, CZ, Math.PI / 2);
-    for (const [x, z, s] of [[-9.3, 5.8, 1.1], [9.3, -5.8, 1], [9.4, 1, 0.9], [-6.6, -1.2, 0.8]]) plant(k, col, x, 0, z, s);
+    for (const [x, z, s] of [[-9.3, 5.8, 1.1], [-6.6, -1.2, 0.8], [7.2, 2.9, 0.8]]) plant(k, col, x, 0, z, s);
+    // ===== 오락존: 투명 부스 5칸 + 샌드백 =====
+    const FX = 8.4; // 부스 앞 유리 위치
+    k.box(10 - FX, 0.03, 8.5, (FX + 10) / 2, 0.02, -2.15, M.black);              // 고무 바닥
+    for (let i = 0; i <= 5; i++) {                                                // 칸막이 유리
+      const z = -6.4 + i * 1.7;
+      k.box(10 - FX, 2.3, 0.04, (FX + 10) / 2, 0, z, M.glassRoom);
+      k.box(10 - FX, 0.06, 0.08, (FX + 10) / 2, 2.3, z, M.metal);
+      k.box(0.08, 2.36, 0.08, FX, 0, z, M.metal);
+      col(FX, z - 0.06, 10, z + 0.06);
+    }
+    for (const b of BOOTHS) {
+      // 앞 유리 (가운데 0.8m는 열린 입구)
+      for (const [a, c] of [[b.z1, b.zc - 0.4], [b.zc + 0.4, b.z2]]) {
+        k.box(0.04, 2.3, c - a, FX, 0, (a + c) / 2, M.glassRoom); col(FX - 0.06, a, FX + 0.06, c);
+      }
+      k.box(0.08, 0.06, 1.7, FX, 2.3, b.zc, M.metal);
+      k.box(0.03, 0.03, 1.6, FX - 0.05, 2.22, b.zc, M.lamp);                      // 부스 위 조명 띠
+      k.box(1.2, 0.06, 0.06, b.bagX, 2.3, b.zc, M.metal);                          // 샌드백 거는 봉
+      k.box(1.0, 0.02, 0.8, 8.95, 0.05, b.zc, [M.mugRed, M.books2, M.mugYellow, M.fabricGreen, M.pastryPink][b.i]); // 칸 색 매트
+      col(b.bagX - 0.24, b.zc - 0.24, b.bagX + 0.24, b.zc + 0.24);
+      panel(group, signTex(`${b.i + 1}`, '', { w: 128, h: 128, size: 90, bg: '#101218', fg: ['#ff6b6b', '#4f8cff', '#ffb547', '#3ecf8e', '#ff7ac6'][b.i] }), 0.32, 0.32, FX - 0.07, 2.55, b.zc, -Math.PI / 2);
+    }
+    const arcadeSign = canvasTex(768, 160, (ctx, w, h) => {
+      ctx.fillStyle = '#0d0f16'; ctx.fillRect(0, 0, w, h);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 78px ${FONT}`;
+      ctx.fillStyle = '#ff6b9a'; ctx.fillText('🥊 PUNCH ZONE', w / 2, h / 2 + 4);
+    });
+    panel(group, arcadeSign, 2.4, 0.5, FX - 0.07, 3.1, -2.15, -Math.PI / 2);
   }
 
   // ---------- 옥상 테라스 ----------
@@ -611,6 +645,22 @@ export function createBuilding() {
   SEATS = null;
   floors.forEach((F) => { F.kit.flush(F.group); delete F.kit; });
 
+  // 샌드백 (위 봉에 매달려 흔들림)
+  const bagMat = new THREE.MeshStandardMaterial({ color: 0xb8332e, roughness: 0.55 });
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.6 });
+  const bags = BOOTHS.map((b) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(b.bagX, 2.3, b.zc);
+    const bk = new Kit();
+    bk.cyl(0.008, 1.25, 0, -1.25, 0, M.metal, 4);                                  // 줄
+    bk.cyl(0.19, 0.8, 0, -2.05, 0, bagMat, 18);                                    // 샌드백 (바닥에서 0.25~1.05m)
+    bk.cyl(0.195, 0.07, 0, -1.3, 0, capMat, 18); bk.cyl(0.195, 0.07, 0, -2.08, 0, capMat, 18);
+    bk.cyl(0.196, 0.05, 0, -1.7, 0, capMat, 18);
+    bk.flush(pivot);
+    floors[3].group.add(pivot);
+    return { pivot, ang: 0, vel: 0, wob: Math.random() * 6 };
+  });
+
   const group = new THREE.Group();
   group.add(shell, ...floors.map((f) => f.group));
 
@@ -646,6 +696,8 @@ export function createBuilding() {
     group,
     floors,
     notice: { canvas: noticeCanvas, texture: noticeTex },
+    bags,
+    hitBag(i, power) { const b = bags[i]; if (b) b.vel += power; },
     // 걷는 층만 보이기 (all=true면 모든 층)
     setFloor(f, all = false) {
       floors.forEach((F) => { F.group.visible = all || F.index === f; });
@@ -664,6 +716,15 @@ export function createBuilding() {
       applyRig();
     },
     update(dt, player) {
+      // 샌드백 흔들림 (스프링처럼 돌아옴)
+      for (const b of bags) {
+        b.vel += (-14 * b.ang - 1.6 * b.vel) * dt;
+        b.ang += b.vel * dt;
+        b.ang = Math.max(-0.7, Math.min(0.7, b.ang));
+        b.wob += dt * 3;
+        b.pivot.rotation.z = b.ang;
+        b.pivot.rotation.x = Math.sin(b.wob) * Math.min(Math.abs(b.ang), 0.15) * 0.4;
+      }
       for (const d of doors) {
         const near = player && player.floor === d.floor && Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 2.2;
         d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 5);

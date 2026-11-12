@@ -75,6 +75,22 @@
     <div id="hint">WASD·방향키 이동 · Shift 달리기 · 드래그 회전 · 휠 줌 · Enter 채팅 · E 엘리베이터/공지판</div>
 
     <div id="joy" hidden><div id="joyKnob"></div></div>
+
+    <!-- 샌드백 치기 -->
+    <div id="game" hidden>
+      <div class="g-panel">
+        <div class="g-top"><span>🥊 샌드백 치기</span><span class="g-time">⏱ <b id="gTime">10.0</b></span><button id="gClose" class="close">✕</button></div>
+        <div class="g-score"><b id="gScore">0</b><span>점</span> <em id="gCombo"></em></div>
+        <div id="gResult" hidden>
+          <p id="gResText"></p>
+          <div class="g-btns"><button id="gAgain" class="primary">다시 하기</button><button id="gQuit">그만하기</button></div>
+        </div>
+        <p class="g-help">스페이스·E 키 또는 펀치 버튼을 빠르게 연타! 이어서 치면 콤보 점수</p>
+      </div>
+      <div id="gBig" hidden>3</div>
+      <div id="gFloat"></div>
+      <button id="gPunch">펀치!</button>
+    </div>
   </section>
 
   <!-- 공지 -->
