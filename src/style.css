@@ -181,3 +181,5 @@ input, textarea { font: inherit; color: var(--fg); }
 }
 
 .place, .place span, .net span { white-space: nowrap; }
+
+.err { margin: -8px 0 12px; color: #ff9a8a; font-size: 13px; line-height: 1.4; }

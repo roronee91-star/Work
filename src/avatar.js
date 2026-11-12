@@ -32,6 +32,7 @@ function makeSprite(text, opt, height) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
   s.scale.set(height * aspect, height, 1);
   s.renderOrder = 10;
+  s.layers.set(1); // 이름표·말풍선은 빛 번짐 효과 뒤에 따로 그림 (밤에 빛나지 않게)
   return s;
 }
 
@@ -240,6 +241,7 @@ export class Avatar {
       this.workSprite.scale.set(0.26 * t.aspect, 0.26, 1);
       this.workSprite.position.y = 1.5;
       this.workSprite.renderOrder = 10;
+      this.workSprite.layers.set(1);
       this.root.add(this.workSprite);
     } else if (this.workSprite) {
       this.root.remove(this.workSprite); this.workSprite.material.dispose(); this.workSprite = null;

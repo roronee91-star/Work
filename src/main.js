@@ -45,7 +45,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x020309);
+// 배경색은 지우기 색으로 (scene.background를 쓰면 이름표를 따로 그릴 때 화면이 지워짐)
+const BG = new THREE.Color(0x020309);
+renderer.setClearColor(BG);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 12000);
 
 const uniforms = sharedUniforms();
@@ -66,6 +68,11 @@ const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.4, 0.92);
 composer.addPass(bloom);
+// 이름표 · 말풍선 전용 카메라(층 1): 빛 번짐(bloom) 뒤에 그려서 밤에도 빛나지 않음
+const labelCam = new THREE.PerspectiveCamera();
+const labelPass = new RenderPass(scene, labelCam);
+labelPass.clear = false;
+composer.addPass(labelPass);
 composer.addPass(new OutputPass());
 
 function resize() {
@@ -87,7 +94,9 @@ document.title = CONFIG.companyName;
 $('brandName').textContent = CONFIG.companyName;
 $('brandTagline').textContent = CONFIG.companyTagline;
 
-const me = { id: makeId(), name: '', color: AVATAR_COLORS[0], gender: 'm' };
+const me = { id: makeId(), name: '', color: AVATAR_COLORS[0], gender: 'm', jt: 0, dev: '' };
+// 이 기기 고유 번호 (같은 기기에서 다시 들어온 것인지 알아보려고)
+try { me.dev = localStorage.getItem('work-dev') || makeId(); localStorage.setItem('work-dev', me.dev); } catch { me.dev = makeId(); }
 const player = { floor: SPAWN.floor, x: SPAWN.x, z: SPAWN.z, ry: SPAWN.yaw + Math.PI, speed: 0, zone: 'f1' };
 const cam = { yaw: SPAWN.yaw, pitch: 0.28, dist: 3.4, cur: 3.4 };
 const orbit = { angle: 0.35, elev: 0.2, radius: 85, target: new THREE.Vector3(0, 8, 0) };
@@ -166,8 +175,26 @@ function closeProfile() {
   $('intro').classList.remove('editing');
   $('intro').hidden = true;
 }
+const nameTaken = (n) => [...peers.values()].some((p) => p.name === n);
+let forcedRename = false;
+function askNewName() {
+  if (forcedRename) return;
+  forcedRename = true;
+  openProfile();
+  $('introCancel').hidden = true;
+  $('nameErr').textContent = `"${me.name}" 이름은 이미 다른 분이 쓰고 있어요. 다른 이름을 정해 주세요.`;
+  $('nameErr').hidden = false;
+  $('nameInput').focus();
+}
 function saveProfile() {
   const name = ($('nameInput').value.trim() || me.name).slice(0, 16);
+  if (nameTaken(name)) {
+    $('nameErr').textContent = `"${name}" 이름은 이미 다른 분이 쓰고 있어요. 다른 이름을 정해 주세요.`;
+    $('nameErr').hidden = false;
+    return;
+  }
+  $('nameErr').hidden = true;
+  forcedRename = false;
   const renamed = name !== me.name;
   me.name = name;
   try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
@@ -202,8 +229,9 @@ function enter() {
   myAvatar = new Avatar(me.name, me.color, me.gender);
   scene.add(myAvatar.root);
   placeAvatar(myAvatar, player);
+  me.jt = Date.now();
   net = connect(me, {
-    onState, onChat: receiveChat, onLeave: removePeer,
+    onState, onChat: receiveChat, onLeave: removePeer, onSync: () => sendState(true),
     onStatus(text, online) { $('netText').textContent = text; $('netDot').classList.toggle('on', online); },
   });
   sysMessage(returning
@@ -292,7 +320,7 @@ const joy = { x: 0, y: 0, id: null };
     joy.x = dx / R; joy.y = dy / R;
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
   };
-  el.addEventListener('pointerdown', (e) => { joy.id = e.pointerId; el.setPointerCapture(e.pointerId); set(e); });
+  el.addEventListener('pointerdown', (e) => { document.activeElement?.blur?.(); joy.id = e.pointerId; el.setPointerCapture(e.pointerId); set(e); });
   el.addEventListener('pointermove', (e) => { if (e.pointerId === joy.id) set(e); });
   const end = (e) => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
   el.addEventListener('pointerup', end);
@@ -400,6 +428,11 @@ function updatePlayer(dt) {
   else pr.hidden = true;
 }
 
+// 다른 사람이 이미 앉아 있는 자리인지
+function seatTaken(s) {
+  for (const p of peers.values()) if (p.floor === player.floor && p.av.sitting && Math.hypot((p.tx ?? p.x) - s.x, (p.tz ?? p.z) - s.z) < 0.35) return true;
+  return false;
+}
 function nearWhat() {
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
@@ -407,9 +440,9 @@ function nearWhat() {
   {
     const list = player.floor === 0 ? null : bld.floors[player.floor].seats;
     let best = null, bd = 1.2;
-    if (list) for (const s of list) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd) { bd = d; best = s; } }
+    if (list) for (const s of list) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd && !seatTaken(s)) { bd = d; best = s; } }
     if (player.floor === 0)
-    for (const s of [...bld.floors[0].seats, ...garden.seats]) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd) { bd = d; best = s; } }
+    for (const s of [...bld.floors[0].seats, ...garden.seats]) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd && !seatTaken(s)) { bd = d; best = s; } }
     if (best) return { seat: best };
   }
   return null;
@@ -559,6 +592,7 @@ function updateCamera(dt) {
 }
 
 // ---------- 네트워크 ----------
+setInterval(() => sendState(), 4000); // 화면이 멈춰도(다른 탭) 살아 있다고 알림
 let lastSend = 0, lastSent = { x: 0, z: 0, ry: 0 };
 function sendState(force = false) {
   if (!net) return;
@@ -568,11 +602,15 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 250) && t - lastSend < 8000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0 });
 }
 
 function onState(p) {
   if (!p?.id || p.id === me.id) return;
+  // 같은 기기에서 예전에 열어 둔 내 화면이면(새로 고침 · 탭 다녀오기) 유령으로 보고 지움
+  if (p.dv && p.dv === me.dev && (p.jt || 0) < me.jt) { if (peers.has(p.id)) removePeer(p.id, true); return; }
+  // 같은 이름: 나중에 들어온 사람이 이름을 바꿔야 함
+  if (p.name === me.name && myAvatar && ((p.jt || 0) < me.jt || ((p.jt || 0) === me.jt && p.id < me.id))) askNewName();
   let peer = peers.get(p.id);
   if (!peer || peer.name !== p.name) {
     if (peer) { scene.remove(peer.av.root); peer.av.dispose(); }
@@ -593,13 +631,13 @@ function onState(p) {
   if (bx >= 0 && (p.pc || 0) > (peer.pc || 0)) { peer.av.punch(now); if (peer.floor === player.floor) bld.hitBag(bx, 2); }
   peer.pc = p.pc || 0;
 }
-function removePeer(id) {
+function removePeer(id, quiet = false) {
   const peer = peers.get(id);
   if (!peer) return;
   scene.remove(peer.av.root);
   peer.av.dispose();
   peers.delete(id);
-  sysMessage(`${peer.name}님이 나갔어요.`);
+  if (!quiet) sysMessage(`${peer.name}님이 나갔어요.`);
   updateOnline();
 }
 function updatePeers(dt) {
@@ -649,7 +687,6 @@ $('chatForm').addEventListener('submit', (e) => {
   showChat(m);
   myAvatar?.say(text, now);
   $('chatInput').value = '';
-  if (!isTouch) $('chatInput').blur();
 });
 document.querySelectorAll('.chat-tabs [data-tab]').forEach((b) => {
   b.onclick = () => {
@@ -858,7 +895,7 @@ let dayTarget = 0, dayVal = -1;
 function applyDay(d) {
   uniforms.uDay.value = d;
   uniforms.uFogColor.value.copy(FOG_NIGHT).lerp(FOG_DAY, d);
-  scene.background.setRGB(0.008, 0.012, 0.035).lerp(FOG_DAY, d);
+  renderer.setClearColor(BG.setRGB(0.008, 0.012, 0.035).lerp(FOG_DAY, d));
   sun.intensity = 2.6 * d;
   bloom.strength = 0.55 - 0.4 * d;
   bloom.threshold = 0.92 + 0.08 * d;
@@ -907,6 +944,7 @@ function frame() {
   updateCamera(dt);
   if (!$('intro').hidden && pv.av) { pv.av.root.rotation.y += dt * 0.6; pv.av.animate(dt, 0, now); pv.renderer.render(pv.scene, pv.cam); }
   sky.position.copy(camera.position);
+  labelCam.copy(camera); labelCam.layers.set(1);
   composer.render();
   requestAnimationFrame(frame);
 }
