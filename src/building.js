@@ -55,8 +55,8 @@ const M = {
   rim: new THREE.MeshStandardMaterial({ color: 0xd9d6cf, roughness: 0.3, metalness: 0.5 }),
   leafLight: new THREE.MeshStandardMaterial({ color: 0x86ad55, roughness: 0.8, flatShading: true }),
   orb: new THREE.MeshBasicMaterial({ color: C(1.25, 1.18, 1.02) }),
-  chairFrame: new THREE.MeshStandardMaterial({ color: 0xeae4d8, roughness: 0.35, metalness: 0.1 }),   // 아이보리 프레임
-  chairMesh: new THREE.MeshStandardMaterial({ color: 0xf6f2ea, roughness: 0.85 }),                    // 하얀 메시
+  chairFrame: new THREE.MeshStandardMaterial({ color: 0xe2d9c8, roughness: 0.4, metalness: 0.05, side: THREE.DoubleSide }),   // 아이보리 프레임
+  chairMesh: new THREE.MeshStandardMaterial({ color: 0xfaf8f3, roughness: 0.9, side: THREE.DoubleSide }),                    // 하얀 메시
   caster: new THREE.MeshStandardMaterial({ color: 0xcfc9bd, roughness: 0.5 }),
   slat: new THREE.MeshStandardMaterial({ color: 0xd2a874, roughness: 0.6 }),
   black: new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.5 }),
@@ -167,27 +167,51 @@ function panel(parent, tex, w, h, x, y, z, ry, basic = true) {
 // ---------- 가구 ----------
 // 지금 만드는 층의 앉을 자리 목록 (의자 · 스툴 · 소파가 스스로 등록)
 let SEATS = null, DESK = false, TASK = false; // DESK: 컴퓨터 책상 의자 (일하기 가능), TASK: 사무용 메시 의자로 그림
-// 사무용 메시 의자 (하얀·아이보리): 메시 등받이 · 메시 좌판 · L자 팔걸이 · 가스 실린더 · 바퀴 5개
-function taskChair(k, x, y, z, ry) {
-  const s = Math.sin(ry), c = Math.cos(ry);
-  const at = (lx, lz) => [x + c * lx + s * lz, z - s * lx + c * lz]; // 의자 기준 좌표 → 바닥 좌표
+// 사무용 메시 의자 (하얀·아이보리) — 모양은 한 번만 만들어 두고 자리마다 돌려 놓음
+let TASK_GEO = null;
+function taskChairGeo() {
+  if (TASK_GEO) return TASK_GEO;
+  const parts = { frame: [], mesh: [], caster: [] };
+  const put = (list, geo, x, y, z, rx = 0, ry = 0, rz = 0) => {
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    if (g.attributes.uv) g.deleteAttribute('uv');
+    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), new THREE.Vector3(1, 1, 1)));
+    parts[list].push(g);
+  };
+  // 다리 5개 (가운데에서 바깥으로 살짝 내려감) + 둥근 바퀴
   for (let i = 0; i < 5; i++) {
-    const a = ry + (i / 5) * Math.PI * 2;
-    const ex = x + Math.sin(a) * 0.28, ez = z + Math.cos(a) * 0.28;
-    k.box(0.3, 0.035, 0.05, x + Math.sin(a) * 0.14, y + 0.06, z + Math.cos(a) * 0.14, M.chairFrame, a + Math.PI / 2);
-    k.ball(0.032, ex, y + 0.035, ez, M.caster);
+    const a = (i / 5) * Math.PI * 2 + Math.PI / 5;
+    put('frame', new RoundedBoxGeometry(0.05, 0.035, 0.27, 2, 0.015), Math.sin(a) * 0.14, 0.075, Math.cos(a) * 0.14, -0.12, a);
+    put('caster', new THREE.SphereGeometry(0.03, 10, 8), Math.sin(a) * 0.27, 0.03, Math.cos(a) * 0.27);
   }
-  k.cyl(0.025, 0.3, x, y + 0.08, z, M.metal, 8);                                   // 가스 실린더
-  k.box(0.2, 0.05, 0.22, x, y + 0.36, z, M.chairFrame, ry);                         // 좌판 받침
-  { const [sx, sz] = at(0, 0.02); k.box(0.48, 0.06, 0.46, sx, y + 0.41, sz, M.chairMesh, ry); }   // 메시 좌판
-  { const [fx, fz] = at(0, -0.24); k.box(0.07, 0.36, 0.04, fx, y + 0.42, fz, M.chairFrame, ry); }  // 등받이 기둥
-  { const [bx, bz] = at(0, -0.26); k.box(0.36, 0.2, 0.035, bx, y + 0.58, bz, M.chairMesh, ry); }   // 허리 부분 (좁게)
-  { const [bx, bz] = at(0, -0.28); k.box(0.46, 0.3, 0.035, bx, y + 0.76, bz, M.chairMesh, ry); }   // 등 위쪽 (넓게)
-  { const [bx, bz] = at(0, -0.285); k.box(0.48, 0.03, 0.045, bx, y + 1.05, bz, M.chairFrame, ry); } // 위쪽 테두리
+  put('frame', new THREE.CylinderGeometry(0.05, 0.06, 0.06, 14), 0, 0.09, 0);          // 가운데 허브
+  put('frame', new THREE.CylinderGeometry(0.022, 0.022, 0.28, 10), 0, 0.25, 0);        // 가스 실린더
+  put('frame', new RoundedBoxGeometry(0.22, 0.05, 0.24, 2, 0.02), 0, 0.395, 0);        // 좌판 받침
+  // 좌판: 둥근 쿠션, 앞쪽이 살짝 내려감 (폭포형)
+  put('frame', new RoundedBoxGeometry(0.5, 0.05, 0.47, 3, 0.022), 0, 0.43, 0.01);
+  put('mesh', new RoundedBoxGeometry(0.46, 0.025, 0.43, 3, 0.012), 0, 0.46, 0.01);
+  put('frame', new THREE.CylinderGeometry(0.035, 0.035, 0.48, 12, 1, false, 0, Math.PI), 0, 0.43, 0.235, 0, 0, Math.PI / 2);
+  // 등받이: 사람 쪽으로 오목하게 휜 판 (원기둥의 일부), 뒤로 살짝 누움
+  const backArc = (r, h, th) => new THREE.CylinderGeometry(r, r, h, 20, 1, true, Math.PI - th / 2, th);
+  const BR = 0.55;
+  const backAt = (list, geo, y) => put(list, geo, 0, y, -0.27 + BR, -0.12);
+  backAt('frame', backArc(BR + 0.015, 0.56, 0.86), 0.8);                                  // 바깥 테
+  backAt('mesh', backArc(BR - 0.005, 0.5, 0.78), 0.8);                                    // 하얀 메시
+  backAt('frame', backArc(BR + 0.012, 0.06, 0.66), 0.66);                                 // 허리 받침 줄
+  put('frame', new RoundedBoxGeometry(0.07, 0.34, 0.05, 2, 0.02), 0, 0.5, -0.27, -0.25);  // 등받이 기둥
+  // 팔걸이: 좌판 옆에서 올라와 앞으로 뻗은 둥근 패드
   for (const sd of [-1, 1]) {
-    const [ax, az] = at(sd * 0.27, -0.05); k.box(0.035, 0.24, 0.05, ax, y + 0.44, az, M.chairFrame, ry);   // 팔걸이 기둥
-    const [px, pz] = at(sd * 0.27, 0.03); k.box(0.07, 0.03, 0.26, px, y + 0.68, pz, M.chairFrame, ry);    // 팔걸이 패드
+    put('frame', new RoundedBoxGeometry(0.04, 0.24, 0.06, 2, 0.015), sd * 0.27, 0.55, -0.06, 0.18);
+    put('frame', new RoundedBoxGeometry(0.075, 0.035, 0.27, 3, 0.016), sd * 0.27, 0.675, 0.02);
   }
+  TASK_GEO = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, mergeGeometries(v)]));
+  return TASK_GEO;
+}
+function taskChair(k, x, y, z, ry) {
+  const g = taskChairGeo();
+  k.add(g.frame, M.chairFrame, x, y, z, ry);
+  k.add(g.mesh, M.chairMesh, x, y, z, ry);
+  k.add(g.caster, M.caster, x, y, z, ry);
   SEATS?.push({ x, z, ry, h: 0.48, desk: DESK });
 }
 function chair(k, x, y, z, ry, mat = M.chairGray) {
