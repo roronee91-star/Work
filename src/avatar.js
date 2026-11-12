@@ -175,6 +175,7 @@ export class Avatar {
     this.phase = 0;
     this.speed = 0;
     this.idle = Math.random() * 10;
+    this.sitting = false; this.sitH = 0;
   }
 
   build() {
@@ -210,7 +211,19 @@ export class Avatar {
     this.bubbleUntil = now + 6 + Math.min(text.length / 15, 6);
   }
 
+  setSit(on, h = 0.42) { this.sitting = on; this.sitH = h; }
+
   animate(dt, speed, now) {
+    if (this.sitting) {
+      // 앉은 자세: 다리는 앞으로, 손은 무릎 위
+      this.legL.rotation.x = this.legR.rotation.x = -1.45;
+      this.armL.rotation.x = this.armR.rotation.x = -0.55;
+      this.idle += dt;
+      this.body.position.y = this.sitH + 0.03 - 0.25 * SCALE + Math.sin(this.idle * 1.8) * 0.004;
+      this.speed = 0;
+      if (this.bubble && now > this.bubbleUntil) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); this.bubble = null; }
+      return;
+    }
     this.speed += (speed - this.speed) * Math.min(1, dt * 10);
     const s = Math.min(this.speed / 4, 1.2);
     this.phase += dt * (4 + this.speed * 2.2);

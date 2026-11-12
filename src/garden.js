@@ -5,16 +5,18 @@ import { HX, HZ, LOT } from './building.js';
 import { CONFIG } from './config.js';
 
 const FOUNTAIN = { x: 0, z: 17 };
+export const STREAM = { z: 28.4, half: 1.1, gap: 1.6 }; // 앞마당 남쪽 개울
 
 function rng(seed) {
   let s = seed >>> 0;
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-export function createGarden() {
+export function createGarden(uniforms) {
   const group = new THREE.Group();
   const colliders = [];
   const col = (x1, z1, x2, z2) => colliders.push({ x1, z1, x2, z2, tall: false });
+  const seats = []; // 앉을 수 있는 곳 { x, z, ry, h }
   const k = new Kit();
   const rand = rng(77);
 
@@ -138,6 +140,7 @@ export function createGarden() {
     k.box(0.08, 0.42, 0.45, x + c * 0.8, 0, z - s * 0.8, M.black, ry);
     k.box(0.08, 0.42, 0.45, x - c * 0.8, 0, z + s * 0.8, M.black, ry);
     col(x - 0.9, z - 0.9, x + 0.9, z + 0.9);
+    seats.push({ x: x + s * 0.05, z: z + c * 0.05, ry, h: 0.46 });
   }
 
   // ---------- 건물 앞 화단 (입구 양옆) ----------
@@ -169,8 +172,8 @@ export function createGarden() {
   // ---------- 나무 ----------
   const treeSpots = [
     [-25, -25], [-16, -26], [-6, -24], [6, -25], [16, -24], [25, -26],
-    [-26, -6], [-27, 13], [-25, 25], [-14, 27], [-8, 25],
-    [26, -5], [27, 12], [25, 26], [14, 27], [8, 25],
+    [-26, -6], [-27, 13], [-25, 24], [-14, 24.5], [-8, 23.5],
+    [26, -5], [27, 12], [25, 24], [14, 24.5], [8, 23.5],
     [-16, 22], [16, 22], [-15, -6], [15, -6],
   ];
   treeSpots.forEach(([x, z], i) => {
@@ -185,6 +188,7 @@ export function createGarden() {
   // 덤불 (잔디 군데군데)
   for (let i = 0; i < 26; i++) {
     const x = (rand() < 0.5 ? -1 : 1) * (13 + rand() * 17), z = -28 + rand() * 56;
+    if (Math.abs(z - STREAM.z) < 2.4) continue;
     if (Math.abs(z - fz) < 3 || Math.abs(z - 6) < 3 || Math.abs(z + 16) < 4.5) continue;
     k.ball(0.5 + rand() * 0.4, x, 0.35, z, shrub, 0.75);
   }
@@ -215,7 +219,7 @@ export function createGarden() {
 
   // ---------- 정원등 (길 따라) ----------
   const bollards = [];
-  for (let z = HZ + 3.5; z <= L - 1; z += 3.2) { if (Math.abs(z - fz) > 9.6) bollards.push([-2.5, z], [2.5, z]); }
+  for (let z = HZ + 3.5; z <= L - 1; z += 3.2) { if (Math.abs(z - fz) > 9.6 && Math.abs(z - STREAM.z) > 1.8) bollards.push([-2.5, z], [2.5, z]); }
   for (let x = -L + 2; x <= L - 2; x += 3.6) { if (Math.abs(x) > 9.6) bollards.push([x, fz - 1.9], [x, fz + 1.9]); }
   for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) bollards.push([fx + Math.cos(a + 0.26) * 9.4, fz + Math.sin(a + 0.26) * 9.4]);
   for (const [x, z] of bollards) {
@@ -224,15 +228,74 @@ export function createGarden() {
   }
 
   // ---------- 표지석 ----------
-  k.box(3.2, 1.1, 0.8, 5.2, 0, L - 2.2, stone); col(3.6, L - 2.6, 6.8, L - 1.8);
+  k.box(3.2, 1.1, 0.8, -6.5, 0, 25.6, stone); col(-8.1, 25.2, -4.9, 26.0);
   const sign = canvasTex(768, 256, (ctx, w, h) => {
     ctx.fillStyle = '#2d2b28'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#e9d6a6'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = '800 120px "Pretendard","Noto Sans KR",sans-serif'; ctx.fillText(CONFIG.companyName, w / 2, h / 2 + 6);
   });
   const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.9), new THREE.MeshStandardMaterial({ map: sign, roughness: 0.6 }));
-  signMesh.position.set(5.2, 0.6, L - 1.79);
+  signMesh.position.set(-6.5, 0.6, 26.01);
   group.add(signMesh);
+
+  // ---------- 개울 (청계천처럼 앞마당을 가로질러 흐름) ----------
+  const SZ = STREAM.z, SH = STREAM.half, GAP = STREAM.gap;
+  const curbN = SZ - SH - 0.25, curbS = SZ + SH + 0.25;
+  const rock = new THREE.MeshStandardMaterial({ color: 0x77736c, roughness: 0.8, flatShading: true });
+  const curbLed = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.7, 0.95, 1.3) });
+  const CURB_LED = curbLed.color.clone();
+  for (const [a, b] of [[-L, -GAP], [GAP, L]]) {
+    const w = b - a, cx = (a + b) / 2;
+    k.box(w, 0.42, 0.5, cx, 0, curbN, stone); col(a, curbN - 0.25, b, curbN + 0.25);
+    k.box(w, 0.42, 0.5, cx, 0, curbS, stone); col(a, curbS - 0.25, b, curbS + 0.25);
+    k.box(w, 0.04, 0.04, cx, 0.3, curbN + 0.26, curbLed);
+    k.box(w, 0.04, 0.04, cx, 0.3, curbS - 0.26, curbLed);
+    col(a, SZ - SH, b, SZ + SH); // 물에는 못 들어감
+    // 돌턱에 앉는 자리 (북쪽은 물을 바라보고, 남쪽도 물을 바라봄)
+    for (let x = a + 1.5; x <= b - 1.2; x += 3.2) {
+      seats.push({ x, z: curbN, ry: 0, h: 0.42 });
+      seats.push({ x: x + 1.6 < b ? x + 1.6 : x, z: curbS, ry: Math.PI, h: 0.42 });
+    }
+  }
+  // 징검다리
+  for (const [x, z] of [[-0.6, SZ - 0.8], [0.5, SZ - 0.25], [-0.4, SZ + 0.35], [0.6, SZ + 0.85]]) k.cyl(0.42, 0.14, x, 0.0, z, stone, 12);
+  // 물속 돌 · 물가 풀
+  for (let i = 0; i < 26; i++) {
+    const x = -L + 2 + rand() * (2 * L - 4);
+    if (Math.abs(x) < GAP + 0.5) continue;
+    k.ball(0.18 + rand() * 0.22, x, 0.06, SZ + (rand() - 0.5) * 1.4, rock, 0.55);
+  }
+  for (let i = 0; i < 40; i++) {
+    const x = -L + 1 + rand() * (2 * L - 2);
+    if (Math.abs(x) < GAP + 0.6) continue;
+    const z = rand() < 0.5 ? SZ - SH + 0.15 : SZ + SH - 0.15;
+    k.add(new THREE.ConeGeometry(0.05, 0.6, 4), lawnDark, x, 0.3, z, rand() * 3);
+    k.add(new THREE.ConeGeometry(0.04, 0.45, 4), lawn, x + 0.12, 0.22, z + 0.05, rand() * 3);
+  }
+  const streamMat = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: `varying vec3 vWorld; void main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vWorld = wp.xyz; gl_Position = projectionMatrix * viewMatrix * wp; }`,
+    fragmentShader: `
+      uniform float uTime; uniform float uDay;
+      varying vec3 vWorld;
+      void main(){
+        vec2 p = vWorld.xz;
+        float t = uTime;
+        float w1 = sin(p.x * 0.9 - t * 2.2 + sin(p.y * 4.0 + t * 0.7) * 1.2);
+        float w2 = sin(p.x * 2.3 - t * 3.1 + p.y * 6.0);
+        float w3 = sin(p.x * 5.1 - t * 4.0 - p.y * 3.0);
+        float hi = smoothstep(0.55, 1.0, w1 * 0.5 + w2 * 0.3 + w3 * 0.2);
+        vec3 deep = mix(vec3(0.015, 0.05, 0.09), vec3(0.12, 0.33, 0.4), uDay);
+        vec3 glint = mix(vec3(0.35, 0.55, 0.75), vec3(0.75, 0.88, 0.92), uDay);
+        float e = abs(p.y - ${SZ.toFixed(2)}) / ${SH.toFixed(2)};
+        vec3 col = deep * (1.0 - 0.4 * smoothstep(0.6, 1.0, e)) + glint * hi * 0.6;
+        col += vec3(0.25, 0.4, 0.55) * (1.0 - uDay) * smoothstep(0.75, 1.0, e) * 0.35;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+  const streamMesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * L, SH * 2), streamMat);
+  streamMesh.rotation.x = -Math.PI / 2; streamMesh.position.set(0, 0.045, SZ);
+  group.add(streamMesh);
 
   k.flush(group);
 
@@ -254,7 +317,9 @@ export function createGarden() {
   return {
     group,
     colliders,
+    seats,
     setDay(d) {
+      curbLed.color.copy(CURB_LED).multiplyScalar(1 - 0.85 * d);
       bollardTop.color.copy(BOLLARD).multiplyScalar(1 - 0.8 * d);
       fLight.intensity = 14 * (1 - d);
       waterMat.emissive.setRGB(0.045 * (1 - d), 0.2 * (1 - d), 0.31 * (1 - d));

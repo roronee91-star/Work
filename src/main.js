@@ -6,7 +6,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
 import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, FOG_NIGHT, FOG_DAY } from './world.js';
 import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN } from './building.js';
-import { createGarden } from './garden.js';
+import { createGarden, STREAM } from './garden.js';
+import { startAudio, setWaterVolume, setMuted, isMuted } from './audio.js';
 import { Avatar } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
@@ -31,7 +32,7 @@ scene.add(sky, createMountains(uniforms), createGround(uniforms), createCity(uni
 const bld = createBuilding();
 scene.add(bld.group);
 bld.setFloor(0, true);
-const garden = createGarden();
+const garden = createGarden(uniforms);
 scene.add(garden.group);
 bld.floors[0].colliders.push(...garden.colliders);
 const sun = new THREE.DirectionalLight(0xfff1dc, 0);
@@ -129,6 +130,7 @@ function enter() {
   $('hud').hidden = false;
   $('joy').hidden = !isTouch;
   if (isTouch) setChatOpen(false);
+  startAudio();
   myAvatar = new Avatar(me.name, me.color, me.gender);
   scene.add(myAvatar.root);
   placeAvatar(myAvatar, player);
@@ -253,7 +255,8 @@ function updatePlayer(dt) {
   const mag = Math.min(Math.hypot(f, s), 1);
   const run = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(joy.x, joy.y) > 0.95;
   let moved = 0;
-  if (mag > 0.05) {
+  if (player.sit && mag > 0.05) standUp();
+  if (!player.sit && mag > 0.05) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
     const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     let mx = fx * f + rx * s, mz = fz * f + rz * s;
@@ -278,7 +281,9 @@ function updatePlayer(dt) {
   }
   const pr = $('prompt');
   const what = nearWhat();
-  if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
+  if (player.sit) { pr.textContent = isTouch ? '일어나기 (누르기)' : '이동 키를 누르면 일어나요'; pr.hidden = false; }
+  else if (what && what.seat) { pr.textContent = isTouch ? '앉기 (누르기)' : 'E  앉기'; pr.hidden = false; }
+  else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
   else pr.hidden = true;
 }
@@ -286,7 +291,41 @@ function updatePlayer(dt) {
 function nearWhat() {
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
+  if (player.floor === 0) {
+    let best = null, bd = 1.4;
+    for (const s of garden.seats) { const d = Math.hypot(player.x - s.x, player.z - s.z); if (d < bd) { bd = d; best = s; } }
+    if (best) return { seat: best };
+  }
   return null;
+}
+// ---------- 앉기 ----------
+function sitDown(seat) {
+  player.sit = seat;
+  player.x = seat.x; player.z = seat.z; player.ry = seat.ry;
+  myAvatar.setSit(true, seat.h);
+  cam.yaw = seat.ry + Math.PI; cam.pitch = 0.3;
+  sendState(true);
+}
+function standUp() {
+  const s = player.sit;
+  player.sit = null;
+  const [nx, nz] = collide(s.x + Math.sin(s.ry) * 0.75, s.z + Math.cos(s.ry) * 0.75);
+  if (Math.abs(nz - STREAM.z) < STREAM.half + 0.35) { const [bx, bz] = collide(s.x - Math.sin(s.ry) * 0.75, s.z - Math.cos(s.ry) * 0.75); player.x = bx; player.z = bz; }
+  else { player.x = nx; player.z = nz; }
+  myAvatar.setSit(false);
+  sendState(true);
+}
+// 물소리: 개울·분수에 가까울수록 크게, 앉아 있으면 조금 더
+function updateWaterSound() {
+  let v = 0;
+  if (player.floor === 0 && (mode === 'office' || mode === 'fly')) {
+    const ds = Math.max(0, Math.abs(player.z - STREAM.z) - STREAM.half);
+    const vs = Math.pow(Math.max(0, 1 - ds / 14), 2) * 0.55;
+    const df = Math.max(0, Math.hypot(player.x, player.z - 17) - 3.7);
+    const vf = Math.pow(Math.max(0, 1 - df / 11), 2) * 0.4;
+    v = Math.max(vs, vf) * (player.sit ? 1.35 : 1);
+  }
+  setWaterVolume(v);
 }
 function showFloorHud() {
   $('floorLabel').textContent = FLOORS[player.floor].label;
@@ -382,7 +421,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 120) && t - lastSend < 2000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0 });
 }
 
 function onState(p) {
@@ -400,6 +439,7 @@ function onState(p) {
   if (peer.color !== p.color || peer.av.gender !== (p.g === 'f' ? 'f' : 'm')) { peer.av.setLook(p.color, p.g); peer.color = p.color; }
   if ((p.floor || 0) !== peer.floor) { peer.x = p.x; peer.z = p.z; }
   Object.assign(peer, { tx: p.x, tz: p.z, tr: p.ry, sp: p.sp || 0, zone: p.zone, floor: p.floor || 0 });
+  peer.av.setSit(!!p.st, +p.st || 0);
 }
 function removePeer(id) {
   const peer = peers.get(id);
@@ -497,9 +537,13 @@ $('prompt').onclick = () => interact();
 function interact() {
   if (mode !== 'office') return;
   const what = nearWhat();
-  if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
+  if (player.sit) { standUp(); return; }
+  if (what && what.seat) sitDown(what.seat);
+  else if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
   else if (what === 'elev') openFloorMenu();
 }
+$('btnSound').onclick = () => { setMuted(!isMuted()); $('btnSound').textContent = isMuted() ? '🔇' : '🔊'; startAudio(); try { localStorage.setItem('work-mute', isMuted() ? '1' : '0'); } catch {} };
+try { if (localStorage.getItem('work-mute') === '1') { setMuted(true); $('btnSound').textContent = '🔇'; } } catch {}
 
 // ---------- 엘리베이터 · 층 이동 ----------
 function openFloorMenu() {
@@ -509,6 +553,7 @@ function openFloorMenu() {
 }
 function goFloor(f) {
   closeModals();
+  if (player.sit) standUp();
   if (mode === 'exterior') { player.floor = f; arrive(); startFly('office', 2.6); $('btnView').textContent = '외관 보기'; return; }
   if (mode !== 'office') return;
   const fade = $('fade');
@@ -596,6 +641,7 @@ function frame() {
   else if (Math.abs(dayVal - dayTarget) > 0.001) { dayVal += Math.sign(dayTarget - dayVal) * Math.min(Math.abs(dayTarget - dayVal), dt * 0.8); applyDay(dayVal); }
   bld.update(dt, myAvatar ? player : null);
   garden.update(dt);
+  if (myAvatar) updateWaterSound();
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
     if (mode === 'office') updatePlayer(dt); else myAvatar.animate(dt, 0, now);
     sendState();
