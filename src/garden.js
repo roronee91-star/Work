@@ -84,33 +84,55 @@ export function createGarden(uniforms) {
     m.rotation.x = -Math.PI / 2; m.position.set(fx, 0.51, fz);
     group.add(m); ripples.push({ m, t: i / 3 });
   }
-  // 물방울
-  const N = 200;
+  // 흐르는 물 (줄무늬가 흘러내리는 반투명 물막) — 폭발처럼 튀지 않고 자연스럽게
+  const flowMat = (speed) => new THREE.ShaderMaterial({
+    uniforms: { uTime: uniforms.uTime, uDay: uniforms.uDay, uSpeed: { value: speed } },
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      uniform float uTime; uniform float uDay; uniform float uSpeed;
+      varying vec2 vUv;
+      float h(float n){ return fract(sin(n * 91.3) * 43758.5453); }
+      void main(){
+        float col = floor(vUv.x * 80.0);
+        float f = fract(vUv.y * 3.0 + uTime * uSpeed * (0.8 + 0.4 * h(col)) + h(col + 3.0));
+        float streak = smoothstep(0.0, 0.45, f) * (1.0 - smoothstep(0.55, 1.0, f));
+        float a = 0.22 + 0.42 * streak * (0.55 + 0.45 * h(col + 7.0));
+        vec3 c = mix(vec3(0.6, 0.8, 0.98), vec3(0.92, 0.97, 1.0), streak);
+        c *= mix(1.25, 1.0, uDay);
+        gl_FragColor = vec4(c, a);
+      }`,
+  });
+  // 가운데 물기둥 (위로 솟음)
+  const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.06, 0.5, 12, 1, true), flowMat(-1.6));
+  jet.position.set(fx, 2.45, fz);
+  group.add(jet);
+  // 물기둥 꼭대기에서 우산처럼 둥글게 퍼져 위 그릇으로 떨어지는 물
+  const crown = new THREE.Mesh(new THREE.LatheGeometry([
+    new THREE.Vector2(0.03, 2.72), new THREE.Vector2(0.22, 2.68), new THREE.Vector2(0.45, 2.52), new THREE.Vector2(0.68, 2.25),
+    new THREE.Vector2(0.86, 1.98), new THREE.Vector2(1.0, 1.76),
+  ], 32), flowMat(-1.1));
+  crown.position.set(fx, 0, fz);
+  group.add(crown);
+  // 위 그릇 가장자리에서 아래 수반으로 흘러넘치는 물막
+  const curtain = new THREE.Mesh(new THREE.CylinderGeometry(1.33, 1.48, 1.2, 40, 1, true), flowMat(0.9));
+  curtain.position.set(fx, 1.12, fz);
+  group.add(curtain);
+  // 물막이 떨어지는 곳의 작은 물보라
+  const N = 70;
   const drops = new Float32Array(N * 3);
   const vel = new Float32Array(N * 3);
   const spawn = (i, fresh) => {
-    const top = i % 3 !== 0; // 2/3는 꼭대기 물줄기, 1/3은 그릇 가장자리에서 떨어짐
-    const a = Math.random() * Math.PI * 2;
-    if (top) {
-      drops.set([fx, 2.15, fz], i * 3);
-      const r = 0.35 + Math.random() * 0.45;
-      vel.set([Math.cos(a) * r, 3.6 + Math.random() * 0.9, Math.sin(a) * r], i * 3);
-    } else {
-      drops.set([fx + Math.cos(a) * 1.3, 1.68, fz + Math.sin(a) * 1.3], i * 3);
-      vel.set([Math.cos(a) * 0.45, 0.2, Math.sin(a) * 0.45], i * 3);
-    }
-    if (fresh) { // 처음엔 시간차를 두고 흩뿌림
-      const t = Math.random() * 0.9;
-      for (let c = 0; c < 3; c++) drops[i * 3 + c] += vel[i * 3 + c] * t;
-      drops[i * 3 + 1] -= 4.9 * t * t;
-      vel[i * 3 + 1] -= 9.8 * t;
-      if (drops[i * 3 + 1] < 0.5) spawn(i, false);
-    }
+    const a = Math.random() * Math.PI * 2, r = 1.45 + Math.random() * 0.1;
+    drops.set([fx + Math.cos(a) * r, 0.52, fz + Math.sin(a) * r], i * 3);
+    const out = 0.1 + Math.random() * 0.25;
+    vel.set([Math.cos(a) * out, 0.5 + Math.random() * 0.6, Math.sin(a) * out], i * 3);
+    if (fresh) { const t = Math.random() * 0.2; for (let c = 0; c < 3; c++) drops[i * 3 + c] += vel[i * 3 + c] * t; }
   };
   for (let i = 0; i < N; i++) spawn(i, true);
   const dropGeo = new THREE.BufferGeometry();
   dropGeo.setAttribute('position', new THREE.BufferAttribute(drops, 3));
-  const dropMat = new THREE.PointsMaterial({ color: 0xd8efff, size: 0.09, transparent: true, opacity: 0.85, depthWrite: false });
+  const dropMat = new THREE.PointsMaterial({ color: 0xe6f4ff, size: 0.045, transparent: true, opacity: 0.7, depthWrite: false });
   const points = new THREE.Points(dropGeo, dropMat);
   points.frustumCulled = false;
   group.add(points);
@@ -131,17 +153,26 @@ export function createGarden(uniforms) {
   };
   const onPaths = (x, z) => Math.abs(x) < 2.4 || Math.abs(z - fz) < 1.9;
   ring(4.3, 0.09, onPaths); ring(4.7, 0.085, onPaths);
-  for (const a of [0.8, 2.35, 3.95, 5.5]) {
-    const r = 7, x = fx + Math.cos(a) * r, z = fz + Math.sin(a) * r;
-    const ry = Math.atan2(fx - x, fz - z); // 분수를 바라봄
+  // 벤치 (ry = 앉은 사람이 바라보는 방향). 한 벤치에 두 자리
+  const bench = (x, z, ry) => {
     const s = Math.sin(ry), c = Math.cos(ry);
     k.box(1.8, 0.08, 0.5, x, 0.42, z, wood, ry);
     k.box(1.8, 0.45, 0.06, x - s * 0.24, 0.5, z - c * 0.24, wood, ry);
     k.box(0.08, 0.42, 0.45, x + c * 0.8, 0, z - s * 0.8, M.black, ry);
     k.box(0.08, 0.42, 0.45, x - c * 0.8, 0, z + s * 0.8, M.black, ry);
-    col(x - 0.9, z - 0.9, x + 0.9, z + 0.9);
-    seats.push({ x: x + s * 0.05, z: z + c * 0.05, ry, h: 0.46 });
+    const hw = Math.abs(c) * 0.9 + Math.abs(s) * 0.3, hd = Math.abs(s) * 0.9 + Math.abs(c) * 0.3;
+    col(x - hw, z - hd, x + hw, z + hd);
+    for (const t of [-0.45, 0.45]) seats.push({ x: x + c * t + s * 0.05, z: z - s * t + c * 0.05, ry, h: 0.46 });
+  };
+  for (const a of [0.8, 2.35, 3.95, 5.5]) {
+    const r = 7, x = fx + Math.cos(a) * r, z = fz + Math.sin(a) * r;
+    bench(x, z, Math.atan2(fx - x, fz - z)); // 분수를 바라봄
   }
+  // 꽃밭을 바라보는 벤치 · 나무 그늘 벤치
+  bench(-20, 9.3, Math.PI); bench(20, 9.3, Math.PI);
+  bench(-20, -12.2, Math.PI); bench(22, -12.2, Math.PI);
+  bench(-13, -20, Math.PI / 2); bench(13, -20, -Math.PI / 2);
+  bench(-26, 2, Math.PI / 2); bench(26, 2, -Math.PI / 2);
 
   // ---------- 건물 앞 화단 (입구 양옆) ----------
   for (const sx of [-1, 1]) {
@@ -246,16 +277,19 @@ export function createGarden(uniforms) {
   const CURB_LED = curbLed.color.clone();
   for (const [a, b] of [[-L, -GAP], [GAP, L]]) {
     const w = b - a, cx = (a + b) / 2;
-    k.box(w, 0.42, 0.5, cx, 0, curbN, stone); col(a, curbN - 0.25, b, curbN + 0.25);
-    k.box(w, 0.42, 0.5, cx, 0, curbS, stone); col(a, curbS - 0.25, b, curbS + 0.25);
-    k.box(w, 0.04, 0.04, cx, 0.3, curbN + 0.26, curbLed);
-    k.box(w, 0.04, 0.04, cx, 0.3, curbS - 0.26, curbLed);
+    // 낮은 물가 둑 (발목 높이)
+    k.box(w, 0.18, 0.5, cx, 0, curbN, stone); col(a, curbN - 0.25, b, curbN + 0.25);
+    k.box(w, 0.18, 0.5, cx, 0, curbS, stone); col(a, curbS - 0.25, b, curbS + 0.25);
+    k.box(w, 0.03, 0.03, cx, 0.1, curbN + 0.26, curbLed);
+    k.box(w, 0.03, 0.03, cx, 0.1, curbS - 0.26, curbLed);
     col(a, SZ - SH, b, SZ + SH); // 물에는 못 들어감
     // 돌턱에 앉는 자리 (북쪽은 물을 바라보고, 남쪽도 물을 바라봄)
     for (let x = a + 1.5; x <= b - 1.2; x += 3.2) {
-      seats.push({ x, z: curbN, ry: 0, h: 0.42 });
-      seats.push({ x: x + 1.6 < b ? x + 1.6 : x, z: curbS, ry: Math.PI, h: 0.42 });
+      seats.push({ x, z: curbN, ry: 0, h: 0.18 });
+      seats.push({ x: x + 1.6 < b ? x + 1.6 : x, z: curbS, ry: Math.PI, h: 0.18 });
     }
+    // 개울을 바라보는 벤치 (북쪽 둑 뒤, 분수 광장은 피해서)
+    for (let x = a + 3; x <= b - 2; x += 6.5) if (Math.abs(x) > 10.5) bench(x, curbN - 1.1, 0);
   }
   // 징검다리
   for (const [x, z] of [[-0.6, SZ - 0.8], [0.5, SZ - 0.25], [-0.4, SZ + 0.35], [0.6, SZ + 0.85]]) k.cyl(0.42, 0.14, x, 0.0, z, stone, 12);
@@ -330,13 +364,12 @@ export function createGarden(uniforms) {
         const j = i * 3;
         vel[j + 1] -= 9.8 * dt;
         p[j] += vel[j] * dt; p[j + 1] += vel[j + 1] * dt; p[j + 2] += vel[j + 2] * dt;
-        const inBowl = Math.hypot(p[j] - fx, p[j + 2] - fz) < 1.15 && p[j + 1] < 1.75 && vel[j + 1] < 0;
-        if (p[j + 1] < 0.5 || inBowl) spawn(i, false);
+        if (p[j + 1] < 0.5) spawn(i, false);
       }
       dropGeo.attributes.position.needsUpdate = true;
       for (const r of ripples) {
         r.t = (r.t + dt * 0.35) % 1;
-        const s = 1.4 + r.t * 2.0;
+        const s = 1.6 + r.t * 1.8;
         r.m.scale.set(s, s, 1);
         r.m.material.opacity = 0.45 * (1 - r.t);
       }

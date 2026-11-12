@@ -1,6 +1,7 @@
 // 강가의 5층 유리 사옥: 1F 로비·카페 / 2F 업무 공간 / 3F 회의실 / 4F 라운지 / 옥상 테라스
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CONFIG } from './config.js';
 
 export const FLOORS = [
@@ -36,31 +37,42 @@ export function zoneAt(f, x, z) {
 // ---------- 재질 ----------
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const M = {
-  stone: new THREE.MeshStandardMaterial({ color: 0x55575d, roughness: 0.3, metalness: 0.05 }),
+  stone: new THREE.MeshStandardMaterial({ color: 0xebe6dc, roughness: 0.5 }),       // 아이보리 바닥
   stoneLight: new THREE.MeshStandardMaterial({ color: 0xbdb7ad, roughness: 0.35 }),
-  carpet: new THREE.MeshStandardMaterial({ color: 0x3a404c, roughness: 0.95 }),
-  carpetWarm: new THREE.MeshStandardMaterial({ color: 0x4a3f38, roughness: 0.95 }),
-  oak: new THREE.MeshStandardMaterial({ color: 0x9a7350, roughness: 0.55 }),
+  carpet: new THREE.MeshStandardMaterial({ color: 0xa4a25c, roughness: 0.95 }),     // 올리브 카펫
+  carpetWarm: new THREE.MeshStandardMaterial({ color: 0xb3ae6a, roughness: 0.95 }),
+  oak: new THREE.MeshStandardMaterial({ color: 0xdcc4a2, roughness: 0.55 }),        // 밝은 원목
   deck: new THREE.MeshStandardMaterial({ color: 0x6b4c34, roughness: 0.8 }),
-  walnut: new THREE.MeshStandardMaterial({ color: 0x3a2a1f, roughness: 0.5 }),
-  white: new THREE.MeshStandardMaterial({ color: 0xe8e5df, roughness: 0.45 }),
+  walnut: new THREE.MeshStandardMaterial({ color: 0xd0b08a, roughness: 0.5 }),      // 조금 진한 원목
+  white: new THREE.MeshStandardMaterial({ color: 0xf6f3ec, roughness: 0.45 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.9, emissive: 0x7a756c }), // 아래를 보는 면이라 스스로 조금 밝게
+  chairGray: new THREE.MeshStandardMaterial({ color: 0xf1ece3, roughness: 0.5 }),   // 하얀 셸 의자
+  lime: new THREE.MeshStandardMaterial({ color: 0xd3df8f, roughness: 0.95 }),
+  cream: new THREE.MeshStandardMaterial({ color: 0xf2ece0, roughness: 0.95 }),
+  pastelYellow: new THREE.MeshStandardMaterial({ color: 0xf2e28c, roughness: 0.95 }),
+  pastelBlue: new THREE.MeshStandardMaterial({ color: 0xcbd8e4, roughness: 0.95 }),
+  pebble: new THREE.MeshStandardMaterial({ color: 0xf7f5f0, roughness: 0.8, emissive: 0x5a564e }),
+  rim: new THREE.MeshStandardMaterial({ color: 0xd9d6cf, roughness: 0.3, metalness: 0.5 }),
+  leafLight: new THREE.MeshStandardMaterial({ color: 0x86ad55, roughness: 0.8, flatShading: true }),
+  orb: new THREE.MeshBasicMaterial({ color: C(1.25, 1.18, 1.02) }),
+  slat: new THREE.MeshStandardMaterial({ color: 0xd2a874, roughness: 0.6 }),
   black: new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.5 }),
   metal: new THREE.MeshStandardMaterial({ color: 0x9da2aa, roughness: 0.35, metalness: 0.6 }),
   gold: new THREE.MeshStandardMaterial({ color: 0xb8975a, roughness: 0.3, metalness: 0.75 }),
-  fabricBlue: new THREE.MeshStandardMaterial({ color: 0x2f4f6b, roughness: 0.9 }),
-  fabricWarm: new THREE.MeshStandardMaterial({ color: 0x9a5f3d, roughness: 0.9 }),
-  fabricGray: new THREE.MeshStandardMaterial({ color: 0x5a5d64, roughness: 0.9 }),
-  fabricGreen: new THREE.MeshStandardMaterial({ color: 0x3f5f4a, roughness: 0.9 }),
+  fabricBlue: new THREE.MeshStandardMaterial({ color: 0xcbd8e4, roughness: 0.9 }),
+  fabricWarm: new THREE.MeshStandardMaterial({ color: 0xeee7da, roughness: 0.9 }),
+  fabricGray: new THREE.MeshStandardMaterial({ color: 0xe7e1d5, roughness: 0.9 }),
+  fabricGreen: new THREE.MeshStandardMaterial({ color: 0xd3df8f, roughness: 0.9 }),
   leaf: new THREE.MeshStandardMaterial({ color: 0x2f6b3a, roughness: 0.8, flatShading: true }),
   pot: new THREE.MeshStandardMaterial({ color: 0xd6d0c4, roughness: 0.6 }),
-  core: new THREE.MeshStandardMaterial({ color: 0x5a524a, roughness: 0.7 }),
+  core: new THREE.MeshStandardMaterial({ color: 0xf0eadf, roughness: 0.75 }),
   slab: new THREE.MeshStandardMaterial({ color: 0x1c1e23, roughness: 0.7 }),
   frame: new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.4, metalness: 0.5 }),
   books: new THREE.MeshStandardMaterial({ vertexColors: false, color: 0x8a4a3a, roughness: 0.8 }),
   books2: new THREE.MeshStandardMaterial({ color: 0x3a5a7a, roughness: 0.8 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x9ec3e6, roughness: 0.05, transparent: true, opacity: 0.1, depthWrite: false }),
   glassRoom: new THREE.MeshStandardMaterial({ color: 0xc8dcf0, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false }),
-  light: new THREE.MeshBasicMaterial({ color: C(1.0, 0.9, 0.74) }),
+  light: new THREE.MeshBasicMaterial({ color: C(1.15, 1.12, 1.05) }),
   lightWarm: new THREE.MeshBasicMaterial({ color: C(1.35, 0.92, 0.5) }),
   led: new THREE.MeshBasicMaterial({ color: C(1.5, 1.7, 2.2) }),
   bulb: new THREE.MeshBasicMaterial({ color: C(1.25, 0.85, 0.42) }),
@@ -72,7 +84,7 @@ const M = {
   coffee: new THREE.MeshStandardMaterial({ color: 0x4a2c1c, roughness: 0.6 }),
   pastry: new THREE.MeshStandardMaterial({ color: 0xc98a4b, roughness: 0.7 }),
   pastryPink: new THREE.MeshStandardMaterial({ color: 0xf2a7b8, roughness: 0.7 }),
-  steel: new THREE.MeshStandardMaterial({ color: 0x8a9099, roughness: 0.4, metalness: 0.4 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0xc9c6bf, roughness: 0.25, metalness: 0.6 }),
   green: new THREE.MeshStandardMaterial({ color: 0x1f5a3a, roughness: 0.7 }),
 };
 
@@ -80,8 +92,21 @@ const M = {
 const BOX = new THREE.BoxGeometry(1, 1, 1).toNonIndexed();
 const BALL = new THREE.IcosahedronGeometry(1, 1);
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+// 모서리를 둥글린 상자 (같은 크기는 한 번만 만들어 재사용)
+const RBOX = new Map();
+function roundedBox(w, h, d) {
+  const key = `${w.toFixed(3)}|${h.toFixed(3)}|${d.toFixed(3)}`;
+  let g = RBOX.get(key);
+  if (!g) {
+    const m = Math.min(w, h, d);
+    g = new RoundedBoxGeometry(w, h, d, m > 0.3 ? 3 : 2, Math.min(0.07, m * 0.3)).toNonIndexed();
+    RBOX.set(key, g);
+  }
+  return g;
+}
+const SHARP = new Set(); // 둥글리지 않을 재질 (유리 · 조명 줄 · 화면)
 class Kit {
-  constructor() { this.parts = new Map(); }
+  constructor(round = true) { this.parts = new Map(); this.round = round; }
   add(geo, mat, x, y, z, ry = 0, sx = 1, sy = 1, sz = 1) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
@@ -91,7 +116,11 @@ class Kit {
     this.parts.get(mat).push(g);
   }
   // y는 바닥 높이
-  box(w, h, d, x, y, z, mat, ry = 0) { this.add(BOX, mat, x, y + h / 2, z, ry, w, h, d); }
+  box(w, h, d, x, y, z, mat, ry = 0) {
+    // 가구는 모서리를 둥글게, 얇은 판·유리·조명은 그대로
+    if (this.round && Math.min(w, h, d) >= 0.05 && Math.max(w, h, d) < 12 && !SHARP.has(mat)) this.add(roundedBox(w, h, d), mat, x, y + h / 2, z, ry);
+    else this.add(BOX, mat, x, y + h / 2, z, ry, w, h, d);
+  }
   cyl(r, h, x, y, z, mat, seg = 14, rTop = r) { this.add(new THREE.CylinderGeometry(rTop, r, h, seg), mat, x, y + h / 2, z); }
   ball(r, x, y, z, mat, sy = 1) { this.add(BALL, mat, x, y, z, 0, r, r * sy, r); }
   flush(parent) {
@@ -135,7 +164,7 @@ function panel(parent, tex, w, h, x, y, z, ry, basic = true) {
 // ---------- 가구 ----------
 // 지금 만드는 층의 앉을 자리 목록 (의자 · 스툴 · 소파가 스스로 등록)
 let SEATS = null, DESK = false; // DESK: 컴퓨터 책상 의자 (일하기 가능)
-function chair(k, x, y, z, ry, mat = M.black) {
+function chair(k, x, y, z, ry, mat = M.chairGray) {
   const s = Math.sin(ry), c = Math.cos(ry);
   SEATS?.push({ x, z, ry, h: 0.48, desk: DESK });
   k.box(0.5, 0.08, 0.5, x, y + 0.44, z, mat, ry);
@@ -167,6 +196,86 @@ function sofa(k, col, x, y, z, ry, len = 2.4, mat = M.fabricGray) {
   const n = Math.max(1, Math.round(len / 1.0));
   for (let i = 0; i < n; i++) { const t = (i - (n - 1) / 2) * ((len - 0.5) / n); SEATS?.push({ x: x + c * t + s * 0.05, z: z - s * t + c * 0.05, ry, h: 0.42 }); }
 }
+// ---- 부드러운 곡선 모양 (콩 · 물방울) ----
+const SHAPES = new Map();
+function beanShape(len, wid, bend = 0.3) {
+  const pts = [];
+  for (let i = 0; i < 48; i++) {
+    const t = (i / 48) * Math.PI * 2;
+    const x = Math.cos(t) * len / 2;
+    const z = Math.sin(t) * wid / 2 * (1 - bend * Math.cos(t) * Math.cos(t)) + bend * wid * 0.5 * (Math.cos(t) * Math.cos(t) - 0.5);
+    pts.push(new THREE.Vector2(x, z));
+  }
+  return new THREE.Shape(pts);
+}
+// 바닥에 까는 곡선 카펫 (올리브)
+function carpetBlob(k, cx, cz, len, wid, ry = 0, bend = 0.25, mat = M.carpet) {
+  const key = `c${len}|${wid}|${bend}`;
+  let g = SHAPES.get(key);
+  if (!g) { g = new THREE.ShapeGeometry(beanShape(len, wid, bend), 24); g.rotateX(-Math.PI / 2); SHAPES.set(key, g); }
+  k.add(g, mat, cx, 0.028, cz, ry);
+}
+// 콩 모양 소파 (등받이 없는 둥근 패브릭 소파)
+function blobSofa(k, col, cx, cz, ry, mat = M.lime, len = 2.4, wid = 1.0) {
+  const key = `s${len}|${wid}`;
+  let g = SHAPES.get(key);
+  if (!g) {
+    g = new THREE.ExtrudeGeometry(beanShape(len, wid, 0.35), { depth: 0.3, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 3, curveSegments: 24 });
+    g.rotateX(-Math.PI / 2); g.translate(0, 0.08, 0);
+    SHAPES.set(key, g);
+  }
+  k.add(g, mat, cx, 0, cz, ry);
+  const s = Math.sin(ry), c = Math.cos(ry);
+  const hw = Math.abs(c) * len / 2 + Math.abs(s) * wid / 2, hd = Math.abs(s) * len / 2 + Math.abs(c) * wid / 2;
+  col(cx - hw * 0.9, cz - hd * 0.9, cx + hw * 0.9, cz + hd * 0.9);
+  for (const t of [-0.6, 0.6]) SEATS?.push({ x: cx + c * t * len / 2, z: cz - s * t * len / 2, ry: ry + Math.PI / 2, h: 0.46 });
+}
+function beanBag(k, col, x, z, mat = M.pastelYellow) {
+  k.ball(0.42, x, 0.26, z, mat, 0.62);
+  k.ball(0.3, x, 0.5, z - 0.15, mat, 0.9);
+  col(x - 0.38, z - 0.38, x + 0.38, z + 0.38);
+  SEATS?.push({ x, z: z + 0.05, ry: 0, h: 0.36 });
+}
+function steelTable(k, col, x, z, r = 0.28, h = 0.45) {
+  k.cyl(r, h, x, 0, z, M.steel, 24);
+  k.cyl(r * 0.98, 0.01, x, h, z, M.white, 24);
+  col(x - r, z - r, x + r, z + r);
+}
+// 가는 실내 나무
+function slimTree(k, x, z, h = 2.4) {
+  k.cyl(0.03, h * 0.75, x, 0.2, z, M.walnut, 6, 0.015);
+  for (let i = 0; i < 9; i++) {
+    const a = i * 2.4, rr = 0.2 + (i % 3) * 0.12, y = 0.2 + h * (0.45 + (i % 4) * 0.12);
+    k.ball(0.11 + (i % 2) * 0.04, x + Math.cos(a) * rr, y, z + Math.sin(a) * rr, M.leafLight, 0.75);
+  }
+}
+// 하얀 자갈 화단 (곡선) + 고사리 · 가는 나무 · 동그란 바닥 조명
+function slatArc(k, col, cx, cz, r, a0, a1) {
+  const n = Math.max(3, Math.round(((a1 - a0) * r) / 0.7));
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + ((a1 - a0) * i) / n, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    k.cyl(0.42, 0.14, x, 0, z, M.pebble, 16);
+    k.cyl(0.43, 0.02, x, 0.13, z, M.rim, 16, 0.43);
+    if (i % 2 === 0) { k.add(new THREE.ConeGeometry(0.12, 0.55, 5), M.leafLight, x + 0.1, 0.42, z - 0.05, a); k.add(new THREE.ConeGeometry(0.1, 0.45, 5), M.leaf, x - 0.12, 0.37, z + 0.08, a + 1); }
+    if (i % 3 === 1) k.ball(0.12, x, 0.24, z, M.orb);
+    if (i % 4 === 2) slimTree(k, x, z, 2.3);
+    col(x - 0.35, z - 0.35, x + 0.35, z + 0.35);
+  }
+}
+// 라운지 한 묶음: 곡선 카펫 + 콩 소파 2개 + 빈백 + 스테인리스 원탁
+function loungeSet(k, col, cx, cz, n = 3, face = 0) {
+  carpetBlob(k, cx, cz, 4.2, 3.2, face, 0.2);
+  steelTable(k, col, cx, cz, 0.3, 0.42);
+  const s = Math.sin(face), c = Math.cos(face);
+  blobSofa(k, col, cx - s * 1.1, cz - c * 1.1, face, M.lime, 2.2, 0.85);
+  if (n > 2) blobSofa(k, col, cx + c * 1.3 + s * 0.2, cz - s * 1.3 + c * 0.2, face + Math.PI / 2, M.cream, 1.8, 0.8);
+  beanBag(k, col, cx - c * 1.25 + s * 0.6, cz + s * 1.25 + c * 0.6, M.pastelYellow);
+}
+// 조약돌 모양 하얀 펜던트 조명
+function pendant(k, x, z, y = 2.35) {
+  k.cyl(0.004, CEIL - y - 0.1, x, y + 0.1, z, M.black, 4);
+  k.ball(0.14, x, y, z, M.orb, 0.75);
+}
 // 머그잔 (받침 포함)
 function mug(k, x, y, z, mat = M.white) {
   k.cyl(0.07, 0.01, x, y, z, M.white, 12);
@@ -186,7 +295,8 @@ const CX = -8.75, CZ = -4.25, CW = 2.5, CD = 4.5, CE = -7.5, CS = -2;
 
 export function createBuilding() {
   const shell = new THREE.Group();
-  const sk = new Kit();
+  const sk = new Kit(false);
+  for (const m of [M.glass, M.glassRoom, M.light, M.lightWarm, M.led, M.screen, M.lamp, M.slab, M.orb]) SHARP.add(m);
   const floors = FLOORS.map((f, i) => {
     const group = new THREE.Group();
     group.position.y = f.y;
@@ -267,7 +377,15 @@ export function createBuilding() {
     L.position.set(CX - 0.36, 1.2, CS + 0.1); R.position.set(CX + 0.36, 1.2, CS + 0.1);
     group.add(L, R);
     doors.push({ floor: F.index, L, R, open: 0 });
-    if (!top) for (const x of [-5, -1, 3, 7]) k.box(0.12, 0.03, D - 2.5, x, CEIL - 0.04, 0.6, M.light);
+    if (!top) {
+      // 하얀 천장 + 사각 매립등 + 둥근 환기구
+      k.box(W - 0.1, 0.03, D - 0.1, 0, CEIL - 0.03, 0, M.ceiling);
+      // 작고 둥근 매립 다운라이트를 고르게
+      for (let x = -6.6; x <= 9.2; x += 1.8) for (let z = -5.4; z <= 5.8; z += 1.8) {
+        if (x < CE + 0.4 && z < CS + 0.4) continue;
+        k.cyl(0.075, 0.012, x, CEIL - 0.045, z, M.light, 12);
+      }
+    }
   });
 
   // ---------- 1F 로비 · 카페 ----------
@@ -283,14 +401,15 @@ export function createBuilding() {
     col(-HX - 0.1, -HZ, -HX + 0.1, HZ, true); col(HX - 0.1, -HZ, HX + 0.1, HZ, true);
     // 로고 벽 (코어 동쪽 면)
     const logo = canvasTex(1024, 384, (ctx, w, h) => {
-      ctx.fillStyle = '#0b0c10'; ctx.fillRect(0, 0, w, h);
-      const g = ctx.createLinearGradient(0, 0, w, 0);
-      g.addColorStop(0, '#c9a35f'); g.addColorStop(0.5, '#f3dfae'); g.addColorStop(1, '#c9a35f');
-      ctx.fillStyle = g; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = `800 130px ${FONT}`; ctx.fillText(CONFIG.companyName, w / 2, h / 2 - 20);
-      ctx.font = `400 38px ${FONT}`; ctx.fillStyle = '#9aa0ab'; ctx.fillText('WELCOME', w / 2, h / 2 + 90);
+      // 아이보리 벽에 붙인 하얀 입체 글자 느낌 (배경 투명 + 그림자)
+      ctx.clearRect(0, 0, w, h);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(90,70,40,0.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetX = 6; ctx.shadowOffsetY = 8;
+      ctx.fillStyle = '#ffffff'; ctx.font = `800 140px ${FONT}`; ctx.fillText(CONFIG.companyName, w / 2, h / 2 - 20);
+      ctx.shadowBlur = 6; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 3;
+      ctx.font = `600 40px ${FONT}`; ctx.fillStyle = '#b9a27e'; ctx.fillText('WELCOME', w / 2, h / 2 + 95);
     });
-    panel(group, logo, 3.6, 1.35, CE + 0.03, 1.95, CZ, Math.PI / 2);
+    panel(group, logo, 3.6, 1.35, CE + 0.03, 1.95, CZ, Math.PI / 2).material.transparent = true;
     k.box(0.04, 0.04, 3.8, CE + 0.04, 2.75, CZ, M.lightWarm);
     // 안내 데스크
     k.box(0.8, 1.05, 2.6, -5.4, 0, -4.3, M.white); col(-5.8, -5.6, -5.0, -3.0);
@@ -298,8 +417,10 @@ export function createBuilding() {
     k.box(0.03, 0.03, 2.4, -4.98, 0.9, -4.3, M.lightWarm);
     chair(k, -6.4, 0, -4.3, Math.PI / 2);
     // 로비 소파 (창을 바라봄)
-    sofa(k, col, -6.3, 0, 2.6, 0, 2.4, M.fabricGray);
-    k.box(1.2, 0.38, 0.7, -6.3, 0, 4.1, M.walnut); col(-6.9, 3.75, -5.7, 4.45);
+    // 로비 라운지: 둥근 러그 + 달걀 의자 + 원목 루버 칸막이
+    loungeSet(k, col, -5.4, 3.5, 3, 0);
+    slatArc(k, col, -5.4, 3.5, 2.3, Math.PI * 1.12, Math.PI * 1.88);
+    for (const [dx, dz, y] of [[-0.6, -0.3, 2.5], [0.3, -0.6, 2.25], [0.7, 0.3, 2.6], [-0.2, 0.5, 2.35], [-0.9, 0.6, 2.7], [0.1, 0.0, 2.8]]) pendant(k, -5.4 + dx, 3.5 + dz, y);
     // ===== 사내 카페 =====
     k.box(5.2, 0.015, 3.6, 4.2, 0.03, 0.4, M.carpetWarm);                        // 테이블 구역 러그
     // 뒷카운터 (에스프레소 머신 · 그라인더 · 싱크)
@@ -394,12 +515,13 @@ export function createBuilding() {
     const F = floors[1], { kit: k, col, group } = F;
     SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.stone);
-    k.box(13, 0.03, 9.6, 1.2, 0, -1.4, M.carpet);
+    carpetBlob(k, 0, -1.3, 12.5, 8.6, 0, 0.12);                                    // 책상 구역 곡선 카펫
+    carpetBlob(k, 6.5, 3.6, 4.0, 3.2, 0.3, 0.2, M.carpetWarm);
     DESK = true;
     for (const zc of [-3.8, 1.2]) {
       for (const xc of [-2.5, 2.5]) {
-        k.box(3.2, 0.04, 1.6, xc, 0.72, zc, M.white);
-        k.box(3.2, 0.36, 0.03, xc, 0.76, zc, M.fabricBlue);
+        k.box(3.2, 0.04, 1.6, xc, 0.72, zc, M.oak);
+        k.box(3.2, 0.36, 0.03, xc, 0.76, zc, M.white);
         k.box(0.05, 0.72, 1.5, xc - 1.55, 0, zc, M.metal); k.box(0.05, 0.72, 1.5, xc + 1.55, 0, zc, M.metal);
         col(xc - 1.6, zc - 0.8, xc + 1.6, zc + 0.8);
         // 스탠드 조명 (밤에 켜짐)
@@ -476,7 +598,9 @@ export function createBuilding() {
     });
     panel(group, wb, 2.5, 1.2, -1, 1.55, 4.57, Math.PI, false);
     // 창가 작은 회의 테이블
-    roundTable(k, col, 6.5, 0, 3.6, 0.65);
+    roundTable(k, col, 6.5, 0, 3.6, 0.65, 0.74, M.oak);
+    slatArc(k, col, 6.5, 3.6, 1.95, Math.PI * 1.12, Math.PI * 1.88);
+    pendant(k, 6.5, 3.6);
     for (let a = 0; a < 4; a++) { const t = (a / 4) * Math.PI * 2 + 0.4; chair(k, 6.5 + Math.sin(t) * 1.1, 0, 3.6 + Math.cos(t) * 1.1, t + Math.PI, M.fabricGreen); }
     // 프린터 · 정수기
     k.box(0.7, 0.9, 0.6, 9.4, 0, 0.6, M.white); k.box(0.6, 0.1, 0.5, 9.4, 0.9, 0.6, M.black); col(9.0, 0.25, 9.8, 0.95);
@@ -490,7 +614,12 @@ export function createBuilding() {
     const F = floors[2], { kit: k, col, group } = F;
     SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.stone);
-    k.box(17.4, 0.03, 4.4, 1.25, 0, -4.25, M.carpetWarm);
+    k.box(17.4, 0.03, 4.4, 1.25, 0, -4.25, M.oak);                                // 회의실은 원목 바닥
+    // 복도 천장의 곡선 LED 라인
+    { const pts = []; for (let i = 0; i <= 40; i++) { const t = i / 40; pts.push(new THREE.Vector3(-7 + 16 * t, CEIL - 0.06, -1.3 + 0.9 * Math.pow(t, 6))); }
+      for (let a = 0; a <= 12; a++) { const q = (a / 12) * Math.PI / 2; pts.push(new THREE.Vector3(9 + Math.sin(q) * 0.6, CEIL - 0.06, -0.4 + (1 - Math.cos(q)) * 0.6 + a * 0.15)); }
+      group.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.025, 4), M.light)); }
+    carpetBlob(k, 2.5, 3.6, 9, 4.6, 0.1, 0.3);
     // 남쪽 칸막이 (z = -2): 나무벽(공지판) | 문A | 유리 | 벽 | 유리 | 문B | 유리
     k.box(3.3, CEIL, 0.2, -5.85, 0, -2, M.walnut); col(-7.5, -2.1, -4.2, -1.9, true);
     for (const [a, b] of [[-2.8, 1.5], [1.5, 4.8], [6.2, 10]]) {
@@ -514,7 +643,8 @@ export function createBuilding() {
       }
     };
     meeting(-2.9, 3.8, 3, M.fabricWarm);
-    meeting(5.9, 4.4, 3, M.fabricBlue);
+    meeting(5.9, 4.4, 3, M.fabricWarm);
+    pendant(k, -3.6, -4.3, 2.2); pendant(k, -2.2, -4.3, 2.2); pendant(k, 5.1, -4.3, 2.2); pendant(k, 6.7, -4.3, 2.2);
     const tvTex = (label) => canvasTex(640, 360, (ctx, w, h) => {
       const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#16223f'); g.addColorStop(1, '#2d5a8a');
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
@@ -533,8 +663,9 @@ export function createBuilding() {
     k.box(3.1, 1.85, 0.06, -5.85, 0.95, -1.87, M.frame);
     panel(group, noticeTex, 2.95, 1.66, -5.85, 1.88, -1.83, 0);
     // 홀: 대기 소파 · 폰부스 · 벤치
-    sofa(k, col, 2.5, 0, 5.3, Math.PI, 2.6, M.fabricGreen);
-    k.box(1.3, 0.38, 0.65, 2.5, 0, 4.0, M.walnut); col(1.85, 3.65, 3.15, 4.35);
+    loungeSet(k, col, 3.0, 3.9, 3, Math.PI);
+    slatArc(k, col, 3.0, 3.9, 2.2, Math.PI * 0.55, Math.PI * 1.35);
+    pendant(k, 3.0, 3.9);
     for (const x of [7.3, 8.9]) {
       k.box(1.4, 2.3, 1.4, x, 0, 5.6, M.glassRoom); k.box(1.4, 0.08, 1.4, x, 2.3, 5.6, M.frame);
       k.box(0.55, 0.45, 0.45, x, 0, 5.95, M.fabricWarm);
@@ -549,11 +680,13 @@ export function createBuilding() {
     const F = floors[3], { kit: k, col, group } = F;
     SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.oak);
-    k.box(7, 0.03, 4.6, 0.6, 0, 2.6, M.carpetWarm);
-    sofa(k, col, 0.2, 0, 1.4, 0, 3.0, M.fabricBlue);
-    sofa(k, col, 3.4, 0, 2.9, -Math.PI / 2, 2.2, M.fabricBlue);
-    k.box(1.6, 0.36, 0.9, 0.4, 0, 2.95, M.walnut); col(-0.4, 2.5, 1.2, 3.4);
-    for (const [x, z] of [[-3.4, 2.2], [-4.6, 3.3]]) { k.ball(0.5, x, 0.3, z, M.fabricWarm, 0.6); col(x - 0.4, z - 0.4, x + 0.4, z + 0.4); }
+    // 곡선 올리브 카펫 위에 라임 · 크림 콩 소파, 파스텔 빈백, 스테인리스 원탁
+    carpetBlob(k, 0.5, 2.6, 8.5, 4.8, -0.08, 0.3);
+    blobSofa(k, col, -0.6, 1.6, 0.15, M.lime, 2.6, 1.0);
+    blobSofa(k, col, 2.6, 3.3, -0.4, M.cream, 2.4, 1.0);
+    blobSofa(k, col, 0.4, 4.4, 0.05, M.lime, 2.0, 0.85);
+    steelTable(k, col, 1.0, 2.6, 0.3, 0.45); steelTable(k, col, -2.0, 3.4, 0.24, 0.4);
+    beanBag(k, col, -3.4, 2.2, M.pastelYellow); beanBag(k, col, -4.5, 3.4, M.pastelBlue);
     // 창가 바
     k.box(14, 0.05, 0.45, 2.3, 1.05, HZ - 0.55, M.walnut); col(-4.7, HZ - 0.8, 9.3, HZ - 0.3);
     for (let x = -4.1; x <= 9; x += 1.2) stool(k, x, 0, HZ - 1.2);
@@ -563,6 +696,8 @@ export function createBuilding() {
     k.box(0.85, 2, 0.7, -0.5, 0, -6.05, M.metal); col(-0.95, -6.45, -0.05, -5.7);
     k.box(0.5, 0.35, 0.4, -5.8, 0.94, -6.1, M.black);
     for (const x of [-5.8, -3.9, -2]) k.box(1.5, 0.65, 0.33, x, 1.9, -6.3, M.white);
+    slatArc(k, col, -4.0, 2.8, 1.9, Math.PI * 0.55, Math.PI * 1.45);
+    pendant(k, -4.6, -3.8); pendant(k, -3.2, -3.8);
     // 아일랜드 테이블
     k.box(3, 0.06, 1.0, -3.9, 0.98, -3.8, M.walnut); k.box(2.7, 0.95, 0.75, -3.9, 0, -3.8, M.white); col(-5.4, -4.3, -2.4, -3.3);
     for (const x of [-5, -3.9, -2.8]) stool(k, x, 0, -2.85, Math.PI);
@@ -682,7 +817,7 @@ export function createBuilding() {
     const f = curFloor, roof = f === ROOF;
     LIGHTS[f].forEach(([x, z], i) => {
       rig[i].position.set(x, FLOORS[f].y + (roof ? 3.2 : 3.3), z);
-      rig[i].intensity = roof ? 10 * (1 - dayK) : 24 - 14 * dayK;
+      rig[i].intensity = roof ? 10 * (1 - dayK) : 18 - 10 * dayK;
       rig[i].color.copy(RIG_N).lerp(RIG_D, dayK);
     });
   };

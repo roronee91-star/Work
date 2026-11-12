@@ -179,3 +179,5 @@ input, textarea { font: inherit; color: var(--fg); }
   .actions button span { display: none; }
   .actions button b { font-size: 14px; }
 }
+
+.place, .place span, .net span { white-space: nowrap; }
