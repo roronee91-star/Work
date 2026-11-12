@@ -230,7 +230,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Enter') { e.preventDefault(); setChatOpen(true); $('chatInput').focus(); }
   if (e.code === 'KeyE') interact();
   if (e.code === 'Escape') closeModals();
-  if (/^Digit[1-5]$/.test(e.code) && !$('floorModal').hidden) goFloor(+e.code.slice(5) - 1);
+  if (/^Digit[1-5]$/.test(e.code) && !$('floorModal').hidden) chooseFloor(+e.code.slice(5) - 1);
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -359,8 +359,10 @@ function updatePlayer(dt) {
   // 핑 찍은 곳으로 걸어가기
   if (moveTarget && !game.on && !player.sit && mag <= 0.05) {
     const dx = moveTarget.x - player.x, dz = moveTarget.z - player.z, d = Math.hypot(dx, dz);
-    if (d < 0.12) clearTarget();
-    else {
+    if (d < 0.12) {
+      if (moveTarget.path?.length) { const [nx, nz] = moveTarget.path.shift(); moveTarget.x = nx; moveTarget.z = nz; moveTarget.stuck = 0; }
+      else finishTarget();
+    } else {
       const step = Math.min(d, 3.4 * dt);
       const [nx, nz] = collide(player.x + (dx / d) * step, player.z + (dz / d) * step);
       moved = Math.hypot(nx - player.x, nz - player.z);
@@ -368,7 +370,7 @@ function updatePlayer(dt) {
       player.ry = lerpAngle(player.ry, Math.atan2(dx, dz), Math.min(1, dt * 12));
       // 막혀서 못 가면 멈춤
       moveTarget.stuck = moved < step * 0.3 ? (moveTarget.stuck || 0) + dt : 0;
-      if (moveTarget.stuck > 0.5) clearTarget();
+      if (moveTarget.stuck > 0.5 || (moveTarget.until && now > moveTarget.until)) finishTarget();
     }
   }
   player.speed = dt > 0 ? moved / dt : 0;
@@ -383,6 +385,10 @@ function updatePlayer(dt) {
   }
   const pr = $('prompt');
   const what = nearWhat();
+  // 엘리베이터 앞에 오면 몇 층 갈지 자동으로 물어봄 (한 번 뜨면 멀어졌다 다시 와야 또 뜸)
+  const elevD = Math.hypot(player.x - ELEV.x, player.z - ELEV.z);
+  if (elevD > 2.4) elevAsked = false;
+  else if (what === 'elev' && !elevAsked && !game.on && !player.sit && document.querySelectorAll('.modal:not([hidden])').length === 0) { elevAsked = true; openFloorMenu(); }
   if (game.on) pr.hidden = true;
   else if (what && what.booth) { pr.textContent = isTouch ? `🥊 ${what.booth.i + 1}번 샌드백 치기 (누르기)` : `E  🥊 ${what.booth.i + 1}번 샌드백 치기`; pr.hidden = false; }
   else if (player.sit && player.working) { pr.textContent = isTouch ? '일 그만하기 (누르기)' : '일 그만하기: E 또는 이동 키'; pr.hidden = false; }
@@ -415,6 +421,8 @@ const pingMark = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.24, 28), new THRE
 pingMark.rotation.x = -Math.PI / 2; pingMark.visible = false; pingMark.renderOrder = 5;
 scene.add(pingMark);
 function clearTarget() { moveTarget = null; pingMark.visible = false; }
+// 목적지에 닿거나 막혔을 때: 할 일이 있으면 실행 (예: 엘리베이터 타기)
+function finishTarget() { const cb = moveTarget?.then; clearTarget(); cb?.(); }
 function tapMove(cx, cy) {
   if (mode !== 'office' || game.on || !myAvatar) return;
   const r = canvas.getBoundingClientRect();
@@ -691,9 +699,10 @@ $('btnSound').onclick = () => { setMuted(!isMuted()); $('btnSound').innerHTML = 
 try { if (localStorage.getItem('work-mute') === '1') { setMuted(true); $('btnSound').textContent = '🔇'; } } catch {}
 
 // ---------- 엘리베이터 · 층 이동 ----------
+let elevAsked = false;
 function openFloorMenu() {
   $('floorList').innerHTML = FLOORS.map((f, i) => `<button data-f="${i}" class="${i === player.floor ? 'here' : ''}"><b>${f.label}</b>${f.name}</button>`).join('');
-  $('floorList').querySelectorAll('button').forEach((b) => (b.onclick = () => goFloor(+b.dataset.f)));
+  $('floorList').querySelectorAll('button').forEach((b) => (b.onclick = () => chooseFloor(+b.dataset.f)));
   openModal('floorModal');
 }
 function goFloor(f) {
@@ -713,7 +722,26 @@ function goFloor(f) {
     fade.classList.remove('on');
   }, 450);
 }
+// 층을 고르면: 엘리베이터 앞이면 바로, 멀면 엘리베이터까지 걸어가서 탐
+function chooseFloor(f) {
+  closeModals();
+  if (mode !== 'office' || Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 2.2) { goFloor(f); return; }
+  if (f === player.floor) return;
+  if (player.sit) standUp();
+  if (game.on) quitGame();
+  elevAsked = true;
+  const path = [];
+  // 1층 정원에 있으면 정문으로 들어가서 엘리베이터로
+  if (player.floor === 0 && (Math.abs(player.x) > HX || Math.abs(player.z) > HZ)) path.push([0, HZ + 1.0], [0, HZ - 1.2]);
+  path.push([ELEV.x + 0.4, ELEV.z + 0.2]);
+  const [x, z] = path.shift();
+  moveTarget = { x, z, path, stuck: 0, until: now + 15, then: () => goFloor(f) };
+  pingMark.position.set(ELEV.x + 0.4, FLOORS[player.floor].y + 0.04, ELEV.z + 0.2);
+  pingMark.visible = true; pingMark.scale.setScalar(1.6);
+  sysMessage(`🛗 ${FLOORS[f].label} ${FLOORS[f].name}(으)로 가요. 엘리베이터까지 걸어가는 중…`);
+}
 function arrive() {
+  elevAsked = true; // 도착하자마자 다시 팝업이 뜨지 않게
   player.x = ELEV.x + 1.6; player.z = ELEV.z + 0.6; player.ry = Math.PI / 2;
   cam.yaw = -Math.PI / 2; cam.pitch = 0.2;
   player.zone = zoneAt(player.floor, player.x, player.z);
@@ -890,5 +918,5 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__work = { get mode() { return mode; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor };
+window.__work = { get mode() { return mode; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
 window.__workMain = true;
