@@ -366,14 +366,14 @@ addEventListener('keydown', (e) => {
     if (e.code === 'Escape') quitGame();
     return;
   }
+  if (floorOpen()) { floorKey(e); return; }
   keys.add(e.code);
   if (e.code === 'Enter') { e.preventDefault(); setChatOpen(true); $('chatInput').focus(); }
   if (e.code === 'KeyE') interact();
   if (e.code === 'Space') { e.preventDefault(); doJump(); }
   if (e.code === 'Escape') closeModals();
-  if (/^Digit[1-5]$/.test(e.code) && !$('floorModal').hidden) chooseFloor(+e.code.slice(5) - 1);
 });
-addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('keyup', (e) => { keys.delete(e.code); heldAtOpen.delete(e.code); });
 addEventListener('blur', () => keys.clear());
 
 const pointers = new Map();
@@ -474,6 +474,7 @@ function collide(x, z) {
   return [Math.max(-lx, Math.min(lx, x)), Math.max(-lz, Math.min(lz, z))];
 }
 
+let moveYaw = null; // 걷는 동안 기준이 되는 방향
 function updatePlayer(dt) {
   let f = 0, s = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1;
@@ -481,15 +482,19 @@ function updatePlayer(dt) {
   if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
   f -= joy.y; s += joy.x;
+  if (floorOpen()) { f = 0; s = 0; } // 층 선택 창이 열려 있으면 멈춤 (방향키는 층 고르기에 씀)
   if ((Math.abs(f) > 0.05 || Math.abs(s) > 0.05) && moveTarget) clearTarget();
   const mag = Math.min(Math.hypot(f, s), 1);
   const run = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(joy.x, joy.y) > 0.95;
   let moved = 0;
   if (busy()) { f = 0; s = 0; }
   if (player.sit && mag > 0.05 && !busy()) standUp();
+  if (mag <= 0.05) moveYaw = null;
   if (!player.sit && !busy() && mag > 0.05) {
-    const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
-    const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+    // 걷기 시작할 때의 시점 방향을 기준으로 고정: 걷는 중에 화면을 돌려도 가던 방향 그대로, 시점만 돌아감
+    if (moveYaw === null) moveYaw = cam.yaw;
+    const fx = -Math.sin(moveYaw), fz = -Math.cos(moveYaw);
+    const rx = Math.cos(moveYaw), rz = -Math.sin(moveYaw);
     let mx = fx * f + rx * s, mz = fz * f + rz * s;
     const l = Math.hypot(mx, mz) || 1;
     mx /= l; mz /= l;
@@ -987,10 +992,37 @@ try { if (localStorage.getItem('work-mute') === '1') { setMuted(true); $('btnSou
 
 // ---------- 엘리베이터 · 층 이동 ----------
 let elevAsked = false;
+const floorOpen = () => !$('floorModal').hidden;
+let floorSel = 0, heldAtOpen = new Set();
+// 지금 있는 층은 고를 수 없음 (건물 밖에서 볼 때는 그 층으로 들어갈 수 있게 허용)
+const floorBlocked = (i) => mode === 'office' && i === player.floor;
 function openFloorMenu() {
-  $('floorList').innerHTML = FLOORS.map((f, i) => `<button data-f="${i}" class="${i === player.floor ? 'here' : ''}"><b>${f.label}</b>${f.name}</button>`).join('');
+  heldAtOpen = new Set(keys); keys.clear(); clearTarget(); // 창이 뜨면 캐릭터는 멈춤 (걷던 키를 계속 누르고 있어도 층이 마구 바뀌지 않게)
+  // 실제 엘리베이터처럼 위층이 위에 (↑ = 위층)
+  $('floorList').innerHTML = FLOORS.map((f, i) => [f, i]).reverse().map(([f, i]) => `<button data-f="${i}" class="${i === player.floor ? 'here' : ''}"${floorBlocked(i) ? ' disabled' : ''}><b>${f.label}</b>${f.name}${floorBlocked(i) ? '<small>지금 있는 층</small>' : ''}</button>`).join('');
   $('floorList').querySelectorAll('button').forEach((b) => (b.onclick = () => chooseFloor(+b.dataset.f)));
+  floorSel = floorBlocked(player.floor) ? (player.floor + 1 < FLOORS.length ? player.floor + 1 : player.floor - 1) : player.floor;
+  markFloorSel();
   openModal('floorModal');
+  document.activeElement?.blur?.();
+}
+function markFloorSel() { $('floorList').querySelectorAll('button').forEach((b) => b.classList.toggle('sel', +b.dataset.f === floorSel)); }
+// 층 선택 창: ↑↓(또는 W·S)로 고르고 Enter(또는 E · Space)로 이동, 숫자 1~5로 바로, Esc로 닫기
+function floorKey(e) {
+  const c = e.code;
+  if (e.repeat && heldAtOpen.has(c)) { e.preventDefault(); return; }
+  if (['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS', 'Enter', 'NumpadEnter', 'Space', 'KeyE'].includes(c)) e.preventDefault();
+  if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowDown' || c === 'KeyS') {
+    const d = c === 'ArrowUp' || c === 'KeyW' ? 1 : -1; // ↑ 위층, ↓ 아래층 (끝에서 멈춤)
+    let i = floorSel + d;
+    if (i >= 0 && i < FLOORS.length && floorBlocked(i)) i += d;
+    if (i >= 0 && i < FLOORS.length) { floorSel = i; markFloorSel(); }
+  } else if (c === 'Enter' || c === 'NumpadEnter' || c === 'Space' || (c === 'KeyE' && !e.repeat)) {
+    if (!floorBlocked(floorSel)) chooseFloor(floorSel);
+  } else if (/^(Digit|Numpad)[1-5]$/.test(c)) {
+    const i = +c.slice(-1) - 1;
+    if (!floorBlocked(i)) chooseFloor(i);
+  } else if (c === 'Escape') closeModals();
 }
 function goFloor(f) {
   closeModals();
@@ -1011,6 +1043,7 @@ function goFloor(f) {
 }
 // 층을 고르면: 엘리베이터 앞이면 바로, 멀면 엘리베이터까지 걸어가서 탐
 function chooseFloor(f) {
+  if (floorBlocked(f)) return; // 같은 층은 이동하지 않음
   closeModals();
   if (mode !== 'office' || Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 2.2) { goFloor(f); return; }
   if (f === player.floor) return;

@@ -120,6 +120,23 @@ class Kit {
     g.applyMatrix4(_m);
     if (!this.parts.has(mat)) this.parts.set(mat, []);
     this.parts.get(mat).push(g);
+    // 가구 윗면 높이를 알아 두려고 조각마다 크기를 기록 (발이 가구 속으로 파묻히지 않게)
+    if (!mat.transparent) { g.computeBoundingBox(); const b = g.boundingBox; (this.boxes ||= []).push([b.min.x, b.min.z, b.max.x, b.max.z, b.min.y, b.max.y]); }
+  }
+  // 부딪힘 상자의 높이(top)를 실제로 그려진 윗면에 맞춤: 상자를 넓게 덮는 조각 중 가장 높은 윗면
+  fitTops(colliders) {
+    const parts = this.boxes || [];
+    for (const c of colliders) {
+      if (c.tall || c.noStand || c.fixedTop) continue;
+      const top = c.top ?? 0.6, area = Math.max(1e-4, (c.x2 - c.x1) * (c.z2 - c.z1));
+      let best = -1;
+      for (const [x1, z1, x2, z2, y1, y2] of parts) {
+        if (y2 < top - 0.35 || y2 > top + 0.35 || y1 > top + 0.3) continue;
+        const ov = Math.max(0, Math.min(x2, c.x2) - Math.max(x1, c.x1)) * Math.max(0, Math.min(z2, c.z2) - Math.max(z1, c.z1));
+        if (ov >= area * 0.4 && y2 > best) best = y2;
+      }
+      if (best > 0) c.top = +best.toFixed(3);
+    }
   }
   // y는 바닥 높이
   box(w, h, d, x, y, z, mat, ry = 0) {
@@ -877,7 +894,7 @@ export function createBuilding() {
   }
 
   SEATS = null;
-  floors.forEach((F) => { F.kit.flush(F.group); delete F.kit; });
+  floors.forEach((F) => { F.kit.fitTops(F.colliders); F.kit.flush(F.group); delete F.kit; });
 
   // 샌드백 (위 봉에 매달려 흔들림)
   const bagMat = new THREE.MeshStandardMaterial({ color: 0xb8332e, roughness: 0.55 });

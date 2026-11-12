@@ -115,7 +115,10 @@ input, textarea { font: inherit; color: var(--fg); }
 #floorList button { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.05); text-align: left; font-size: 16px; }
 #floorList button b { width: 34px; color: var(--gold); font-size: 18px; }
 #floorList button.here { border-color: rgba(232,211,160,.6); background: rgba(232,211,160,.12); }
-#floorList button:hover { background: rgba(255,255,255,.1); }
+#floorList button:hover:not(:disabled) { background: rgba(255,255,255,.1); }
+#floorList button.sel { border-color: var(--gold); background: rgba(232,211,160,.22); box-shadow: 0 0 0 2px rgba(232,211,160,.35); }
+#floorList button:disabled { opacity: .45; cursor: default; }
+#floorList button small { margin-left: auto; font-size: 12px; color: var(--muted); }
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s; z-index: 30; }
 #fade.on { opacity: 1; }
 
@@ -239,3 +242,6 @@ input, textarea { font: inherit; color: var(--fg); }
   #onlineList { max-height: 28vh; }
   #onlineList li { padding: 3px 8px; }
 }
+
+.kbd-only { margin: 12px 0 0; font-size: 12px; text-align: center; }
+@media (pointer: coarse) { .kbd-only { display: none; } }
