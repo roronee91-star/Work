@@ -83,7 +83,7 @@ export function createGarden() {
     group.add(m); ripples.push({ m, t: i / 3 });
   }
   // 물방울
-  const N = 320;
+  const N = 200;
   const drops = new Float32Array(N * 3);
   const vel = new Float32Array(N * 3);
   const spawn = (i, fresh) => {

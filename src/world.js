@@ -247,7 +247,7 @@ export function createCity(uniforms) {
     { x: -900, z: -900, s: 500, h: 110 },
     { x: 1300, z: -700, s: 450, h: 100 },
   ];
-  const B = 120, N = 27;
+  const B = 120, N = 21;
   for (let bx = -N; bx <= N; bx++) {
     for (let bz = -N; bz <= N; bz++) {
       if (bx === 0 && bz === 0) continue; // 우리 건물 블록
@@ -260,7 +260,7 @@ export function createCity(uniforms) {
         const z = lz + (rand() - 0.5) * (48 - d) * 0.8;
         const dist = Math.hypot(x, z);
         if (Math.abs(z - riverCenter(x)) < RIVER_HALF + 35 + Math.max(w, d) / 2) continue;
-        if (dist > 3300) continue;
+        if (dist > 2600) continue;
         // 가까운 곳은 낮은 건물, 멀수록 가끔 높은 건물
         let h = 7 + rand() * 14 + (rand() < 0.15 ? rand() * 30 : 0);
         h += Math.pow(rand(), 2.5) * 110 * THREE.MathUtils.smoothstep(dist, 300, 1400);

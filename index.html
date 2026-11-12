@@ -23,8 +23,15 @@
         <span>이름</span>
         <input id="nameInput" maxlength="16" placeholder="이름을 입력하세요" autocomplete="nickname">
       </label>
+      <div class="who">
+        <canvas id="preview" width="120" height="160"></canvas>
+        <div class="field">
+          <span>캐릭터</span>
+          <div id="genderPick" class="seg"><button type="button" data-g="m">남자</button><button type="button" data-g="f">여자</button></div>
+        </div>
+      </div>
       <div class="field">
-        <span>옷 색깔</span>
+        <span>상의 색깔</span>
         <div id="colorPick" class="colors"></div>
       </div>
       <button id="enterBtn" class="primary">출근하기</button>

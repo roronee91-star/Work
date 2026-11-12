@@ -62,7 +62,7 @@ document.title = CONFIG.companyName;
 $('brandName').textContent = CONFIG.companyName;
 $('brandTagline').textContent = CONFIG.companyTagline;
 
-const me = { id: makeId(), name: '', color: AVATAR_COLORS[0] };
+const me = { id: makeId(), name: '', color: AVATAR_COLORS[0], gender: 'm' };
 const player = { floor: SPAWN.floor, x: SPAWN.x, z: SPAWN.z, ry: SPAWN.yaw + Math.PI, speed: 0, zone: 'f1' };
 const cam = { yaw: SPAWN.yaw, pitch: 0.22, dist: 4.4, cur: 4.4 };
 const orbit = { angle: 0.35, elev: 0.2, radius: 85, target: new THREE.Vector3(0, 8, 0) };
@@ -79,6 +79,7 @@ try {
   const saved = JSON.parse(localStorage.getItem('work-tower-me') || 'null');
   if (saved?.name) $('nameInput').value = saved.name;
   if (saved?.color) me.color = saved.color;
+  if (saved?.gender) me.gender = saved.gender === 'f' ? 'f' : 'm';
 } catch {}
 
 // ---------- 시작 화면 ----------
@@ -89,21 +90,46 @@ AVATAR_COLORS.forEach((c) => {
   b.style.background = c;
   b.title = c;
   if (c === me.color) b.classList.add('on');
-  b.onclick = () => { me.color = c; colorPick.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); };
+  b.onclick = () => { me.color = c; colorPick.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); updatePreview(); };
   colorPick.appendChild(b);
 });
+document.querySelectorAll('#genderPick button').forEach((b) => {
+  b.classList.toggle('on', b.dataset.g === me.gender);
+  b.onclick = () => { me.gender = b.dataset.g; document.querySelectorAll('#genderPick button').forEach((x) => x.classList.toggle('on', x === b)); updatePreview(); };
+});
+
+// 시작 화면 캐릭터 미리보기 (작은 화면, 시작 화면에서만 그림)
+const pv = { renderer: null, scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(28, 0.75, 0.1, 20), av: null };
+{
+  const c = $('preview');
+  pv.renderer = new THREE.WebGLRenderer({ canvas: c, antialias: true, alpha: true });
+  pv.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  pv.renderer.setSize(c.clientWidth || 120, c.clientHeight || 160, false);
+  pv.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  pv.cam.position.set(0, 1.05, 3.7); pv.cam.lookAt(0, 0.92, 0);
+  pv.scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x3a3028, 2.2));
+  const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(2, 3, 4); pv.scene.add(key);
+}
+function updatePreview() {
+  if (pv.av) { pv.av.setLook(me.color, me.gender); return; }
+  pv.av = new Avatar('', me.color, me.gender);
+  pv.av.label.visible = false;
+  pv.scene.add(pv.av.root);
+}
+updatePreview();
+
 $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
 $('enterBtn').onclick = enter;
 
 function enter() {
   me.name = ($('nameInput').value.trim() || '게스트' + Math.floor(Math.random() * 900 + 100)).slice(0, 16);
-  try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color })); } catch {}
+  try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
   $('intro').hidden = true;
   camera.clearViewOffset(); camera.updateProjectionMatrix();
   $('hud').hidden = false;
   $('joy').hidden = !isTouch;
   if (isTouch) setChatOpen(false);
-  myAvatar = new Avatar(me.name, me.color);
+  myAvatar = new Avatar(me.name, me.color, me.gender);
   scene.add(myAvatar.root);
   placeAvatar(myAvatar, player);
   net = connect(me, {
@@ -356,7 +382,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 120) && t - lastSend < 2000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone });
 }
 
 function onState(p) {
@@ -365,13 +391,13 @@ function onState(p) {
   if (!peer || peer.name !== p.name) {
     if (peer) { scene.remove(peer.av.root); peer.av.dispose(); }
     const fresh = !peer;
-    peer = { av: new Avatar(p.name, p.color), x: p.x, z: p.z, ry: p.ry, floor: p.floor || 0, name: p.name, color: p.color };
+    peer = { av: new Avatar(p.name, p.color, p.g), x: p.x, z: p.z, ry: p.ry, floor: p.floor || 0, name: p.name, color: p.color };
     scene.add(peer.av.root);
     peers.set(p.id, peer);
     if (fresh) { sysMessage(`${p.name}님이 들어왔어요.`); sendState(true); }
     updateOnline();
   }
-  if (peer.color !== p.color) { peer.av.setColor(p.color); peer.color = p.color; }
+  if (peer.color !== p.color || peer.av.gender !== (p.g === 'f' ? 'f' : 'm')) { peer.av.setLook(p.color, p.g); peer.color = p.color; }
   if ((p.floor || 0) !== peer.floor) { peer.x = p.x; peer.z = p.z; }
   Object.assign(peer, { tx: p.x, tz: p.z, tr: p.ry, sp: p.sp || 0, zone: p.zone, floor: p.floor || 0 });
 }
@@ -576,6 +602,7 @@ function frame() {
   }
   updatePeers(dt);
   updateCamera(dt);
+  if (mode === 'intro' && pv.av) { pv.av.root.rotation.y += dt * 0.6; pv.av.animate(dt, 0, now); pv.renderer.render(pv.scene, pv.cam); }
   sky.position.copy(camera.position);
   composer.render();
   requestAnimationFrame(frame);

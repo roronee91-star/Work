@@ -120,3 +120,16 @@ input, textarea { font: inherit; color: var(--fg); }
 #fade.on { opacity: 1; }
 
 .link { border: 0; background: none; padding: 0; color: var(--gold); font-size: 12px; text-decoration: underline; }
+
+.who { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+.who .field { flex: 1; margin: 0; }
+#preview { width: 96px; height: 128px; border-radius: 14px; background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.14), rgba(255,255,255,.03)); border: 1px solid var(--line); }
+.seg { display: flex; gap: 6px; }
+.seg button { flex: 1; padding: 10px 0; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-size: 15px; }
+.seg button.on { border-color: var(--gold); background: rgba(232,211,160,.16); color: var(--gold); font-weight: 700; }
+
+@media (min-width: 701px) {
+  #intro { align-items: center; }
+  .intro-card { margin: 0 0 0 3vw; max-height: calc(100vh - 32px); overflow: auto; padding: 24px 26px; }
+  .tagline { margin-bottom: 16px; }
+}
