@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#05070d">
+  <title>WORK TOWER · 88F</title>
+  <link rel="stylesheet" href="src/style.css">
+  <script src="vendor/supabase/supabase.js"></script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <!-- 시작 화면 -->
+  <section id="intro">
+    <div class="intro-card">
+      <div class="brand" id="brandName">WORK TOWER</div>
+      <div class="tagline" id="brandTagline">서울의 야경이 내려다보이는 88층 오피스</div>
+      <label class="field">
+        <span>이름</span>
+        <input id="nameInput" maxlength="16" placeholder="이름을 입력하세요" autocomplete="nickname">
+      </label>
+      <div class="field">
+        <span>옷 색깔</span>
+        <div id="colorPick" class="colors"></div>
+      </div>
+      <button id="enterBtn" class="primary">88층으로 올라가기</button>
+      <p class="sub">화면을 드래그하면 건물을 둘러볼 수 있어요</p>
+    </div>
+  </section>
+
+  <!-- 사무실 화면 -->
+  <section id="hud" hidden>
+    <header class="topbar">
+      <div class="place">
+        <b id="floorLabel">88F</b>
+        <span id="zoneLabel">로비</span>
+      </div>
+      <div class="net"><i id="netDot"></i><span id="netText">연결 중…</span></div>
+      <nav class="actions">
+        <button id="btnNotice">공지</button>
+        <button id="btnPeople">접속자 <b id="onlineCount">1</b></button>
+        <button id="btnView">외관 보기</button>
+      </nav>
+    </header>
+
+    <aside id="chat" class="panel">
+      <div class="chat-tabs">
+        <button data-tab="all" class="on">전체</button>
+        <button data-tab="zone" id="zoneTab">이 공간</button>
+        <button id="chatToggle" class="ghost" title="채팅 접기">▾</button>
+      </div>
+      <ol id="chatLog"></ol>
+      <form id="chatForm" autocomplete="off">
+        <input id="chatInput" maxlength="200" placeholder="Enter 키로 채팅">
+        <button>보내기</button>
+      </form>
+    </aside>
+    <button id="chatOpen" class="round" hidden>💬</button>
+
+    <div id="prompt" hidden></div>
+    <div id="hint">WASD·방향키 이동 · Shift 달리기 · 드래그 회전 · 휠 줌 · Enter 채팅</div>
+
+    <div id="joy" hidden><div id="joyKnob"></div></div>
+  </section>
+
+  <!-- 공지 -->
+  <div id="noticeModal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>공지사항</h2><button class="close" data-close>✕</button></header>
+      <ul id="noticeList"></ul>
+      <form id="noticeForm">
+        <input id="noticeTitle" maxlength="60" placeholder="제목" required>
+        <textarea id="noticeBody" maxlength="400" rows="3" placeholder="내용"></textarea>
+        <button class="primary">공지 올리기</button>
+      </form>
+      <p class="sub" id="noticeMode"></p>
+    </div>
+  </div>
+
+  <!-- 접속자 -->
+  <div id="peopleModal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>지금 접속한 사람</h2><button class="close" data-close>✕</button></header>
+      <ul id="peopleList"></ul>
+    </div>
+  </div>
+
+  <div id="loading"><div class="spinner"></div><p>88층 오피스를 준비하고 있어요…</p></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
