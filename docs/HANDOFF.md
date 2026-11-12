@@ -59,7 +59,7 @@
 | `duel.js` | 결투 전체 흐름 (신청/수락/시작/타격/판정/레벨) |
 | `net.js` | Supabase Realtime / BroadcastChannel(로컬 데모), 이벤트 `state/chat/sync/ev` |
 | `notices.js` | 공지 읽기/쓰기, 공지판 그림 |
-| `audio.js` | 물소리(계곡: 낮은 흐름 + 물방울 `buildBrook`, 들릴 때만 물방울 생성)·퍽·신호음 (파일 없이 Web Audio로 생성) |
+| `audio.js` | 물소리(잡음 세 겹, 크기는 `WATER_LEVEL`. 물방울식 계곡 소리는 사용자가 싫어해 되돌림)·퍽·신호음 (파일 없이 Web Audio로 생성) |
 
 ## 5. 검사하는 법 (Claude용)
 
