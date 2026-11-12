@@ -163,10 +163,11 @@ export function createGround(uniforms) {
           float streak = pow(hash12(vec2(colId, 3.0)), 10.0);
           float wave = 0.5 + 0.5 * sin(p.y * 0.3 + uTime * 1.3 + hash12(vec2(colId, 7.0)) * 6.28);
           float nearBank = smoothstep(${RIVER_HALF.toFixed(1)} - 120.0, ${RIVER_HALF.toFixed(1)}, dz);
-          col += mix(vec3(1.0, 0.7, 0.4), vec3(0.5, 0.7, 1.0), step(0.5, hash12(vec2(colId, 9.0)))) * streak * wave * (0.25 + 0.6 * nearBank) * mix(0.15, 1.0, detail);
+          // 강물에 비친 불빛: 아주 은은하게 (너무 밝으면 줄무늬처럼 보여서)
+          col += mix(vec3(1.0, 0.75, 0.5), vec3(0.6, 0.75, 1.0), step(0.5, hash12(vec2(colId, 9.0)))) * streak * wave * (0.04 + 0.1 * nearBank) * mix(0.1, 1.0, detail);
           col += vec3(0.02, 0.03, 0.05) * (1.0 - nearBank);
           dcol = vec3(0.1, 0.22, 0.32) + vec3(0.05, 0.06, 0.06) * wave * (0.3 + 0.7 * detail);
-          dcol += vec3(0.7) * pow(hash12(floor(p * 0.6) + floor(uTime * 3.0)), 60.0) * detail;
+          dcol += vec3(0.25) * pow(hash12(floor(p * 0.6) + floor(uTime * 3.0)), 60.0) * detail;
         } else if (dz < ${(RIVER_HALF + 26).toFixed(1)}) {
           // 강변 도로
           float lane = dz - ${RIVER_HALF.toFixed(1)};

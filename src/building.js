@@ -832,7 +832,15 @@ export function createBuilding() {
     sofa(k, col, 0, 0, 1.4, 0, 3.0, M.fabricGray);
     sofa(k, col, -2.6, 0, 2.9, Math.PI / 2, 2.0, M.fabricGray);
     sofa(k, col, 2.6, 0, 2.9, -Math.PI / 2, 2.0, M.fabricGray);
-    k.cyl(0.55, 0.35, 0, 0, 3.0, M.black, 16); k.ball(0.3, 0, 0.42, 3.0, M.bulb, 0.6); col(-0.6, 2.4, 0.6, 3.6);
+    // ===== 불멍존: 둥근 돌 화로 + 장작 + 일렁이는 불꽃 =====
+    k.cyl(1.25, 0.02, 0, 0.05, 3.0, M.stoneLight, 32);                          // 화로 둘레 돌 바닥
+    k.cyl(0.62, 0.32, 0, 0.05, 3.0, M.stoneLight, 24, 0.66);                     // 돌 화로
+    k.cyl(0.5, 0.03, 0, 0.36, 3.0, M.black, 24);                                 // 안쪽 재
+    for (let i = 0; i < 5; i++) {                                                 // 장작 (원뿔 모양으로 기대 세움)
+      const a = (i / 5) * Math.PI * 2;
+      k.add(new THREE.CylinderGeometry(0.045, 0.05, 0.62, 6).rotateX(0.55), M.walnut, Math.sin(a) * 0.14, 0.58, 3.0 + Math.cos(a) * 0.14, a + Math.PI);
+    }
+    col(-0.68, 2.32, 0.68, 3.68, false, 0.4);
     for (const [x, z] of [[5.5, -3.6], [7.9, -0.6]]) {
       roundTable(k, col, x, 0, z, 0.5);
       k.cyl(0.03, 2.4, x, 0.74, z, M.metal, 6);
@@ -875,6 +883,24 @@ export function createBuilding() {
     floors[3].group.add(pivot);
     return { pivot, ang: 0, vel: 0, wob: Math.random() * 6 };
   });
+
+  // 불꽃 (옥상 불멍존) — 겹친 원뿔 몇 개가 일렁임 + 따뜻한 불빛
+  const fire = new THREE.Group();
+  fire.position.set(0, 0.4, 3.0);
+  const flameMats = [new THREE.MeshBasicMaterial({ color: C(1.6, 0.5, 0.1), transparent: true, opacity: 0.9, depthWrite: false }), new THREE.MeshBasicMaterial({ color: C(1.9, 1.05, 0.28), transparent: true, opacity: 0.85, depthWrite: false })];
+  const flames = [];
+  for (let i = 0; i < 6; i++) {
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.17 - (i % 3) * 0.035, 0.75 - (i % 3) * 0.15, 8, 1, true), flameMats[i % 2]);
+    const a = (i / 6) * Math.PI * 2;
+    f.userData = { bx: i < 2 ? 0 : Math.sin(a) * 0.1, bz: i < 2 ? 0 : Math.cos(a) * 0.1, ph: i * 1.7, h: 0.75 - (i % 3) * 0.15 };
+    f.position.set(f.userData.bx, f.userData.h / 2, f.userData.bz);
+    fire.add(f); flames.push(f);
+  }
+  const fireLight = new THREE.PointLight(0xff9a4a, 6, 7, 2);
+  fireLight.position.set(0, 0.9, 0);
+  fire.add(fireLight);
+  floors[ROOF].group.add(fire);
+  let fireT = 0;
 
   const group = new THREE.Group();
   group.add(shell, ...floors.map((f) => f.group));
@@ -932,6 +958,17 @@ export function createBuilding() {
       applyRig();
     },
     update(dt, player) {
+      // 불꽃 일렁임 (옥상이 보일 때만)
+      if (floors[ROOF].group.visible) {
+        fireT += dt;
+        for (const f of flames) {
+          const u = f.userData, k = 0.8 + 0.25 * Math.sin(fireT * 9 + u.ph) + 0.12 * Math.sin(fireT * 23 + u.ph * 2);
+          f.scale.set(1 + 0.1 * Math.sin(fireT * 13 + u.ph), k, 1 + 0.1 * Math.cos(fireT * 11 + u.ph));
+          f.position.set(u.bx + 0.02 * Math.sin(fireT * 7 + u.ph), (u.h * k) / 2, u.bz + 0.02 * Math.cos(fireT * 6 + u.ph));
+          f.rotation.y = fireT * (0.5 + (u.ph % 1));
+        }
+        fireLight.intensity = 5 + 1.5 * Math.sin(fireT * 17) + Math.sin(fireT * 7.3);
+      }
       // 샌드백 흔들림 (스프링처럼 돌아옴)
       for (const b of bags) {
         b.vel += (-14 * b.ang - 1.6 * b.vel) * dt;
