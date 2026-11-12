@@ -33,6 +33,7 @@ export function connect(me, handlers) {
         .on('broadcast', { event: 'state' }, ({ payload }) => { touch(payload.id); handlers.onState(payload); })
         .on('broadcast', { event: 'chat' }, ({ payload }) => handlers.onChat(payload))
         .on('broadcast', { event: 'sync' }, () => handlers.onSync?.())
+        .on('broadcast', { event: 'ev' }, ({ payload }) => handlers.onEvent?.(payload))
         .on('presence', { event: 'join' }, () => handlers.onSync?.())
         // 잠깐 끊겼다 돌아오는 경우가 많아서, 나갔다는 신호만으로 바로 지우지 않음 (아래 정리에서 판단)
         .on('presence', { event: 'leave' }, ({ key }) => { const t = lastSeen.get(key); if (t) lastSeen.set(key, Math.min(t, performance.now() - 50000)); })
@@ -64,6 +65,7 @@ export function connect(me, handlers) {
         if (event === 'state') { touch(payload.id); handlers.onState(payload); }
         else if (event === 'chat') handlers.onChat(payload);
         else if (event === 'sync') handlers.onSync?.();
+        else if (event === 'ev') handlers.onEvent?.(payload);
         else if (event === 'leave') { lastSeen.delete(payload.id); handlers.onLeave(payload.id); }
       };
     }
@@ -97,6 +99,7 @@ export function connect(me, handlers) {
   return {
     sendState(p) { sendRaw('state', p); },
     sendChat(m) { sendRaw('chat', m); },
+    sendEvent(e) { sendRaw('ev', e); }, // 결투 같은 놀이용 알림
     close() { clearInterval(sweep); close(); },
   };
 }

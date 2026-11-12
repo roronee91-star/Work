@@ -17,6 +17,8 @@ export const CEIL = 3.65;               // 바닥에서 천장까지
 export const ROOF = 4;                  // 옥상 층 번호
 export const ELEV = { x: -8.75, z: -0.9 }; // 엘리베이터 앞
 export const NOTICE = { floor: 2, x: -5.85, z: -0.8 };
+// 4층 결투장 (칼싸움) 가운데
+export const ARENA = { floor: 3, x: 5.3, z: -4.3 };
 // 4층 오락존: 동쪽 창가 투명 부스 5칸, 칸마다 샌드백
 export const BOOTHS = Array.from({ length: 5 }, (_, i) => {
   const z1 = -6.4 + i * 1.7, z2 = z1 + 1.7, zc = (z1 + z2) / 2;
@@ -779,7 +781,18 @@ export function createBuilding() {
     for (const x of [-5, -3.9, -2.8]) stool(k, x, 0, -2.85, Math.PI);
     // 탁구대
     // 탁구대: 샌드백 부스에서 넉넉히 떨어뜨림 (가운데 쪽)
-    const TX = 2.4, TZ = -4.3;
+    const TX = 1.6, TZ = -4.3;
+    // ===== 결투장 (칼싸움) =====
+    k.cyl(1.75, 0.012, ARENA.x, 0.03, ARENA.z, M.black, 40);
+    k.cyl(1.62, 0.014, ARENA.x, 0.031, ARENA.z, M.mugRed, 40);
+    k.cyl(1.45, 0.016, ARENA.x, 0.032, ARENA.z, M.black, 40);
+    k.box(0.06, 0.017, 1.2, ARENA.x, 0.033, ARENA.z, M.white);
+    const arenaSign = canvasTex(768, 160, (ctx, w, h) => {
+      ctx.fillStyle = '#0d0f16'; ctx.fillRect(0, 0, w, h);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 80px ${FONT}`;
+      ctx.fillStyle = '#ffcf6b'; ctx.fillText('⚔️ DUEL ARENA', w / 2, h / 2 + 4);
+    });
+    panel(group, arenaSign, 2.2, 0.46, ARENA.x, 2.6, -HZ + 0.15, 0);
     k.box(2.74, 0.05, 1.52, TX, 0.74, TZ, M.green); k.box(0.02, 0.15, 1.6, TX, 0.79, TZ, M.white);
     k.box(2.5, 0.72, 1.3, TX, 0.02, TZ, M.black); col(TX - 1.37, TZ - 0.76, TX + 1.37, TZ + 0.76);
     // 대형 TV (코어 동쪽 면)
@@ -929,7 +942,7 @@ export function createBuilding() {
     [[-4.5, -2], [5, -1], [3, 4]],
     [[-2.5, -1.3], [3.5, -1.3], [4, 4]],
     [[-2.9, -4.3], [5.9, -4.3], [1, 3.5]],
-    [[-3.5, -3.5], [1, 3], [2.4, -4.0]],
+    [[-3.5, -3.5], [1, 3], [5.3, -4.0]],
     [[0, 3], [6, -2], [-5, 2]],
   ];
 

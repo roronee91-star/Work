@@ -102,6 +102,22 @@
     <div id="hint">WASD·방향키 이동 · Space 점프 · Shift 달리기 · 드래그 회전 · 휠 줌 · Enter 채팅 · E 엘리베이터/공지판</div>
 
     <div id="joy" hidden><div id="joyKnob"></div></div>
+    <!-- 칼싸움 결투 -->
+    <div id="duelBars" hidden>
+      <div class="dv"><span id="dvA"></span><i><b id="dvAhp"></b></i></div>
+      <em id="dvTime"></em>
+      <div class="dv r"><span id="dvB"></span><i><b id="dvBhp"></b></i></div>
+    </div>
+    <div id="duelBanner" hidden></div>
+    <div id="duelUI" hidden>
+      <div id="dBig" hidden>3</div>
+      <div id="dFloat"></div>
+      <button id="dAttack">⚔️<span>공격!</span></button>
+      <div id="dResult" class="g-panel" hidden>
+        <p id="dResText"></p>
+        <div class="g-btns"><button id="dLeave" class="primary">결투장 나가기</button></div>
+      </div>
+    </div>
     <button id="btnJump" hidden>⤒<span>점프</span></button>
 
     <!-- 샌드백 치기 -->
@@ -148,6 +164,25 @@
     <div class="modal-card">
       <header><h2>엘리베이터</h2><button class="close" data-close>✕</button></header>
       <div id="floorList"></div>
+    </div>
+  </div>
+
+  <!-- 결투 신청 -->
+  <div id="duelInvite" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>⚔️ 결투 신청</h2><button class="close" data-close>✕</button></header>
+      <p class="sub" style="text-align:left"><b id="dInvName"></b>님에게 결투를 신청해요. 무엇을 걸까요?</p>
+      <div id="dBets" class="bets"></div>
+      <input id="dCustom" maxlength="30" placeholder="예: 점심 메뉴 고르기 권한" hidden>
+      <p class="sub" style="text-align:left">상대가 수락해야 시작돼요. 직함은 그대로이고 레벨만 올라가요.</p>
+      <div class="g-btns"><button id="dSend" class="primary">신청하기</button><button id="dCancel">취소</button></div>
+    </div>
+  </div>
+  <div id="duelAsk" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>⚔️ 결투 신청이 왔어요</h2></header>
+      <p id="dAskText"></p>
+      <div class="g-btns"><button id="dAccept" class="primary">수락</button><button id="dDecline">거절</button></div>
     </div>
   </div>
 

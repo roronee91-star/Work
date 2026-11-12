@@ -200,9 +200,22 @@ export class Avatar {
     this.armL.position.set(-0.18, 0.52, 0); this.armR.position.set(0.18, 0.52, 0);
     this.armL.rotation.z = -0.12; this.armR.rotation.z = 0.12;
     void f;
+    // 결투용 칼 (오른손에, 평소엔 숨김)
+    this.sword = new THREE.Group();
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.62, 0.012), new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.2, metalness: 0.8, emissive: 0x223040 }));
+    blade.position.y = -0.62;
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.025, 0.045), new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.3, metalness: 0.7 }));
+    guard.position.y = -0.3;
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.8 }));
+    grip.position.y = -0.25;
+    this.sword.add(blade, guard, grip);
+    this.sword.visible = !!this.swordOn;
+    this.armR.add(this.sword);
     this.body.scale.setScalar(SCALE);
     this.body.add(this.torso, this.legL, this.legR, this.armL, this.armR);
   }
+  setSword(on) { this.swordOn = on; if (this.sword) this.sword.visible = on; }
+  hurt(now) { this.hurtAt = now; }
 
   setLook(color, gender) {
     const g = gender === 'f' ? 'f' : 'm';
@@ -313,7 +326,14 @@ export class Avatar {
       this.legL.rotation.x = -0.5 * k; this.legR.rotation.x = 0.25 * k;
       this.armL.rotation.z = -0.12 - 0.7 * k; this.armR.rotation.z = 0.12 + 0.7 * k;
     }
-    if (this.boxing) {
+    if (this.boxing && this.swordOn) {
+      // 칼싸움: 칼을 든 오른팔을 위에서 아래로 내려 벰
+      const p = Math.max(0, 1 - (now - this.punchAt) / 0.18);
+      this.armL.rotation.x = -0.9; this.armL.rotation.z = 0.35;
+      this.armR.rotation.x = -1.0 - 1.4 * Math.sin(p * Math.PI) * (this.punchSide ? 1 : 0.8);
+      this.armR.rotation.z = -0.15;
+      this.body.rotation.y = -0.25 * p;
+    } else if (this.boxing) {
       // 가드 자세, 펀치할 때 한쪽 팔을 쭉 뻗음
       const p = Math.max(0, 1 - (now - this.punchAt) / 0.16);
       this.armL.rotation.x = this.armR.rotation.x = -1.2;
@@ -323,6 +343,9 @@ export class Avatar {
       arm.rotation.z *= 1 - p;
       this.body.rotation.y = (this.punchSide ? -1 : 1) * 0.18 * p;
     } else this.body.rotation.y = 0;
+    // 맞으면 뒤로 휘청
+    const hk = Math.max(0, 1 - (now - (this.hurtAt ?? -9)) / 0.22);
+    this.body.rotation.x = -0.3 * hk;
     // 서 있을 때 숨쉬기
     this.idle += dt;
     const breathe = Math.sin(this.idle * 1.8) * 0.006 * (1 - Math.min(s * 3, 1));

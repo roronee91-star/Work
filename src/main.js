@@ -5,8 +5,9 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
 import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, createTraffic, FOG_NIGHT, FOG_DAY } from './world.js';
-import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS } from './building.js';
+import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA } from './building.js';
 import { createGarden, STREAM } from './garden.js';
+import { createDuel, levelOf } from './duel.js';
 import { startAudio, setWaterVolume, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
@@ -137,6 +138,38 @@ let fly = null;
 let myAvatar = null;
 let net = null;
 const peers = new Map();
+// ⚔️ 결투 (아래 함수들은 실행될 때 찾으므로 여기서 만들어도 됨)
+const lvName = (name, lv) => (lv > 1 ? `Lv.${lv} ${name}` : name);
+const duel = createDuel({
+  $, me, peers, isTouch,
+  net: () => net,
+  openModal: (id) => openModal(id), closeModals: () => closeModals(),
+  sys: (t) => sysMessage(t), chatLine: (t) => sysMessage(t),
+  beep: (f, d) => playBeep(f, d), thump: (p) => playThump(p),
+  hurtMe: () => myAvatar?.hurt(now), peerHurt: (id) => peers.get(id)?.av.hurt(now),
+  swing: () => myAvatar?.punch(now), sendNow: () => sendState(true),
+  levelChanged: (lv) => { myAvatar?.setName(lvName(me.name, lv)); sendState(true); },
+  enterArena(side) {
+    clearTarget();
+    if (player.sit) standUp();
+    if (game.on) quitGame();
+    myAvatar.setBoxing(true); myAvatar.setSword(true);
+    $('joy').hidden = true; $('btnJump').hidden = true;
+    const go = () => {
+      player.x = ARENA.x + side * 0.95; player.z = ARENA.z; player.ry = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+      cam.yaw = 0; cam.pitch = 0.22; cam.dist = 3.6;
+      sendState(true);
+    };
+    if (player.floor !== ARENA.floor || mode !== 'office') { goFloor(ARENA.floor); setTimeout(go, 560); } else go();
+  },
+  exitArena() {
+    myAvatar.setBoxing(false); myAvatar.setSword(false);
+    $('joy').hidden = !isTouch; $('btnJump').hidden = !isTouch;
+    cam.dist = 3.4;
+    sendState(true);
+  },
+});
+const busy = () => game.on || duel.fighting; // 게임 · 결투 중에는 걸어다니기 멈춤
 let chatTab = 'all';
 resize();
 
@@ -231,7 +264,7 @@ function saveProfile() {
   me.name = name;
   try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
   myAvatar.setLook(me.color, me.gender);
-  if (renamed) myAvatar.setName(me.name);
+  if (renamed) myAvatar.setName(lvName(me.name, duel.level));
   closeProfile();
   sysMessage('캐릭터를 바꿨어요.');
   sendState(true);
@@ -260,11 +293,12 @@ function enter() {
   if (isTouch) setChatOpen(false);
   startAudio();
   myAvatar = new Avatar(me.name, me.color, me.gender);
+  if (duel.level > 1) myAvatar.setName(lvName(me.name, duel.level));
   scene.add(myAvatar.root);
   placeAvatar(myAvatar, player);
   me.jt = Date.now();
   net = connect(me, {
-    onState, onChat: receiveChat, onLeave: removePeer, onSync: () => sendState(true),
+    onState, onChat: receiveChat, onLeave: removePeer, onSync: () => sendState(true), onEvent: (e) => duel.onEvent(e),
     onStatus(text, online) { $('netText').textContent = text; $('netDot').classList.toggle('on', online); },
   });
   sysMessage(returning
@@ -282,6 +316,10 @@ const isTyping = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.ta
 addEventListener('keydown', (e) => {
   if (isTyping()) { if (e.key === 'Escape') document.activeElement.blur(); return; }
   if (mode === 'intro') return;
+  if (duel.fighting) {
+    if (['Space', 'KeyE', 'KeyJ', 'KeyF'].includes(e.code)) { e.preventDefault(); if (!e.repeat) duel.attack(); }
+    return;
+  }
   if (game.on) {
     if (['Space', 'KeyE', 'KeyJ', 'KeyF'].includes(e.code)) { e.preventDefault(); if (!e.repeat) punch(); }
     if (e.code === 'Escape') quitGame();
@@ -406,9 +444,9 @@ function updatePlayer(dt) {
   const mag = Math.min(Math.hypot(f, s), 1);
   const run = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(joy.x, joy.y) > 0.95;
   let moved = 0;
-  if (game.on) { f = 0; s = 0; }
-  if (player.sit && mag > 0.05 && !game.on) standUp();
-  if (!player.sit && !game.on && mag > 0.05) {
+  if (busy()) { f = 0; s = 0; }
+  if (player.sit && mag > 0.05 && !busy()) standUp();
+  if (!player.sit && !busy() && mag > 0.05) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
     const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     let mx = fx * f + rx * s, mz = fz * f + rz * s;
@@ -422,7 +460,7 @@ function updatePlayer(dt) {
     player.ry = lerpAngle(player.ry, target, Math.min(1, dt * 12));
   }
   // 핑 찍은 곳으로 걸어가기
-  if (moveTarget && !game.on && !player.sit && mag <= 0.05) {
+  if (moveTarget && !busy() && !player.sit && mag <= 0.05) {
     const dx = moveTarget.x - player.x, dz = moveTarget.z - player.z, d = Math.hypot(dx, dz);
     if (d < 0.12) {
       if (moveTarget.path?.length) { const [nx, nz] = moveTarget.path.shift(); moveTarget.x = nx; moveTarget.z = nz; moveTarget.stuck = 0; }
@@ -458,8 +496,8 @@ function updatePlayer(dt) {
   // 엘리베이터 앞에 오면 몇 층 갈지 자동으로 물어봄 (한 번 뜨면 멀어졌다 다시 와야 또 뜸)
   const elevD = Math.hypot(player.x - ELEV.x, player.z - ELEV.z);
   if (elevD > 2.4) elevAsked = false;
-  else if (what === 'elev' && !elevAsked && !game.on && !player.sit && document.querySelectorAll('.modal:not([hidden])').length === 0) { elevAsked = true; openFloorMenu(); }
-  if (game.on) pr.hidden = true;
+  else if (what === 'elev' && !elevAsked && !busy() && !player.sit && document.querySelectorAll('.modal:not([hidden])').length === 0) { elevAsked = true; openFloorMenu(); }
+  if (busy()) pr.hidden = true;
   else if (what && what.booth) { pr.textContent = isTouch ? `🥊 ${what.booth.i + 1}번 샌드백 치기 (누르기)` : `E  🥊 ${what.booth.i + 1}번 샌드백 치기`; pr.hidden = false; }
   else if (player.sit && player.working) { pr.textContent = isTouch ? '일 그만하기 (누르기)' : '일 그만하기: E 또는 이동 키'; pr.hidden = false; }
   else if (player.sit) { pr.textContent = isTouch ? '일어나기 (누르기)' : '이동 키를 누르면 일어나요'; pr.hidden = false; }
@@ -501,9 +539,14 @@ function clearTarget() { moveTarget = null; pingMark.visible = false; }
 // 목적지에 닿거나 막혔을 때: 할 일이 있으면 실행 (예: 엘리베이터 타기)
 function finishTarget() { const cb = moveTarget?.then; clearTarget(); cb?.(); }
 function tapMove(cx, cy) {
-  if (mode !== 'office' || game.on || !myAvatar) return;
+  if (mode !== 'office' || busy() || !myAvatar) return;
   const r = canvas.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
+  // 다른 사람 캐릭터를 누르면 결투 신청
+  for (const [id, p] of peers) {
+    if (!p.av.root.visible) continue;
+    if (raycaster.intersectObject(p.av.body, true).length) { duel.openInvite(id); return; }
+  }
   const fy = FLOORS[player.floor].y;
   const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -fy), new THREE.Vector3());
   if (!hit) return;
@@ -600,7 +643,7 @@ function groundAt(x, z, feet) {
 
 // ---------- 점프 ----------
 function doJump() {
-  if (mode !== 'office' || !myAvatar || player.sit || game.on) return;
+  if (mode !== 'office' || !myAvatar || player.sit || busy()) return;
   if (myAvatar.jump()) { player.jc = (player.jc || 0) + 1; sendState(true); }
 }
 $('btnJump').addEventListener('pointerdown', (e) => { e.preventDefault(); document.activeElement?.blur?.(); doJump(); });
@@ -738,7 +781,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 300) && t - lastSend < 10000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, dl: duel.fighting ? 1 : 0, sc: duel.swings, lv: duel.level, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
 }
 
 function onState(p) {
@@ -767,7 +810,11 @@ function onState(p) {
   peer.av.setSit(!!p.st, +p.st || 0);
   peer.av.setWorking(!!p.wk && !!p.st);
   const bx = Number.isInteger(p.bx) ? p.bx : -1;
-  peer.av.setBoxing(bx >= 0);
+  peer.av.setBoxing(bx >= 0 || !!p.dl);
+  peer.av.setSword(!!p.dl);
+  if (p.dl && (p.sc || 0) > (peer.sc || 0)) peer.av.punch(now);
+  peer.sc = p.sc || 0;
+  if ((p.lv || 1) !== peer.lv) { peer.lv = p.lv || 1; peer.av.setName(lvName(p.name, peer.lv)); }
   if (bx >= 0 && (p.pc || 0) > (peer.pc || 0)) { peer.av.punch(now); if (peer.floor === player.floor) bld.hitBag(bx, 2); }
   peer.pc = p.pc || 0;
   if (peer.jc !== undefined && (p.jc || 0) > peer.jc) peer.av.jump();
@@ -963,8 +1010,9 @@ $('noticeForm').addEventListener('submit', async (e) => {
   }
 });
 $('btnPeople').onclick = () => {
-  const rows = [{ name: me.name + ' (나)', color: me.color, zone: player.zone }, ...[...peers.values()]];
-  $('peopleList').innerHTML = rows.map((p) => `<li><i style="background:${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#888'}"></i>${esc(p.name)}<small>${esc(ZONES[p.zone] || '')}</small></li>`).join('');
+  const rows = [{ name: me.name + ' (나)', color: me.color, zone: player.zone, lv: duel.level, me: true }, ...[...peers.entries()].map(([id, p]) => ({ ...p, id }))];
+  $('peopleList').innerHTML = rows.map((p) => `<li><i style="background:${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#888'}"></i>${esc(lvName(p.name, p.lv || 1))}<small>${esc(ZONES[p.zone] || '')}</small>${p.me || duel.active ? '' : `<button class="duel" data-id="${esc(p.id)}">⚔️ 결투</button>`}</li>`).join('');
+  $('peopleList').querySelectorAll('button.duel').forEach((b) => (b.onclick = () => duel.openInvite(b.dataset.id)));
   openModal('peopleModal');
 };
 $('btnView').onclick = () => {
@@ -1103,6 +1151,7 @@ function frame() {
   garden.update(dt);
   traffic.update(dt);
   if (game.on) updateGame(dt);
+  duel.update(dt);
   if (pingMark.visible) { pingMark.scale.setScalar(Math.max(1, pingMark.scale.x - dt * 3)); pingMark.rotation.z += dt * 2; }
   if (myAvatar) updateWaterSound();
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
@@ -1137,5 +1186,5 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__work = { findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
+window.__work = { duel, findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
 window.__workMain = true;
