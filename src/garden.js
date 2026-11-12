@@ -69,7 +69,7 @@ export function createGarden(uniforms) {
   k.cyl(0.55, 1.25, fx, 0.4, fz, stone, 20, 0.4);
   k.cyl(1.25, 0.22, fx, 1.5, fz, stone, 28, 1.35);
   k.cyl(0.18, 0.5, fx, 1.7, fz, stone, 10, 0.12);
-  col(fx - 3.8, fz - 3.8, fx + 3.8, fz + 3.8);
+  colliders.push({ circle: true, cx: fx, cz: fz, r: 3.9, x1: fx - 3.9, z1: fz - 3.9, x2: fx + 3.9, z2: fz + 3.9, tall: false }); // 둥근 분수는 둥글게 막음
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x2d76a6, roughness: 0.08, metalness: 0.25, emissive: 0x0b3550, transparent: true, opacity: 0.92 });
   const water = new THREE.Mesh(new THREE.CircleGeometry(3.45, 40), waterMat);
   water.rotation.x = -Math.PI / 2; water.position.set(fx, 0.5, fz);

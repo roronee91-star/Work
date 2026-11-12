@@ -21,7 +21,7 @@ export const BOOTHS = Array.from({ length: 5 }, (_, i) => {
   const z1 = -6.4 + i * 1.7, z2 = z1 + 1.7, zc = (z1 + z2) / 2;
   return { i, z1, z2, zc, bagX: 9.35, spot: { x: 8.72, z: zc } };
 });
-export const SPAWN = { floor: 0, x: -2.5, z: -3.2, yaw: Math.PI / 2 };
+export const SPAWN = { floor: 0, x: 0, z: 9.4, yaw: 0 }; // 회사 정문 바로 앞(바깥)에서 문을 바라봄
 
 export const ZONES = {
   garden: '1F 정원', f1: '1F 로비·카페', f2: '2F 업무 공간', f3: '3F 회의실 홀', meetA: '3F 회의실 A', meetB: '3F 회의실 B', f4: '4F 라운지', arcade: '4F 오락존', roof: '옥상 테라스',

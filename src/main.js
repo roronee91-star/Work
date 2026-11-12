@@ -304,6 +304,11 @@ const R = 0.26;
 function collide(x, z) {
   for (let it = 0; it < 3; it++) {
     for (const c of bld.floors[player.floor].colliders) {
+      if (c.circle) {
+        const dx = x - c.cx, dz = z - c.cz, d = Math.hypot(dx, dz), m = c.r + R;
+        if (d < m) { if (d > 1e-6) { x = c.cx + (dx / d) * m; z = c.cz + (dz / d) * m; } else z = c.cz + m; }
+        continue;
+      }
       const cx = Math.max(c.x1, Math.min(x, c.x2));
       const cz = Math.max(c.z1, Math.min(z, c.z2));
       let dx = x - cx, dz = z - cz;
@@ -885,5 +890,5 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__work = { get mode() { return mode; }, toggleDay, game, bld, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor };
+window.__work = { get mode() { return mode; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor };
 window.__workMain = true;
