@@ -237,8 +237,8 @@ const pointers = new Map();
 let pinchDist = 0;
 canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 2) pinchDist = pinchLen();
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), multi: pointers.size > 0 });
+  if (pointers.size === 2) { pinchDist = pinchLen(); for (const q of pointers.values()) q.multi = true; }
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
 });
 canvas.addEventListener('pointermove', (e) => {
@@ -263,7 +263,12 @@ canvas.addEventListener('pointermove', (e) => {
   }
 });
 const endPointer = (e) => { pointers.delete(e.pointerId); };
-canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointerup', (e) => {
+  const p = pointers.get(e.pointerId);
+  // 짧게 누르고 거의 안 움직였으면 "핑": 그 자리로 걸어감
+  if (p && !p.multi && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) < 8 && performance.now() - p.t < 400) tapMove(e.clientX, e.clientY);
+  endPointer(e);
+});
 canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY * 0.002); }, { passive: false });
 function pinchLen() { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); }
@@ -325,6 +330,7 @@ function updatePlayer(dt) {
   if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
   f -= joy.y; s += joy.x;
+  if ((Math.abs(f) > 0.05 || Math.abs(s) > 0.05) && moveTarget) clearTarget();
   const mag = Math.min(Math.hypot(f, s), 1);
   const run = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(joy.x, joy.y) > 0.95;
   let moved = 0;
@@ -343,6 +349,21 @@ function updatePlayer(dt) {
     const target = Math.atan2(mx, mz);
     player.ry = lerpAngle(player.ry, target, Math.min(1, dt * 12));
   }
+  // 핑 찍은 곳으로 걸어가기
+  if (moveTarget && !game.on && !player.sit && mag <= 0.05) {
+    const dx = moveTarget.x - player.x, dz = moveTarget.z - player.z, d = Math.hypot(dx, dz);
+    if (d < 0.12) clearTarget();
+    else {
+      const step = Math.min(d, 3.4 * dt);
+      const [nx, nz] = collide(player.x + (dx / d) * step, player.z + (dz / d) * step);
+      moved = Math.hypot(nx - player.x, nz - player.z);
+      player.x = nx; player.z = nz;
+      player.ry = lerpAngle(player.ry, Math.atan2(dx, dz), Math.min(1, dt * 12));
+      // 막혀서 못 가면 멈춤
+      moveTarget.stuck = moved < step * 0.3 ? (moveTarget.stuck || 0) + dt : 0;
+      if (moveTarget.stuck > 0.5) clearTarget();
+    }
+  }
   player.speed = dt > 0 ? moved / dt : 0;
   placeAvatar(myAvatar, player);
   myAvatar.animate(dt, player.speed, now);
@@ -357,7 +378,9 @@ function updatePlayer(dt) {
   const what = nearWhat();
   if (game.on) pr.hidden = true;
   else if (what && what.booth) { pr.textContent = isTouch ? `🥊 ${what.booth.i + 1}번 샌드백 치기 (누르기)` : `E  🥊 ${what.booth.i + 1}번 샌드백 치기`; pr.hidden = false; }
+  else if (player.sit && player.working) { pr.textContent = isTouch ? '일 그만하기 (누르기)' : '일 그만하기: E 또는 이동 키'; pr.hidden = false; }
   else if (player.sit) { pr.textContent = isTouch ? '일어나기 (누르기)' : '이동 키를 누르면 일어나요'; pr.hidden = false; }
+  else if (what && what.seat && what.seat.desk) { pr.textContent = isTouch ? '💻 일하기 (누르기)' : 'E  💻 일하기'; pr.hidden = false; }
   else if (what && what.seat) { pr.textContent = isTouch ? '앉기 (누르기)' : 'E  앉기'; pr.hidden = false; }
   else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
@@ -378,11 +401,37 @@ function nearWhat() {
   }
   return null;
 }
+// ---------- 핑 찍어 이동 ----------
+let moveTarget = null;
+const raycaster = new THREE.Raycaster();
+const pingMark = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.24, 28), new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, depthWrite: false }));
+pingMark.rotation.x = -Math.PI / 2; pingMark.visible = false; pingMark.renderOrder = 5;
+scene.add(pingMark);
+function clearTarget() { moveTarget = null; pingMark.visible = false; }
+function tapMove(cx, cy) {
+  if (mode !== 'office' || game.on || !myAvatar) return;
+  const r = canvas.getBoundingClientRect();
+  raycaster.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
+  const fy = FLOORS[player.floor].y;
+  const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -fy), new THREE.Vector3());
+  if (!hit) return;
+  const lx = player.floor === 0 ? LOT - 0.4 : HX - 0.5, lz = player.floor === 0 ? LOT - 0.4 : HZ - 0.5;
+  const x = THREE.MathUtils.clamp(hit.x, -lx, lx), z = THREE.MathUtils.clamp(hit.z, -lz, lz);
+  if (Math.hypot(x - player.x, z - player.z) > 40) return;
+  if (player.sit) standUp();
+  moveTarget = { x, z, stuck: 0 };
+  pingMark.position.set(x, fy + 0.04, z);
+  pingMark.visible = true; pingMark.scale.setScalar(1.6);
+}
+
 // ---------- 앉기 ----------
 function sitDown(seat) {
   player.sit = seat;
   player.x = seat.x; player.z = seat.z; player.ry = seat.ry;
   myAvatar.setSit(true, seat.h);
+  player.working = !!seat.desk;
+  myAvatar.setWorking(player.working);
+  if (player.working) sysMessage('💻 일하는 중이에요. 다른 사람 화면에 "일하는 중..." 풍선이 보여요.');
   cam.yaw = seat.ry + Math.PI; cam.pitch = 0.3;
   sendState(true);
 }
@@ -393,6 +442,8 @@ function standUp() {
   const [bx, bz] = collide(s.x - Math.sin(s.ry) * 0.7, s.z - Math.cos(s.ry) * 0.7);
   player.x = bx; player.z = bz;
   myAvatar.setSit(false);
+  player.working = false;
+  myAvatar.setWorking(false);
   sendState(true);
 }
 // 물소리: 개울·분수에 가까울수록 크게, 앉아 있으면 조금 더
@@ -502,7 +553,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 250) && t - lastSend < 8000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0 });
 }
 
 function onState(p) {
@@ -521,6 +572,7 @@ function onState(p) {
   if ((p.floor || 0) !== peer.floor) { peer.x = p.x; peer.z = p.z; }
   Object.assign(peer, { tx: p.x, tz: p.z, tr: p.ry, sp: p.sp || 0, zone: p.zone, floor: p.floor || 0 });
   peer.av.setSit(!!p.st, +p.st || 0);
+  peer.av.setWorking(!!p.wk && !!p.st);
   const bx = Number.isInteger(p.bx) ? p.bx : -1;
   peer.av.setBoxing(bx >= 0);
   if (bx >= 0 && (p.pc || 0) > (peer.pc || 0)) { peer.av.punch(now); if (peer.floor === player.floor) bld.hitBag(bx, 2); }
@@ -639,6 +691,7 @@ function openFloorMenu() {
 }
 function goFloor(f) {
   closeModals();
+  clearTarget();
   if (player.sit) standUp();
   if (game.on) quitGame();
   if (mode === 'exterior') { player.floor = f; arrive(); startFly('office', 2.6); $('btnView').textContent = '외관 보기'; return; }
@@ -689,6 +742,7 @@ const game = { on: false, booth: null, phase: 'idle', t: 0, score: 0, hits: 0, c
 let best = 0;
 try { best = +localStorage.getItem('work-punch-best') || 0; } catch {}
 function startGame(b) {
+  clearTarget();
   if (player.sit) standUp();
   Object.assign(game, { on: true, booth: b, phase: 'count', t: 3, score: 0, hits: 0, combo: 1, maxCombo: 1, last: 0, beepAt: 4 });
   player.x = b.spot.x; player.z = b.spot.z; player.ry = Math.PI / 2;
@@ -808,6 +862,7 @@ function frame() {
   bld.update(dt, myAvatar ? player : null);
   garden.update(dt);
   if (game.on) updateGame(dt);
+  if (pingMark.visible) { pingMark.scale.setScalar(Math.max(1, pingMark.scale.x - dt * 3)); pingMark.rotation.z += dt * 2; }
   if (myAvatar) updateWaterSound();
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
     if (mode === 'office') updatePlayer(dt); else myAvatar.animate(dt, 0, now);

@@ -134,10 +134,10 @@ function panel(parent, tex, w, h, x, y, z, ry, basic = true) {
 
 // ---------- 가구 ----------
 // 지금 만드는 층의 앉을 자리 목록 (의자 · 스툴 · 소파가 스스로 등록)
-let SEATS = null;
+let SEATS = null, DESK = false; // DESK: 컴퓨터 책상 의자 (일하기 가능)
 function chair(k, x, y, z, ry, mat = M.black) {
   const s = Math.sin(ry), c = Math.cos(ry);
-  SEATS?.push({ x, z, ry, h: 0.48 });
+  SEATS?.push({ x, z, ry, h: 0.48, desk: DESK });
   k.box(0.5, 0.08, 0.5, x, y + 0.44, z, mat, ry);
   k.box(0.5, 0.55, 0.07, x - s * 0.24, y + 0.52, z - c * 0.24, mat, ry);
   k.cyl(0.03, 0.42, x, y + 0.02, z, M.metal, 6);
@@ -395,6 +395,7 @@ export function createBuilding() {
     SEATS = F.seats;
     k.box(W - 0.2, 0.02, D - 0.2, 0, 0, 0, M.stone);
     k.box(13, 0.03, 9.6, 1.2, 0, -1.4, M.carpet);
+    DESK = true;
     for (const zc of [-3.8, 1.2]) {
       for (const xc of [-2.5, 2.5]) {
         k.box(3.2, 0.04, 1.6, xc, 0.72, zc, M.white);
@@ -424,6 +425,7 @@ export function createBuilding() {
     col(7.95, -4.7, 8.85, -2.9);
     k.box(0.03, 0.38, 0.6, 8.6, 0.94, -3.8, M.black);
     chair(k, 7.5, 0, -3.8, Math.PI / 2);
+    DESK = false;
     // 서류장 (북쪽 창가) + 바인더
     for (let i = 0; i < 3; i++) {
       const x = 4.9 + i * 0.85;

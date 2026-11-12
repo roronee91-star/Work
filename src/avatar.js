@@ -153,6 +153,13 @@ function buildArm(gender, top) {
   return p.mesh(MAT);
 }
 
+// "일하는 중..." 풍선 (점 1~3개, 그림 세 장을 미리 만들어 돌려 씀)
+let WORK_TEX = null;
+function workTextures() {
+  if (!WORK_TEX) WORK_TEX = ['.', '..', '...'].map((d) => labelTexture(`💻 일하는 중${d}`, { bg: 'rgba(79,140,255,0.92)', fg: '#fff', font: 700, size: 38 }));
+  return WORK_TEX;
+}
+
 export class Avatar {
   constructor(name, color, gender = 'm') {
     this.root = new THREE.Group();
@@ -177,6 +184,7 @@ export class Avatar {
     this.idle = Math.random() * 10;
     this.sitting = false; this.sitH = 0;
     this.boxing = false; this.punchAt = -9; this.punchSide = false;
+    this.working = false; this.workSprite = null;
   }
 
   build() {
@@ -222,6 +230,20 @@ export class Avatar {
 
   setSit(on, h = 0.42) { this.sitting = on; this.sitH = h; }
   setBoxing(on) { this.boxing = on; }
+  setWorking(on) {
+    if (on === this.working) return;
+    this.working = on;
+    if (on) {
+      const t = workTextures()[2];
+      this.workSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t.tex, depthWrite: false, transparent: true }));
+      this.workSprite.scale.set(0.26 * t.aspect, 0.26, 1);
+      this.workSprite.position.y = 1.5;
+      this.workSprite.renderOrder = 10;
+      this.root.add(this.workSprite);
+    } else if (this.workSprite) {
+      this.root.remove(this.workSprite); this.workSprite.material.dispose(); this.workSprite = null;
+    }
+  }
   punch(now) { this.punchAt = now; this.punchSide = !this.punchSide; }
 
   animate(dt, speed, now) {
@@ -230,6 +252,17 @@ export class Avatar {
       this.legL.rotation.x = this.legR.rotation.x = -1.45;
       this.armL.rotation.x = this.armR.rotation.x = -0.55;
       this.idle += dt;
+      if (this.working) {
+        // 타자 치는 손
+        this.armL.rotation.x = -1.05 + Math.sin(this.idle * 17) * 0.07;
+        this.armR.rotation.x = -1.05 + Math.sin(this.idle * 17 + 1.7) * 0.07;
+        this.armL.rotation.z = 0.15; this.armR.rotation.z = -0.15;
+        if (this.workSprite) {
+          const ts = workTextures(), t = ts[Math.floor(this.idle * 2) % 3];
+          if (this.workSprite.material.map !== t.tex) { this.workSprite.material.map = t.tex; this.workSprite.scale.set(0.26 * t.aspect, 0.26, 1); }
+        }
+      }
+      if (this.bubble && this.workSprite) this.workSprite.visible = false; else if (this.workSprite) this.workSprite.visible = true;
       this.body.position.y = this.sitH + 0.03 - 0.25 * SCALE + Math.sin(this.idle * 1.8) * 0.004;
       this.speed = 0;
       if (this.bubble && now > this.bubbleUntil) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); this.bubble = null; }
