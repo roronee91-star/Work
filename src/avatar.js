@@ -183,7 +183,7 @@ export class Avatar {
     this.phase = 0;
     this.speed = 0;
     this.idle = Math.random() * 10;
-    this.jy = 0; this.vy = 0;
+    this.jy = 0; this.vy = 0; this.ground = 0;
     this.sitting = false; this.sitH = 0;
     this.boxing = false; this.punchAt = -9; this.punchSide = false;
     this.working = false; this.workSprite = null;
@@ -259,17 +259,20 @@ export class Avatar {
   }
 
   // 점프: 위로 튀어 올랐다가 중력으로 내려옴 (약 0.6m, 0.7초)
+  // ground: 발밑 높이 (바닥 0, 책상 위면 0.76 …). jy: 지금 발 높이
   jump() {
-    if (this.sitting || this.jy > 0.001) return false;
-    this.vy = 4.0;
-    this.jy = 0.0011;
+    if (this.sitting || this.jy > this.ground + 0.001) return false;
+    this.vy = 4.7; // 약 0.9m — 책상 · 카운터 위로 올라갈 수 있음
+    this.jy = this.ground + 0.0011;
     return true;
   }
+  get airborne() { return this.jy > this.ground + 0.001 || this.vy > 0; }
   stepJump(dt) {
-    if (!(this.jy > 0)) { this.jy = 0; return; }
-    this.vy -= 12 * dt;
-    this.jy += this.vy * dt;
-    if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
+    if (this.jy > this.ground || this.vy > 0) {
+      this.vy -= 12 * dt;
+      this.jy += this.vy * dt;
+      if (this.jy <= this.ground) { this.jy = this.ground; this.vy = 0; }
+    } else { this.jy = this.ground; this.vy = 0; }
   }
 
   animate(dt, speed, now) {
@@ -305,8 +308,8 @@ export class Avatar {
     this.armL.rotation.x = -swing * 0.8;
     this.armR.rotation.x = swing * 0.8;
     this.armL.rotation.z = -0.12; this.armR.rotation.z = 0.12;
-    if (this.jy > 0) { // 공중에서는 다리를 살짝 굽히고 팔을 벌림
-      const k = Math.min(1, this.jy * 3);
+    if (this.jy > this.ground + 0.001) { // 공중에서는 다리를 살짝 굽히고 팔을 벌림
+      const k = Math.min(1, (this.jy - this.ground) * 3);
       this.legL.rotation.x = -0.5 * k; this.legR.rotation.x = 0.25 * k;
       this.armL.rotation.z = -0.12 - 0.7 * k; this.armR.rotation.z = 0.12 + 0.7 * k;
     }

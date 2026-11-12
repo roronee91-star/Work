@@ -111,6 +111,7 @@ const SHARP = new Set(); // 둥글리지 않을 재질 (유리 · 조명 줄 · 
 class Kit {
   constructor(round = true) { this.parts = new Map(); this.round = round; }
   add(geo, mat, x, y, z, ry = 0, sx = 1, sy = 1, sz = 1) {
+    y += this.dy || 0; // 묶음째 높이를 낮출 때 (예: 카페 카운터)
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
     _m.compose(_p.set(x, y, z), _q.setFromAxisAngle(_up, ry), _s.set(sx, sy, sz));
@@ -223,12 +224,14 @@ function chair(k, x, y, z, ry, mat = M.chairGray) {
   k.cyl(0.03, 0.42, x, y + 0.02, z, M.metal, 6);
   k.cyl(0.27, 0.04, x, y, z, M.metal, 10);
 }
-function stool(k, x, y, z, ry = 0) {
-  SEATS?.push({ x, z, ry, h: 0.78 });
-  k.cyl(0.2, 0.06, x, y + 0.72, z, M.walnut, 12);
-  k.cyl(0.025, 0.72, x, y, z, M.metal, 6);
+function stool(k, x, y, z, ry = 0, h = 0.5) {
+  // 캐릭터(약 1m)에 맞춘 낮은 스툴
+  SEATS?.push({ x, z, ry, h: h + 0.06 });
+  k.cyl(0.2, 0.06, x, y + h, z, M.walnut, 12);
+  k.cyl(0.025, h, x, y, z, M.metal, 6);
   k.cyl(0.18, 0.03, x, y, z, M.metal, 10);
 }
+
 function plant(k, col, x, y, z, s = 1) {
   k.cyl(0.32 * s, 0.6 * s, x, y, z, M.pot, 14, 0.38 * s);
   k.ball(0.55 * s, x, y + 1.15 * s, z, M.leaf, 1.35);
@@ -243,7 +246,7 @@ function sofa(k, col, x, y, z, ry, len = 2.4, mat = M.fabricGray) {
   k.box(0.2, 0.62, 0.9, x + c * (len / 2 - 0.1), y, z - s * (len / 2 - 0.1), mat, ry);
   k.box(0.2, 0.62, 0.9, x - c * (len / 2 - 0.1), y, z + s * (len / 2 - 0.1), mat, ry);
   const hw = Math.abs(c) * len / 2 + Math.abs(s) * 0.45, hd = Math.abs(s) * len / 2 + Math.abs(c) * 0.45;
-  col(x - hw, z - hd, x + hw, z + hd);
+  col(x - hw, z - hd, x + hw, z + hd, false, 0.45);
   const n = Math.max(1, Math.round(len / 1.0));
   for (let i = 0; i < n; i++) { const t = (i - (n - 1) / 2) * ((len - 0.5) / n); SEATS?.push({ x: x + c * t + s * 0.05, z: z - s * t + c * 0.05, ry, h: 0.42 }); }
 }
@@ -278,28 +281,31 @@ function blobSofa(k, col, cx, cz, ry, mat = M.lime, len = 2.4, wid = 1.0) {
   k.add(g, mat, cx, 0, cz, ry);
   const s = Math.sin(ry), c = Math.cos(ry);
   const hw = Math.abs(c) * len / 2 + Math.abs(s) * wid / 2, hd = Math.abs(s) * len / 2 + Math.abs(c) * wid / 2;
-  col(cx - hw * 0.9, cz - hd * 0.9, cx + hw * 0.9, cz + hd * 0.9);
+  col(cx - hw * 0.9, cz - hd * 0.9, cx + hw * 0.9, cz + hd * 0.9, false, 0.46);
   for (const t of [-0.6, 0.6]) SEATS?.push({ x: cx + c * t * len / 2, z: cz - s * t * len / 2, ry: ry + Math.PI / 2, h: 0.46 });
 }
 function beanBag(k, col, x, z, mat = M.pastelYellow) {
   k.ball(0.42, x, 0.26, z, mat, 0.62);
   k.ball(0.3, x, 0.5, z - 0.15, mat, 0.9);
-  col(x - 0.38, z - 0.38, x + 0.38, z + 0.38);
+  col(x - 0.38, z - 0.38, x + 0.38, z + 0.38, false, 0.5);
   SEATS?.push({ x, z: z + 0.05, ry: 0, h: 0.36 });
 }
 function steelTable(k, col, x, z, r = 0.28, h = 0.45) {
   k.cyl(r, h, x, 0, z, M.steel, 24);
   k.cyl(r * 0.98, 0.01, x, h, z, M.white, 24);
-  col(x - r, z - r, x + r, z + r);
+  col(x - r, z - r, x + r, z + r, false, h);
 }
 // 가는 실내 나무
 function slimTree(k, x, z, h = 2.4) {
-  k.cyl(0.03, h * 0.75, x, 0.2, z, M.walnut, 6, 0.015);
-  for (let i = 0; i < 6; i++) {
-    const a = i * 2.4, rr = 0.22 + (i % 3) * 0.12, y = 0.2 + h * (0.45 + (i % 4) * 0.12);
-    k.ball(0.11 + (i % 2) * 0.04, x + Math.cos(a) * rr, y, z + Math.sin(a) * rr, M.leafLight, 0.75);
-  }
+  // 줄기 + 가지 둘, 위쪽에 잎을 몽글몽글 모아서 (듬성듬성하지 않게)
+  k.cyl(0.035, h * 0.62, x, 0.15, z, M.walnut, 7, 0.022);
+  k.add(new THREE.CylinderGeometry(0.012, 0.02, h * 0.3, 6).rotateZ(0.5), M.walnut, x - 0.08, 0.15 + h * 0.6, z);
+  k.add(new THREE.CylinderGeometry(0.012, 0.02, h * 0.28, 6).rotateX(-0.5), M.walnut, x, 0.15 + h * 0.58, z + 0.07);
+  const cy = 0.15 + h * 0.72;
+  const clumps = [[0, 0.12, 0, 0.3], [-0.2, -0.02, 0.05, 0.24], [0.18, 0.0, -0.08, 0.23], [0.04, -0.1, 0.2, 0.22], [-0.05, 0.28, -0.05, 0.2], [0.12, 0.2, 0.14, 0.17], [-0.16, 0.18, -0.15, 0.17]];
+  clumps.forEach(([dx, dy, dz, rr], i) => k.ball(rr, x + dx, cy + dy, z + dz, i % 3 === 2 ? M.leaf : M.leafLight, 0.85));
 }
+
 // 하얀 자갈 화단 (곡선) + 고사리 · 가는 나무 · 동그란 바닥 조명
 function slatArc(k, col, cx, cz, r, a0, a1) {
   // 매끈한 곡선 화단 하나 (하얀 자갈 + 은색 테두리), 위에는 나무 하나와 풀 두 포기만 — 단정하게
@@ -318,7 +324,7 @@ function slatArc(k, col, cx, cz, r, a0, a1) {
   const n = Math.max(2, Math.round(((a1 - a0) * r) / 0.5));
   for (let i = 0; i < n; i++) {
     const a = a0 + ((a1 - a0) * (i + 0.5)) / n, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
-    col(x - 0.3, z - 0.3, x + 0.3, z + 0.3);
+    col(x - 0.3, z - 0.3, x + 0.3, z + 0.3, false, 0.16);
   }
 }
 // 라운지 한 묶음: 곡선 카펫 + 콩 소파 2개 + 빈백 + 스테인리스 원탁
@@ -345,7 +351,7 @@ function roundTable(k, col, x, y, z, r = 0.45, h = 0.74, top = M.white) {
   k.cyl(r, 0.04, x, y + h - 0.04, z, top, 18);
   k.cyl(0.04, h - 0.04, x, y, z, M.metal, 6);
   k.cyl(0.25, 0.03, x, y, z, M.metal, 10);
-  col(x - r, z - r, x + r, z + r);
+  col(x - r, z - r, x + r, z + r, false, h);
 }
 
 // ---------- 건물 ----------
@@ -360,7 +366,7 @@ export function createBuilding() {
     const group = new THREE.Group();
     group.position.y = f.y;
     const colliders = [];
-    return { ...f, index: i, group, colliders, seats: [], kit: new Kit(), col: (x1, z1, x2, z2, tall = false) => colliders.push({ x1, z1, x2, z2, tall }) };
+    return { ...f, index: i, group, colliders, seats: [], kit: new Kit(), col: (x1, z1, x2, z2, tall = false, top = 0.6) => colliders.push({ x1, z1, x2, z2, tall, top }) };
   });
   const W = HX * 2, D = HZ * 2;
   // 모니터 화면 (문서 · 표 · 코드가 섞인 업무 화면 한 장)
@@ -486,7 +492,8 @@ export function createBuilding() {
     // ===== 사내 카페 =====
     k.box(5.2, 0.015, 3.6, 4.2, 0.03, 0.4, M.carpetWarm);                        // 테이블 구역 러그
     // 뒷카운터 (에스프레소 머신 · 그라인더 · 싱크)
-    k.box(3.8, 0.95, 0.6, 7.8, 0, -5.95, M.walnut); col(5.9, -6.3, 9.7, -5.6);
+    k.box(3.8, 0.68, 0.6, 7.8, 0, -5.95, M.walnut); col(5.9, -6.3, 9.7, -5.6, false, 0.72);
+    k.dy = -0.27; // 캐릭터 키에 맞춰 카운터 위 물건도 함께 낮춤
     k.box(3.9, 0.04, 0.66, 7.8, 0.95, -5.95, M.white);
     k.box(0.75, 0.45, 0.45, 6.6, 0.99, -5.98, M.steel);                          // 에스프레소 머신
     k.box(0.75, 0.06, 0.45, 6.6, 1.44, -5.98, M.black);
@@ -498,6 +505,7 @@ export function createBuilding() {
     k.box(0.5, 0.03, 0.36, 8.3, 0.98, -5.95, M.steel);                           // 싱크
     k.cyl(0.015, 0.25, 8.3, 0.99, -6.12, M.metal, 6);
     for (let i = 0; i < 3; i++) k.cyl(0.05, 0.13, 9.0 + i * 0.13, 0.99, -6.02, i % 2 ? M.mugRed : M.white, 10); // 우유 · 시럽 병
+    k.dy = -0.3;
     // 벽 선반 + 원두 병 · 컵
     for (const y of [1.6, 2.0]) {
       k.box(3.6, 0.03, 0.22, 7.8, y, -6.35, M.walnut);
@@ -516,9 +524,11 @@ export function createBuilding() {
       });
       ctx.fillStyle = '#9fcf8f'; ctx.font = `500 26px ${FONT}`; ctx.fillText('직원 할인 50% ☕', w - 260, 66);
     });
-    panel(group, menu, 2.0, 1.0, 7.8, 2.85, -6.42, 0, false);
+    k.dy = 0;
+    panel(group, menu, 2.0, 1.0, 7.8, 2.45, -6.42, 0, false);
     // 앞카운터 (주문대 · 진열장 · 계산대)
-    k.box(3.4, 1.05, 0.6, 7.6, 0, -3.9, M.walnut); col(5.9, -4.2, 9.3, -3.6);
+    k.box(3.4, 0.72, 0.6, 7.6, 0, -3.9, M.walnut); col(5.9, -4.2, 9.3, -3.6, false, 0.77);
+    k.dy = -0.33;
     k.box(3.6, 0.05, 0.75, 7.6, 1.05, -3.9, M.white);
     k.box(3.2, 0.03, 0.03, 7.6, 0.95, -3.58, M.lightWarm);
     k.box(1.1, 0.5, 0.55, 8.65, 1.1, -3.9, M.glassRoom);                         // 빵 진열장
@@ -532,6 +542,7 @@ export function createBuilding() {
     for (let i = 0; i < 4; i++) k.cyl(0.045, 0.1, 7.15, 1.1 + i * 0.09, -4.0, M.white, 10, 0.05); // 테이크아웃 컵
     k.cyl(0.05, 0.14, 7.55, 1.1, -3.8, M.glassRoom, 10);                         // 팁 병 · 꽃
     k.ball(0.07, 7.55, 1.3, -3.8, M.pastryPink);
+    k.dy = 0;
     for (const x of [6.6, 7.6, 8.6]) { k.cyl(0.01, 1.1, x, 2.55, -3.9, M.black, 4); k.cyl(0.16, 0.14, x, 2.42, -3.9, M.black, 12, 0.05); k.ball(0.08, x, 2.42, -3.9, M.bulb); }
     const cafeSign = canvasTex(768, 192, (ctx, w, h) => {
       ctx.fillStyle = '#14120f'; ctx.fillRect(0, 0, w, h);
@@ -568,8 +579,8 @@ export function createBuilding() {
       mug(k, 8.35, 0.56, z, M.mugRed);
     }
     // 창가 바 (입구 오른쪽, 창을 바라봄)
-    k.box(7.4, 0.05, 0.45, 5.9, 1.05, HZ - 0.55, M.walnut); col(2.2, HZ - 0.8, 9.6, HZ - 0.3);
-    for (let x = 2.8; x <= 9.2; x += 1.1) { stool(k, x, 0, HZ - 1.2, 0); if (Math.round(x * 10) % 3 === 0) mug(k, x, 1.07, HZ - 0.5, M.white); }
+    k.box(7.4, 0.05, 0.45, 5.9, 0.75, HZ - 0.55, M.walnut); col(2.2, HZ - 0.8, 9.6, HZ - 0.3, false, 0.8);
+    for (let x = 2.8; x <= 9.2; x += 1.1) { k.cyl(0.02, 0.75, x + 0.5, 0, HZ - 0.4, M.metal, 6); stool(k, x, 0, HZ - 1.2, 0); if (Math.round(x * 10) % 3 === 0) mug(k, x, 0.8, HZ - 0.5, M.white); }
     for (const [x, z, s] of [[-9.3, 5.8, 1], [-9.3, 1.2, 0.9], [-2, 5.7, 0.8], [2, -5.8, 0.8]]) plant(k, col, x, 0, z, s);
   }
 
@@ -587,13 +598,13 @@ export function createBuilding() {
         k.box(3.2, 0.04, 1.6, xc, 0.72, zc, M.oak);
         k.box(3.2, 0.36, 0.03, xc, 0.76, zc, M.white);
         k.box(0.05, 0.72, 1.5, xc - 1.55, 0, zc, M.metal); k.box(0.05, 0.72, 1.5, xc + 1.55, 0, zc, M.metal);
-        col(xc - 1.6, zc - 0.8, xc + 1.6, zc + 0.8);
+        col(xc - 1.6, zc - 0.8, xc + 1.6, zc + 0.8, false, 0.76);
         // 스탠드 조명 (밤에 켜짐)
         k.cyl(0.012, 0.42, xc, 0.76, zc, M.black, 6); k.box(0.22, 0.05, 0.1, xc, 1.18, zc, M.lamp);
         for (const dx of [-0.8, 0.8]) for (const s of [-1, 1]) {
           const x = xc + dx;
-          k.box(0.6, 0.36, 0.03, x, 0.92, zc + s * 0.45, M.black);
-          k.box(0.56, 0.32, 0.005, x, 0.94, zc + s * 0.47, M.screen);
+          k.box(0.6, 0.36, 0.02, x, 0.92, zc + s * 0.45, M.black);
+          k.box(0.56, 0.32, 0.006, x, 0.94, zc + s * 0.476, M.screen);        // 화면 (모니터 앞으로 띄워 깜빡임 방지)
           k.box(0.42, 0.02, 0.14, x, 0.76, zc + s * 0.6, M.black);              // 키보드
           k.cyl(0.03, 0.12, x, 0.76, zc + s * 0.47, M.metal, 6);                 // 모니터 받침
           k.box(0.06, 0.02, 0.1, x + 0.3, 0.76, zc + s * 0.6, M.white);          // 마우스
@@ -753,8 +764,8 @@ export function createBuilding() {
     steelTable(k, col, 1.0, 2.6, 0.3, 0.45); steelTable(k, col, -2.0, 3.4, 0.24, 0.4);
     beanBag(k, col, -3.4, 2.2, M.pastelYellow); beanBag(k, col, -4.5, 3.4, M.pastelBlue);
     // 창가 바
-    k.box(14, 0.05, 0.45, 2.3, 1.05, HZ - 0.55, M.walnut); col(-4.7, HZ - 0.8, 9.3, HZ - 0.3);
-    for (let x = -4.1; x <= 9; x += 1.2) stool(k, x, 0, HZ - 1.2);
+    k.box(14, 0.05, 0.45, 2.3, 0.75, HZ - 0.55, M.walnut); col(-4.7, HZ - 0.8, 9.3, HZ - 0.3, false, 0.8);
+    for (let x = -4.1; x <= 9; x += 1.2) { k.cyl(0.02, 0.75, x + 0.6, 0, HZ - 0.4, M.metal, 6); stool(k, x, 0, HZ - 1.2); }
     // 탕비실 (북쪽)
     k.box(5.6, 0.92, 0.6, -3.9, 0, -6.1, M.white); col(-6.7, -6.45, -1.1, -5.8);
     k.box(5.6, 0.04, 0.65, -3.9, 0.92, -6.1, M.walnut);
@@ -764,7 +775,7 @@ export function createBuilding() {
     slatArc(k, col, -4.0, 2.8, 1.9, Math.PI * 0.55, Math.PI * 1.45);
     pendant(k, -4.6, -3.8); pendant(k, -3.2, -3.8);
     // 아일랜드 테이블
-    k.box(3, 0.06, 1.0, -3.9, 0.98, -3.8, M.walnut); k.box(2.7, 0.95, 0.75, -3.9, 0, -3.8, M.white); col(-5.4, -4.3, -2.4, -3.3);
+    k.box(3, 0.06, 1.0, -3.9, 0.72, -3.8, M.walnut); k.box(2.7, 0.7, 0.75, -3.9, 0, -3.8, M.white); col(-5.4, -4.3, -2.4, -3.3, false, 0.78);
     for (const x of [-5, -3.9, -2.8]) stool(k, x, 0, -2.85, Math.PI);
     // 탁구대
     // 탁구대: 샌드백 부스에서 넉넉히 떨어뜨림 (가운데 쪽)

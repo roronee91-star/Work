@@ -15,7 +15,7 @@ function rng(seed) {
 export function createGarden(uniforms) {
   const group = new THREE.Group();
   const colliders = [];
-  const col = (x1, z1, x2, z2) => colliders.push({ x1, z1, x2, z2, tall: false });
+  const col = (x1, z1, x2, z2, top = 0.55, noStand = false) => colliders.push({ x1, z1, x2, z2, tall: false, top, noStand });
   const seats = []; // 앉을 수 있는 곳 { x, z, ry, h }
   const k = new Kit();
   const rand = rng(77);
@@ -69,7 +69,7 @@ export function createGarden(uniforms) {
   k.cyl(0.55, 1.25, fx, 0.4, fz, stone, 20, 0.4);
   k.cyl(1.25, 0.22, fx, 1.5, fz, stone, 28, 1.35);
   k.cyl(0.18, 0.5, fx, 1.7, fz, stone, 10, 0.12);
-  colliders.push({ circle: true, cx: fx, cz: fz, r: 3.9, x1: fx - 3.9, z1: fz - 3.9, x2: fx + 3.9, z2: fz + 3.9, tall: false }); // 둥근 분수는 둥글게 막음
+  colliders.push({ circle: true, cx: fx, cz: fz, r: 3.9, x1: fx - 3.9, z1: fz - 3.9, x2: fx + 3.9, z2: fz + 3.9, tall: false, top: 9, noStand: true }); // 둥근 분수는 둥글게 막음
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x2d76a6, roughness: 0.08, metalness: 0.25, emissive: 0x0b3550, transparent: true, opacity: 0.92 });
   const water = new THREE.Mesh(new THREE.CircleGeometry(3.45, 40), waterMat);
   water.rotation.x = -Math.PI / 2; water.position.set(fx, 0.5, fz);
@@ -282,7 +282,7 @@ export function createGarden(uniforms) {
     k.box(w, 0.18, 0.5, cx, 0, curbS, stone); col(a, curbS - 0.25, b, curbS + 0.25);
     k.box(w, 0.03, 0.03, cx, 0.1, curbN + 0.26, curbLed);
     k.box(w, 0.03, 0.03, cx, 0.1, curbS - 0.26, curbLed);
-    col(a, SZ - SH, b, SZ + SH); // 물에는 못 들어감
+    col(a, SZ - SH, b, SZ + SH, 0.5, true); // 물에는 못 들어감 (점프로 건너뛸 수는 있음)
     // 돌턱에 앉는 자리 (북쪽은 물을 바라보고, 남쪽도 물을 바라봄)
     for (let x = a + 1.5; x <= b - 1.2; x += 3.2) {
       seats.push({ x, z: curbN, ry: 0, h: 0.18 });

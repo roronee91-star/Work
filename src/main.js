@@ -361,10 +361,10 @@ const joy = { x: 0, y: 0, id: null };
 const R = 0.26;
 function collide(x, z) {
   // 점프해서 높이 떠 있으면 낮은 가구(의자 · 테이블 · 소파 · 화단)는 넘어감. 벽 · 유리 · 큰 가구는 그대로 막힘
-  const air = myAvatar && myAvatar.jy > 0.3;
+  const feet = myAvatar ? myAvatar.jy : 0; // 지금 발 높이: 이보다 낮은 가구는 넘어감 / 위에 서 있음
   for (let it = 0; it < 3; it++) {
     for (const c of bld.floors[player.floor].colliders) {
-      if (air && !c.tall) continue;
+      if (!c.tall && (c.top ?? 0.6) <= feet + 0.03) continue;
       if (c.circle) {
         const dx = x - c.cx, dz = z - c.cz, d = Math.hypot(dx, dz), m = c.r + R;
         if (d < m) { if (d > 1e-6) { x = c.cx + (dx / d) * m; z = c.cz + (dz / d) * m; } else z = c.cz + m; }
@@ -435,6 +435,7 @@ function updatePlayer(dt) {
     }
   }
   player.speed = dt > 0 ? moved / dt : 0;
+  { const g = player.sit ? 0 : groundAt(player.x, player.z, myAvatar.jy); if (Math.abs(g - myAvatar.ground) > 0.05) { myAvatar.ground = g; sendState(true); } else myAvatar.ground = g; }
   placeAvatar(myAvatar, player);
   myAvatar.animate(dt, player.speed, now);
 
@@ -507,6 +508,18 @@ function tapMove(cx, cy) {
   pingMark.visible = true; pingMark.scale.setScalar(1.6);
 }
 
+// ---------- 가구 위에 서기 ----------
+// 발밑에 있는 가구 중 발보다 낮은(또는 같은) 가장 높은 윗면 = 서 있을 높이
+function groundAt(x, z, feet) {
+  let g = 0;
+  for (const c of bld.floors[player.floor].colliders) {
+    if (c.tall || c.noStand || c.circle) continue;
+    const top = c.top ?? 0.6;
+    if (top <= feet + 0.03 && top > g && x > c.x1 && x < c.x2 && z > c.z1 && z < c.z2) g = top;
+  }
+  return g;
+}
+
 // ---------- 점프 ----------
 function doJump() {
   if (mode !== 'office' || !myAvatar || player.sit || game.on) return;
@@ -569,11 +582,13 @@ function insideTall(x, z) {
   for (const c of bld.floors[player.floor].colliders) if (c.tall && x > c.x1 - 0.15 && x < c.x2 + 0.15 && z > c.z1 - 0.15 && z < c.z2 + 0.15) return true;
   return false;
 }
+let camLift = 0;
 function officeCamPose(dt, out) {
   const outside = player.floor === 0 && (Math.abs(player.x) > HX || Math.abs(player.z) > HZ);
   const fy = FLOORS[player.floor].y, top = player.floor === ROOF || outside ? 7 : CEIL - 0.15;
   const bx = player.floor === 0 ? LOT : HX, bz = player.floor === 0 ? LOT : HZ;
-  const tx = player.x, ty = fy + 0.85, tz = player.z;
+  camLift += (((myAvatar && !player.sit) ? myAvatar.ground : 0) - camLift) * 0.1;
+  const tx = player.x, ty = fy + 0.85 + camLift, tz = player.z;
   const dir = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   let allowed = cam.dist;
   for (let t = 0.3; t <= cam.dist; t += 0.12) {
@@ -644,7 +659,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 250) && t - lastSend < 8000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
 }
 
 function onState(p) {
@@ -674,6 +689,7 @@ function onState(p) {
   peer.pc = p.pc || 0;
   if (peer.jc !== undefined && (p.jc || 0) > peer.jc) peer.av.jump();
   peer.jc = p.jc || 0;
+  peer.av.ground = +p.hy || 0;
 }
 function removePeer(id, quiet = false) {
   const peer = peers.get(id);
@@ -1004,5 +1020,5 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__work = { get mode() { return mode; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
+window.__work = { get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
 window.__workMain = true;
