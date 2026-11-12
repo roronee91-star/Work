@@ -7,7 +7,7 @@ import { CONFIG, AVATAR_COLORS } from './config.js';
 import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, createTraffic, FOG_NIGHT, FOG_DAY } from './world.js';
 import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA } from './building.js';
 import { createGarden, STREAM } from './garden.js';
-import { createDuel, levelOf } from './duel.js';
+import { createDuel, SWORD, BOT_NAME } from './duel.js';
 import { startAudio, setWaterVolume, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
@@ -150,7 +150,10 @@ const duel = createDuel({
   hurtMe: () => myAvatar?.hurt(now), peerHurt: (id) => peers.get(id)?.av.hurt(now),
   swing: () => myAvatar?.punch(now), sendNow: () => sendState(true),
   levelChanged: (lv) => { myAvatar?.setName(lvName(me.name, lv, duel.loser)); sendState(true); },
-  enterArena(side) {
+  label: (p) => lvName(p.name, p.lv || 1, p.tt), zoneName: (z) => ZONES[z] || '',
+  botSwing: () => duelBot.punch(now), botHurt: () => duelBot.hurt(now),
+  enterArena(side, vsBot) {
+    duelBot.root.visible = !!vsBot;
     clearTarget();
     if (player.sit) standUp();
     if (game.on) quitGame();
@@ -164,6 +167,7 @@ const duel = createDuel({
     if (player.floor !== ARENA.floor || mode !== 'office') { goFloor(ARENA.floor); setTimeout(go, 560); } else go();
   },
   exitArena() {
+    duelBot.root.visible = false;
     myAvatar.setBoxing(false); myAvatar.setSword(false);
     $('joy').hidden = !isTouch; $('btnJump').hidden = !isTouch;
     cam.dist = 3.4;
@@ -171,6 +175,18 @@ const duel = createDuel({
   },
 });
 const busy = () => game.on || duel.fighting;
+// 😡 분노 인간 (연습 상대, 내 화면에만) · ⚔️ 결투 관리인 (4층 NPC)
+const duelBot = new Avatar(BOT_NAME, '#c62828', 'm');
+duelBot.setBoxing(true); duelBot.setSword(true);
+duelBot.root.position.set(ARENA.x + 0.95, FLOORS[ARENA.floor].y, ARENA.z); duelBot.root.rotation.y = -Math.PI / 2;
+duelBot.root.visible = false;
+scene.add(duelBot.root);
+const HOST = { x: 3.3, z: -6.0 };
+const duelHost = new Avatar('⚔️ 결투 관리인', '#3a3f4a', 'm');
+duelHost.setSword(true);
+duelHost.root.position.set(HOST.x, FLOORS[ARENA.floor].y, HOST.z);
+scene.add(duelHost.root);
+bld.floors[ARENA.floor].colliders.push({ x1: HOST.x - 0.3, z1: HOST.z - 0.3, x2: HOST.x + 0.3, z2: HOST.z + 0.3, tall: false, top: 1.3 });
 // 패배자 칭호가 하루 지나 풀리면 이름표 다시 그림
 let wasLoser = null;
 setInterval(() => { if (myAvatar && wasLoser !== duel.loser) { wasLoser = duel.loser; myAvatar.setName(lvName(me.name, duel.level, duel.loser)); sendState(true); } }, 30000); // 게임 · 결투 중에는 걸어다니기 멈춤
@@ -507,6 +523,7 @@ function updatePlayer(dt) {
   else if (player.sit) { pr.textContent = isTouch ? '일어나기 (누르기)' : '이동 키를 누르면 일어나요'; pr.hidden = false; }
   else if (what && what.seat && what.seat.desk) { pr.textContent = isTouch ? '💻 일하기 (누르기)' : 'E  💻 일하기'; pr.hidden = false; }
   else if (what && what.seat) { pr.textContent = isTouch ? '앉기 (누르기)' : 'E  앉기'; pr.hidden = false; }
+  else if (what === 'host') { pr.textContent = isTouch ? `⚔️ 정식 결투 신청 (누르기)` : `E  ⚔️ 정식 결투 신청`; pr.hidden = false; }
   else if (what === 'npc') { pr.textContent = isTouch ? '💬 비서에게 말 걸기 (누르기)' : 'E  💬 비서에게 말 걸기'; pr.hidden = false; }
   else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
@@ -521,6 +538,7 @@ function seatTaken(s) {
 function nearWhat() {
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
   if (player.floor === 0 && Math.hypot(player.x - (NPC_SPOT.x + 1.4), player.z - NPC_SPOT.z) < 1.3) return 'npc';
+  if (player.floor === ARENA.floor && Math.hypot(player.x - HOST.x, player.z - (HOST.z + 0.8)) < 1.2) return 'host';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
   if (player.floor === 3) for (const b of BOOTHS) if (Math.hypot(player.x - b.spot.x, player.z - b.spot.z) < 0.85) return { booth: b };
   {
@@ -546,11 +564,7 @@ function tapMove(cx, cy) {
   if (mode !== 'office' || busy() || !myAvatar) return;
   const r = canvas.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
-  // 다른 사람 캐릭터를 누르면 결투 신청
-  for (const [id, p] of peers) {
-    if (!p.av.root.visible) continue;
-    if (raycaster.intersectObject(p.av.body, true).length) { duel.openInvite(id); return; }
-  }
+
   const fy = FLOORS[player.floor].y;
   const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -fy), new THREE.Vector3());
   if (!hit) return;
@@ -948,6 +962,7 @@ function interact() {
   if (player.sit) { standUp(); return; }
   if (what && what.booth) startGame(what.booth);
   else if (what && what.seat) sitDown(what.seat);
+  else if (what === 'host') duel.openPicker();
   else if (what === 'npc') npcTalk();
   else if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
   else if (what === 'elev') openFloorMenu();
@@ -1015,8 +1030,7 @@ $('noticeForm').addEventListener('submit', async (e) => {
 });
 $('btnPeople').onclick = () => {
   const rows = [{ name: me.name + ' (나)', color: me.color, zone: player.zone, lv: duel.level, me: true }, ...[...peers.entries()].map(([id, p]) => ({ ...p, id }))];
-  $('peopleList').innerHTML = rows.map((p) => `<li><i style="background:${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#888'}"></i>${esc(lvName(p.name, p.lv || 1, p.me ? duel.loser : p.tt))}<small>${esc(ZONES[p.zone] || '')}</small>${p.me || duel.active ? '' : `<button class="duel" data-id="${esc(p.id)}">⚔️ 결투</button>`}</li>`).join('');
-  $('peopleList').querySelectorAll('button.duel').forEach((b) => (b.onclick = () => duel.openInvite(b.dataset.id)));
+  $('peopleList').innerHTML = rows.map((p) => `<li><i style="background:${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#888'}"></i>${esc(lvName(p.name, p.lv || 1, p.me ? duel.loser : p.tt))}<small>${esc(ZONES[p.zone] || '')}</small></li>`).join('');
   openModal('peopleModal');
 };
 $('btnView').onclick = () => {
@@ -1156,6 +1170,8 @@ function frame() {
   traffic.update(dt);
   if (game.on) updateGame(dt);
   duel.update(dt);
+  duelHost.root.visible = !(mode === 'office' && player.floor !== ARENA.floor); duelHost.animate(dt, 0, now);
+  if (duelBot.root.visible) duelBot.animate(dt, 0, now);
   if (pingMark.visible) { pingMark.scale.setScalar(Math.max(1, pingMark.scale.x - dt * 3)); pingMark.rotation.z += dt * 2; }
   if (myAvatar) updateWaterSound();
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
