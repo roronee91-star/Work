@@ -4,7 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
-import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, FOG_NIGHT, FOG_DAY } from './world.js';
+import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, createTraffic, FOG_NIGHT, FOG_DAY } from './world.js';
 import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS } from './building.js';
 import { createGarden, STREAM } from './garden.js';
 import { startAudio, setWaterVolume, setMuted, isMuted, playThump, playBeep } from './audio.js';
@@ -55,6 +55,8 @@ const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 12000);
 const uniforms = sharedUniforms();
 const sky = createSky(uniforms);
 scene.add(sky, createMountains(uniforms), createGround(uniforms), createCity(uniforms), createBridges(uniforms), createSite());
+const traffic = createTraffic();
+scene.add(traffic.group);
 const bld = createBuilding();
 scene.add(bld.group);
 bld.setFloor(0, true);
@@ -1067,6 +1069,7 @@ function applyDay(d) {
   renderer.toneMappingExposure = 1.0 - 0.1 * d;
   bld.setDay(d);
   garden.setDay(d);
+  traffic.setDay(d);
 }
 function setDayButtons() {
   const label = dayTarget > 0.5 ? '🌙 밤' : '☀️ 낮';
@@ -1098,6 +1101,7 @@ function frame() {
   else if (Math.abs(dayVal - dayTarget) > 0.001) { dayVal += Math.sign(dayTarget - dayVal) * Math.min(Math.abs(dayTarget - dayVal), dt * 0.8); applyDay(dayVal); }
   bld.update(dt, myAvatar ? player : null);
   garden.update(dt);
+  traffic.update(dt);
   if (game.on) updateGame(dt);
   if (pingMark.visible) { pingMark.scale.setScalar(Math.max(1, pingMark.scale.x - dt * 3)); pingMark.rotation.z += dt * 2; }
   if (myAvatar) updateWaterSound();

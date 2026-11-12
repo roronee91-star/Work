@@ -144,8 +144,8 @@ export function createGround(uniforms) {
       ${RIVER_GLSL}
       float carLane(float along, float laneId, float speed, float len){
         float f = (along + uTime * speed) / len;
-        float id = floor(f);
-        return step(0.62, hash12(vec2(id, laneId))) * step(fract(f), 0.22);
+        // 바닥에 그리던 하얀 자동차 줄무늬는 끔 (진짜 자동차 모양은 createTraffic에서)
+        return 0.0 * f;
       }
       void main(){
         vec2 p = vWorld.xz;
@@ -399,6 +399,9 @@ export function createSite() {
       trees.push([t + 12, r + side]); trees.push([r + side, t + 12]);
     }
   }
+  // 한강(강물 · 강변도로) 위에는 나무 · 가로등을 두지 않음
+  const dry = ([x, z]) => Math.abs(z - riverCenter(x)) > RIVER_HALF + 30;
+  for (const list of [lamps, trees]) { const keep = list.filter(dry); list.length = 0; list.push(...keep); }
   const m = new THREE.Matrix4();
   const inst = (geo, mat, list, y, s = 1) => {
     const im = new THREE.InstancedMesh(geo, mat, list.length);
@@ -410,4 +413,78 @@ export function createSite() {
   inst(new THREE.CylinderGeometry(0.12, 0.18, 2.4, 6), new THREE.MeshStandardMaterial({ color: 0x3a2a1c }), trees, 1.2);
   inst(new THREE.IcosahedronGeometry(1.8, 1), new THREE.MeshStandardMaterial({ color: 0x2f5a36, emissive: 0x0c1a0e, roughness: 0.9, flatShading: true }), trees, 3.6);
   return group;
+}
+
+// ---------- 자동차 (진짜 모양, 띄엄띄엄) ----------
+export function createTraffic() {
+  const group = new THREE.Group();
+  const routes = [];
+  const R0 = (x) => riverCenter(x) - RIVER_HALF - 13; // 강변도로 가운데
+  // 강변도로 (양방향)
+  routes.push({ len: 1400, at: (s, lane) => { const x = -700 + s; return [x, R0(x) + lane * 3.2]; }, lanes: [-1, 1] });
+  // 우리 건물 주변 동서 도로
+  for (const z of [-60, -180]) routes.push({ len: 1000, at: (s, lane) => [-500 + s, z + lane * 3.2], lanes: [-1, 1] });
+  // 남북 도로 (강변까지)
+  for (const x of [-60, 60, -180, 180]) { const end = R0(x) - 6, start = -500; routes.push({ len: end - start, at: (s, lane) => [x + lane * 3.2, start + s], lanes: [-1, 1] }); }
+
+  const COLORS = [0x2b2f36, 0xe9e9ec, 0x9aa0a8, 0x1f2f4f, 0x7a1f24, 0x3c4a3a, 0xd8d2c4, 0x111214];
+  const cars = [];
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  routes.forEach((r, ri) => {
+    const n = Math.max(1, Math.round(r.len / 260)); // 260m에 한 대쯤 — 띄엄띄엄
+    for (let i = 0; i < n; i++) {
+      const lane = r.lanes[i % r.lanes.length];
+      cars.push({ r, lane, s: rnd() * r.len, v: (9 + rnd() * 5) * lane, color: COLORS[Math.floor(rnd() * COLORS.length)], ri });
+    }
+  });
+
+  // 차 한 대 모양: 몸통(색) + 창문 · 바퀴(검정) + 앞뒤 불빛
+  const body = new THREE.BoxGeometry(1.8, 0.55, 4.2); body.translate(0, 0.55, 0);
+  const cabin = new THREE.BoxGeometry(1.6, 0.5, 2.2); cabin.translate(0, 1.05, -0.2);
+  const glass = new THREE.BoxGeometry(1.64, 0.36, 2.0); glass.translate(0, 1.07, -0.2);
+  const wheels = [];
+  for (const [x, z] of [[-0.85, 1.35], [0.85, 1.35], [-0.85, -1.35], [0.85, -1.35]]) { const w = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 10); w.rotateZ(Math.PI / 2); w.translate(x, 0.34, z); wheels.push(w); }
+  const merge = (list) => { const g = new THREE.BufferGeometry(); const pos = [], nor = []; for (const p of list) { const q = p.index ? p.toNonIndexed() : p; pos.push(...q.attributes.position.array); nor.push(...q.attributes.normal.array); } g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g; };
+  const bodyGeo = merge([body, cabin]);
+  const darkGeo = merge([glass, ...wheels]);
+  // 불빛: 앞 흰색 2개, 뒤 빨간색 2개 (꼭짓점 색)
+  const lights = [];
+  const lightCols = [];
+  for (const [x, z, c] of [[-0.6, 2.11, [1, 0.95, 0.8]], [0.6, 2.11, [1, 0.95, 0.8]], [-0.65, -2.11, [1, 0.08, 0.05]], [0.65, -2.11, [1, 0.08, 0.05]]]) {
+    const b = new THREE.BoxGeometry(0.36, 0.14, 0.04).toNonIndexed(); b.translate(x, 0.68, z); lights.push(b);
+    for (let k = 0; k < b.attributes.position.count; k++) lightCols.push(...c);
+  }
+  const lightGeo = merge(lights); lightGeo.setAttribute('color', new THREE.Float32BufferAttribute(lightCols, 3));
+
+  const N = cars.length;
+  const bodyMesh = new THREE.InstancedMesh(bodyGeo, new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.4 }), N);
+  const darkMesh = new THREE.InstancedMesh(darkGeo, new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.3, metalness: 0.2 }), N);
+  const lightMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const lightMesh = new THREE.InstancedMesh(lightGeo, lightMat, N);
+  const col = new THREE.Color();
+  cars.forEach((c, i) => bodyMesh.setColorAt(i, col.set(c.color)));
+  for (const m of [bodyMesh, darkMesh, lightMesh]) { m.frustumCulled = false; group.add(m); }
+
+  const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3();
+  const place = () => {
+    cars.forEach((c, i) => {
+      const [x, z] = c.r.at(c.s, c.lane);
+      const [x2, z2] = c.r.at(c.s + Math.sign(c.v) * 0.5, c.lane);
+      q.setFromAxisAngle(up, Math.atan2(x2 - x, z2 - z));
+      mtx.compose(pos.set(x, GROUND_Y, z), q, one);
+      bodyMesh.setMatrixAt(i, mtx); darkMesh.setMatrixAt(i, mtx); lightMesh.setMatrixAt(i, mtx);
+    });
+    bodyMesh.instanceMatrix.needsUpdate = darkMesh.instanceMatrix.needsUpdate = lightMesh.instanceMatrix.needsUpdate = true;
+  };
+  place();
+  return {
+    group,
+    update(dt) {
+      for (const c of cars) { c.s += c.v * dt; if (c.s > c.r.len) c.s -= c.r.len; if (c.s < 0) c.s += c.r.len; }
+      place();
+    },
+    // 밤에는 불빛이 밝게, 낮에는 은은하게
+    setDay(d) { lightMat.color.setScalar(1.6 - 1.1 * d); },
+  };
 }
