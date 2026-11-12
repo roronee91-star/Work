@@ -118,3 +118,5 @@ input, textarea { font: inherit; color: var(--fg); }
 #floorList button:hover { background: rgba(255,255,255,.1); }
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s; z-index: 30; }
 #fade.on { opacity: 1; }
+
+.link { border: 0; background: none; padding: 0; color: var(--gold); font-size: 12px; text-decoration: underline; }

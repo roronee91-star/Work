@@ -4,8 +4,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
-import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite } from './world.js';
-import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, CEIL, ROOF, ELEV, NOTICE, SPAWN } from './building.js';
+import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, FOG_NIGHT, FOG_DAY } from './world.js';
+import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN } from './building.js';
+import { createGarden } from './garden.js';
 import { Avatar } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
@@ -30,6 +31,12 @@ scene.add(sky, createMountains(uniforms), createGround(uniforms), createCity(uni
 const bld = createBuilding();
 scene.add(bld.group);
 bld.setFloor(0, true);
+const garden = createGarden();
+scene.add(garden.group);
+bld.floors[0].colliders.push(...garden.colliders);
+const sun = new THREE.DirectionalLight(0xfff1dc, 0);
+sun.position.set(45, 54, 72);
+scene.add(sun);
 
 const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: isTouch ? 0 : 4 });
 const composer = new EffectComposer(renderer, rt);
@@ -205,7 +212,8 @@ function collide(x, z) {
       }
     }
   }
-  const lx = HX - 0.5, lz = HZ - 0.5;
+  const out = player.floor === 0;
+  const lx = out ? LOT - 0.4 : HX - 0.5, lz = out ? LOT - 0.4 : HZ - 0.5;
   return [Math.max(-lx, Math.min(lx, x)), Math.max(-lz, Math.min(lz, z))];
 }
 
@@ -276,13 +284,16 @@ function insideTall(x, z) {
   return false;
 }
 function officeCamPose(dt, out) {
-  const fy = FLOORS[player.floor].y, top = player.floor === ROOF ? 7 : CEIL - 0.15;
+  const outside = player.floor === 0 && (Math.abs(player.x) > HX || Math.abs(player.z) > HZ);
+  const fy = FLOORS[player.floor].y, top = player.floor === ROOF || outside ? 7 : CEIL - 0.15;
+  const bx = player.floor === 0 ? LOT : HX, bz = player.floor === 0 ? LOT : HZ;
   const tx = player.x, ty = fy + 1.5, tz = player.z;
   const dir = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   let allowed = cam.dist;
   for (let t = 0.3; t <= cam.dist; t += 0.12) {
     const x = tx + dir.x * t, y = ty + dir.y * t, z = tz + dir.z * t;
-    if (Math.abs(x) > HX - 0.15 || Math.abs(z) > HZ - 0.15 || y > fy + top || y < fy + 0.15 || insideTall(x, z)) { allowed = Math.max(0.3, t - 0.12); break; }
+    const inBld = Math.abs(x) < HX && Math.abs(z) < HZ;
+    if (Math.abs(x) > bx - 0.15 || Math.abs(z) > bz - 0.15 || y > fy + (inBld && !outside ? top : 7) || (outside && inBld && y > CEIL - 0.1 && y < 4.1) || y < fy + 0.15 || insideTall(x, z)) { allowed = Math.max(0.3, t - 0.12); break; }
   }
   if (dt === null) cam.cur = allowed;
   else cam.cur = allowed < cam.cur ? allowed : cam.cur + (allowed - cam.cur) * Math.min(1, dt * 3);
@@ -515,6 +526,34 @@ $('btnView').onclick = () => {
   else if (mode === 'exterior') { startFly('office', 2.2); $('btnView').textContent = '외관 보기'; showFloorHud(); }
 };
 
+// ---------- 낮 / 밤 ----------
+let dayTarget = 0, dayVal = -1;
+try { dayTarget = localStorage.getItem('work-day') === '1' ? 1 : 0; } catch {}
+function applyDay(d) {
+  uniforms.uDay.value = d;
+  uniforms.uFogColor.value.copy(FOG_NIGHT).lerp(FOG_DAY, d);
+  scene.background.setRGB(0.008, 0.012, 0.035).lerp(FOG_DAY, d);
+  sun.intensity = 2.6 * d;
+  bloom.strength = 0.55 - 0.4 * d;
+  bloom.threshold = 0.92 + 0.08 * d;
+  renderer.toneMappingExposure = 1.0 - 0.1 * d;
+  bld.setDay(d);
+  garden.setDay(d);
+}
+function setDayButtons() {
+  const label = dayTarget > 0.5 ? '🌙 밤' : '☀️ 낮';
+  $('btnDay').textContent = label;
+  $('introDay').textContent = dayTarget > 0.5 ? '🌙 밤으로 보기' : '☀️ 낮으로 보기';
+}
+function toggleDay() {
+  dayTarget = dayTarget > 0.5 ? 0 : 1;
+  try { localStorage.setItem('work-day', dayTarget ? '1' : '0'); } catch {}
+  setDayButtons();
+}
+$('btnDay').onclick = toggleDay;
+$('introDay').onclick = toggleDay;
+setDayButtons();
+
 // ---------- 루프 ----------
 const clock = new THREE.Clock();
 let now = 0, idleTime = 10;
@@ -527,7 +566,10 @@ function frame() {
   now += dt;
   idleTime += dt;
   uniforms.uTime.value = now;
+  if (dayVal < 0) { dayVal = dayTarget; applyDay(dayVal); }
+  else if (Math.abs(dayVal - dayTarget) > 0.001) { dayVal += Math.sign(dayTarget - dayVal) * Math.min(Math.abs(dayTarget - dayVal), dt * 0.8); applyDay(dayVal); }
   bld.update(dt, myAvatar ? player : null);
+  garden.update(dt);
   if (myAvatar && (mode === 'office' || mode === 'fly' || mode === 'exterior')) {
     if (mode === 'office') updatePlayer(dt); else myAvatar.animate(dt, 0, now);
     sendState();
@@ -544,4 +586,4 @@ requestAnimationFrame(() => {
 });
 
 // 테스트용 훅
-window.__work = { get mode() { return mode; }, player, cam, orbit, peers, enter, keys, goFloor };
+window.__work = { get mode() { return mode; }, toggleDay, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor };

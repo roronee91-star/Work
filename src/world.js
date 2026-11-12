@@ -4,12 +4,15 @@ import { HASH, FOG, RIVER_GLSL, RIVER_HALF, riverCenter } from './shaders.js';
 
 export const GROUND_Y = -0.3; // 건물 1층 바닥(0) 바로 아래가 땅
 export const FOG_COLOR = new THREE.Color(0.035, 0.038, 0.058);
+export const FOG_NIGHT = FOG_COLOR.clone();
+export const FOG_DAY = new THREE.Color(0.6, 0.71, 0.84);
 
 export function sharedUniforms() {
   return {
     uTime: { value: 0 },
     uFogColor: { value: FOG_COLOR },
     uFogDensity: { value: 1 / 3600 },
+    uDay: { value: 0 },
   };
 }
 
@@ -42,6 +45,7 @@ export function createSky(uniforms) {
       void main(){ vDir = position; vec4 wp = modelMatrix * vec4(position,1.0); gl_Position = projectionMatrix * viewMatrix * wp; }`,
     fragmentShader: /* glsl */`
       uniform float uTime;
+      uniform float uDay;
       varying vec3 vDir;
       ${HASH}
       void main(){
@@ -63,6 +67,25 @@ export function createSky(uniforms) {
         col += vec3(1.0, 0.96, 0.86) * smoothstep(0.99955, 0.9998, m) * 1.4;
         col += vec3(0.12, 0.13, 0.17) * pow(max(m, 0.0), 400.0) * 0.4;
         if (h < 0.0) col = hor + glow * 0.3;
+        // 낮 하늘
+        vec3 sunD = normalize(vec3(0.4472, 0.5367, 0.7155));
+        vec3 dTop = vec3(0.13, 0.3, 0.68), dHor = vec3(0.6, 0.71, 0.84);
+        vec3 dc = mix(dHor, dTop, smoothstep(0.0, 0.55, max(h, 0.0)));
+        float sd = max(dot(d, sunD), 0.0);
+        dc += vec3(1.0, 0.92, 0.75) * smoothstep(0.9993, 0.9997, sd) * 3.0 + vec3(0.35, 0.3, 0.2) * pow(sd, 10.0) * 0.5;
+        // 구름 몇 조각
+        vec2 cp = d.xz / max(d.y, 0.06) * 1.2 + vec2(uTime * 0.006, 0.0);
+        float n = 0.0, amp = 0.55;
+        for (int i = 0; i < 4; i++) {
+          vec2 ip = floor(cp), fp = fract(cp);
+          fp = fp * fp * (3.0 - 2.0 * fp);
+          float v = mix(mix(hash12(ip), hash12(ip + vec2(1, 0)), fp.x), mix(hash12(ip + vec2(0, 1)), hash12(ip + vec2(1, 1)), fp.x), fp.y);
+          n += v * amp; amp *= 0.5; cp *= 2.1;
+        }
+        float cl = smoothstep(0.52, 0.78, n);
+        dc = mix(dc, vec3(0.96, 0.97, 0.99), cl * 0.75 * smoothstep(0.04, 0.25, h));
+        if (h < 0.0) dc = dHor;
+        col = mix(col, dc, uDay);
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -96,9 +119,9 @@ export function createMountains(uniforms) {
       varying vec3 vWorld; varying vec3 vNormalW; varying float vSeed;
       ${FOG}
       void main(){
-        vec3 col = vec3(0.012, 0.014, 0.022);
+        vec3 col = mix(vec3(0.012, 0.014, 0.022), vec3(0.26, 0.36, 0.4), uDay);
         col = applyFog(col, vWorld);
-        col = mix(col, vec3(0.008, 0.01, 0.018), 0.6); // 산은 하늘보다 조금 어둡게
+        col = mix(col, mix(vec3(0.008, 0.01, 0.018), vec3(0.45, 0.55, 0.62), uDay), 0.6); // 산은 하늘보다 조금 어둡게
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -129,6 +152,7 @@ export function createGround(uniforms) {
         float dist = length(vWorld - cameraPosition);
         float detail = 1.0 - smoothstep(900.0, 3200.0, dist);
         vec3 col = vec3(0.010, 0.011, 0.015);
+        vec3 dcol = vec3(0.2, 0.21, 0.19);
         vec3 lamp = vec3(1.0, 0.55, 0.22);
         float rc = riverC(p.x);
         float dz = abs(p.y - rc);
@@ -141,6 +165,8 @@ export function createGround(uniforms) {
           float nearBank = smoothstep(${RIVER_HALF.toFixed(1)} - 120.0, ${RIVER_HALF.toFixed(1)}, dz);
           col += mix(vec3(1.0, 0.7, 0.4), vec3(0.5, 0.7, 1.0), step(0.5, hash12(vec2(colId, 9.0)))) * streak * wave * (0.25 + 0.6 * nearBank) * mix(0.15, 1.0, detail);
           col += vec3(0.02, 0.03, 0.05) * (1.0 - nearBank);
+          dcol = vec3(0.1, 0.22, 0.32) + vec3(0.05, 0.06, 0.06) * wave * (0.3 + 0.7 * detail);
+          dcol += vec3(0.7) * pow(hash12(floor(p * 0.6) + floor(uTime * 3.0)), 60.0) * detail;
         } else if (dz < ${(RIVER_HALF + 26).toFixed(1)}) {
           // 강변 도로
           float lane = dz - ${RIVER_HALF.toFixed(1)};
@@ -151,6 +177,8 @@ export function createGround(uniforms) {
           vec3 carCol = dir > 0.0 ? vec3(2.2, 1.9, 1.5) : vec3(2.0, 0.15, 0.1);
           float inLane = smoothstep(2.0, 3.0, mod(lane, 6.5)) * (1.0 - smoothstep(4.0, 5.0, mod(lane, 6.5)));
           col += carCol * car * inLane * detail;
+          dcol = vec3(0.13, 0.13, 0.14) + vec3(0.35) * step(abs(mod(lane, 6.5) - 0.0), 0.15) * step(0.5, fract(p.x / 8.0));
+          dcol = mix(dcol, vec3(0.75, 0.75, 0.78) * hash12(vec2(floor((p.x + uTime * 24.0 * dir) / 16.0), laneId)), car * inLane * detail);
           col += lamp * 0.5 * exp(-pow(lane - 25.0, 2.0) * 0.4);
           col += lamp * 0.25 * exp(-pow(lane - 0.6, 2.0) * 0.6);
         } else {
@@ -169,21 +197,28 @@ export function createGround(uniforms) {
             float inLane = smoothstep(1.5, 2.5, gg) * (1.0 - smoothstep(5.0, 6.0, gg));
             vec3 carCol = dir > 0.0 ? vec3(2.0, 1.8, 1.4) : vec3(1.9, 0.12, 0.08);
             col += carCol * car * inLane * detail;
+            dcol = vec3(0.13, 0.13, 0.14) + vec3(0.4) * step(gg, 0.15) * step(0.5, fract(along / 6.0));
+            dcol = mix(dcol, vec3(0.8, 0.8, 0.82) * (0.2 + 0.8 * hash12(vec2(roadId, floor((along + uTime * 13.0 * dir) / 22.0)))), car * inLane * detail);
             col += lamp * 0.45 * exp(-pow(gg - 8.3, 2.0) * 0.5) * mix(0.4, 1.0, detail);
           } else {
             float e = min(g.x, g.y) - 9.0;
             col += lamp * 0.05 * exp(-e * 0.25);
+            dcol = vec3(0.26, 0.26, 0.24);
           }
           col = mix(vec3(0.05, 0.035, 0.022), col, detail);
+          dcol = mix(vec3(0.21, 0.21, 0.2), dcol, detail);
         }
         // 우리 회사 부지 (보도 + 정원)
         if (max(abs(p.x), abs(p.y)) < 51.0) {
           vec2 t = fract(p / 1.2);
           col = vec3(0.06, 0.058, 0.056) * (0.85 + 0.15 * step(0.06, min(t.x, t.y)));
-          float lawn = step(abs(p.x), 40.0) * step(abs(p.y + 25.0), 12.0);
+          float lawn = 0.0;
           col = mix(col, vec3(0.012, 0.03, 0.014), lawn);
           col += vec3(1.0, 0.75, 0.45) * 0.06 * exp(-length(p) * 0.05);
+          dcol = vec3(0.46, 0.44, 0.41) * (0.85 + 0.15 * step(0.06, min(t.x, t.y)));
+          dcol = mix(dcol, vec3(0.17, 0.32, 0.13), lawn);
         }
+        col = mix(col, dcol, uDay);
         gl_FragColor = vec4(applyFog(col, vWorld), 1.0);
       }`,
   });
@@ -252,8 +287,13 @@ export function createCity(uniforms) {
         vec3 n = normalize(vNormalW);
         float dist = length(vWorld - cameraPosition);
         vec3 col;
+        vec3 dc = vec3(0.0);
+        float shade = 0.5 + 0.5 * max(dot(n, SUN_DIR), 0.0);
+        vec3 base = mix(vec3(0.58, 0.56, 0.52), vec3(0.45, 0.52, 0.6), step(0.5, fract(vSeed * 7.0)));
+        base = mix(base, vec3(0.74, 0.7, 0.63), step(0.8, fract(vSeed * 13.0)));
         if (n.y > 0.5) {
           col = vec3(0.018, 0.02, 0.028);
+          dc = vec3(0.42, 0.42, 0.4) * (0.6 + 0.4 * SUN_DIR.y);
           // 옥상 항공장애등
           col += vec3(1.5, 0.05, 0.03) * step(0.985, vSeed) * step(0.5, fract(uTime * 0.5 + vSeed * 7.0));
         } else if (n.y < -0.5) {
@@ -278,9 +318,12 @@ export function createCity(uniforms) {
           vec3 far = vec3(0.022, 0.026, 0.036) + wc * litRatio * 0.22;
           float detail = 1.0 - smoothstep(700.0, 2200.0, dist);
           col = mix(far, near, detail);
+          vec3 glassC = vec3(0.2, 0.28, 0.38) + 0.12 * h;
+          dc = mix(mix(base, glassC, 0.45), mix(base, glassC, win), detail) * shade;
           // 저층 상가 불빛
           col += vec3(1.0, 0.6, 0.3) * 0.18 * exp(-(vWorld.y - (${GROUND_Y.toFixed(1)})) * 0.25);
         }
+        col = mix(col, dc, uDay);
         gl_FragColor = vec4(applyFog(col, vWorld), 1.0);
       }`,
   });
@@ -303,7 +346,7 @@ export function createBridges(uniforms) {
     uniforms,
     vertexShader: WORLD_VERT,
     fragmentShader: `varying vec3 vWorld; varying vec3 vNormalW; varying float vSeed; ${FOG}
-      void main(){ gl_FragColor = vec4(applyFog(vec3(0.03, 0.032, 0.04), vWorld), 1.0); }`,
+      void main(){ gl_FragColor = vec4(applyFog(mix(vec3(0.03, 0.032, 0.04), vec3(0.45, 0.45, 0.43), uDay), vWorld), 1.0); }`,
   });
   const lampMat = new THREE.ShaderMaterial({
     uniforms,
@@ -311,7 +354,7 @@ export function createBridges(uniforms) {
     fragmentShader: `uniform float uTime; varying vec3 vWorld; varying vec3 vNormalW; varying float vSeed; ${FOG}
       void main(){
         vec3 c = mix(vec3(2.6, 2.2, 1.6), vec3(0.8, 1.6, 3.0), step(0.5, fract(vSeed * 3.0)));
-        gl_FragColor = vec4(applyFog(c, vWorld), 1.0);
+        gl_FragColor = vec4(applyFog(mix(c, vec3(0.55), uDay), vWorld), 1.0);
       }`,
   });
   const xs = [-2900, -1800, -700, 600, 1700, 2800];
@@ -356,8 +399,6 @@ export function createSite() {
       trees.push([t + 12, r + side]); trees.push([r + side, t + 12]);
     }
   }
-  // 정원 나무
-  for (let x = -36; x <= 36; x += 8) trees.push([x, -30], [x, -20]);
   const m = new THREE.Matrix4();
   const inst = (geo, mat, list, y, s = 1) => {
     const im = new THREE.InstancedMesh(geo, mat, list.length);

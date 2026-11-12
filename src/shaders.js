@@ -7,6 +7,8 @@ float hash13(vec3 p3){ p3 = fract(p3 * .1031); p3 += dot(p3, p3.zyx + 31.32); re
 export const FOG = /* glsl */`
 uniform vec3 uFogColor;
 uniform float uFogDensity;
+uniform float uDay;
+const vec3 SUN_DIR = vec3(0.4472, 0.5367, 0.7155);
 vec3 applyFog(vec3 col, vec3 worldPos){
   float d = length(worldPos - cameraPosition);
   float f = 1.0 - exp(-pow(d * uFogDensity, 2.0));
