@@ -97,10 +97,11 @@ const peers = new Map();
 let chatTab = 'all';
 resize();
 
-// 저장된 이름/색
+// 저장된 이름/색 (이 기기에서 한 번 정하면 다음부터는 바로 출근)
+let returning = false;
 try {
   const saved = JSON.parse(localStorage.getItem('work-tower-me') || 'null');
-  if (saved?.name) $('nameInput').value = saved.name;
+  if (saved?.name) { $('nameInput').value = saved.name; returning = true; }
   if (saved?.color) me.color = saved.color;
   if (saved?.gender) me.gender = saved.gender === 'f' ? 'f' : 'm';
 } catch {}
@@ -141,8 +142,51 @@ function updatePreview() {
 }
 updatePreview();
 
-$('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
-$('enterBtn').onclick = enter;
+$('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('enterBtn').click(); });
+$('enterBtn').onclick = () => (editing ? saveProfile() : enter());
+
+// 👤 내 캐릭터 바꾸기: 시작 화면 카드를 다시 열어 고침
+let editing = false;
+let before = null;
+function openProfile() {
+  editing = true;
+  before = { name: me.name, color: me.color, gender: me.gender };
+  $('nameInput').value = me.name;
+  $('enterBtn').textContent = '저장하기';
+  $('introCancel').hidden = false;
+  $('intro').classList.add('editing');
+  $('intro').hidden = false;
+}
+function closeProfile() {
+  editing = false;
+  $('enterBtn').textContent = '출근하기';
+  $('introCancel').hidden = true;
+  $('intro').classList.remove('editing');
+  $('intro').hidden = true;
+}
+function saveProfile() {
+  const name = ($('nameInput').value.trim() || me.name).slice(0, 16);
+  const renamed = name !== me.name;
+  me.name = name;
+  try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
+  myAvatar.setLook(me.color, me.gender);
+  if (renamed) myAvatar.setName(me.name);
+  closeProfile();
+  sysMessage('캐릭터를 바꿨어요.');
+  sendState(true);
+}
+$('btnMe').onclick = () => { if (mode === 'office' || mode === 'exterior') openProfile(); };
+$('introCancel').onclick = () => {
+  // 바꾸지 않고 닫으면 고르던 것을 원래대로
+  Object.assign(me, before);
+  colorPick.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.title === me.color));
+  document.querySelectorAll('#genderPick button').forEach((x) => x.classList.toggle('on', x.dataset.g === me.gender));
+  updatePreview();
+  closeProfile();
+};
+
+// 소리는 화면을 처음 누를 때 켜짐 (브라우저 규칙)
+['pointerdown', 'keydown', 'touchend'].forEach((t) => addEventListener(t, () => { if (myAvatar) startAudio(); }, { capture: true, passive: true }));
 
 function enter() {
   me.name = ($('nameInput').value.trim() || '게스트' + Math.floor(Math.random() * 900 + 100)).slice(0, 16);
@@ -160,7 +204,9 @@ function enter() {
     onState, onChat: receiveChat, onLeave: removePeer,
     onStatus(text, online) { $('netText').textContent = text; $('netDot').classList.toggle('on', online); },
   });
-  sysMessage(`${CONFIG.companyName}에 오신 걸 환영해요, ${me.name}님! 엘리베이터를 타고 옥상 테라스에서 야경을 보세요.`);
+  sysMessage(returning
+    ? `다시 오셨네요, ${me.name}님! 캐릭터를 바꾸려면 위쪽 👤 버튼을 누르세요.`
+    : `${CONFIG.companyName}에 오신 걸 환영해요, ${me.name}님! 엘리베이터를 타고 옥상 테라스에서 야경을 보세요.`);
   showFloorHud();
   if (!supa) sysMessage('지금은 로컬 데모 모드예요. 같은 브라우저에서 탭을 하나 더 열면 다른 사람처럼 보여요.');
   startFly('office', 3.2);
@@ -769,13 +815,15 @@ function frame() {
   }
   updatePeers(dt);
   updateCamera(dt);
-  if (mode === 'intro' && pv.av) { pv.av.root.rotation.y += dt * 0.6; pv.av.animate(dt, 0, now); pv.renderer.render(pv.scene, pv.cam); }
+  if (!$('intro').hidden && pv.av) { pv.av.root.rotation.y += dt * 0.6; pv.av.animate(dt, 0, now); pv.renderer.render(pv.scene, pv.cam); }
   sky.position.copy(camera.position);
   composer.render();
   requestAnimationFrame(frame);
 }
+if (returning) $('intro').hidden = true; // 바로 출근하므로 시작 화면은 건너뜀
 requestAnimationFrame(() => {
   frame();
+  if (returning) setTimeout(enter, 600);
   setTimeout(() => $('loading').classList.add('done'), 300);
 });
 

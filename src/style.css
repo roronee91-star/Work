@@ -165,3 +165,7 @@ input, textarea { font: inherit; color: var(--fg); }
 #inApp span { flex: 1; }
 #inApp button { border: 0; border-radius: 8px; padding: 8px 12px; background: #191600; color: #fee500; font-weight: 800; }
 #inApp .x { background: transparent; color: #191600; padding: 8px; }
+
+#intro.editing { z-index: 25; background: rgba(0,0,0,.45); align-items: center; justify-content: center; }
+#intro.editing .intro-card { margin: 0; }
+.link.cancel { display: block; margin: 12px auto 0; font-size: 14px; }

@@ -202,6 +202,14 @@ export class Avatar {
     this.build();
   }
   setColor(color) { this.setLook(color, this.gender); }
+  setName(name) {
+    this.name = name;
+    this.root.remove(this.label);
+    this.label.material.map.dispose(); this.label.material.dispose();
+    this.label = makeSprite(name, { size: 40 }, 0.22);
+    this.label.position.y = 1.25;
+    this.root.add(this.label);
+  }
 
   say(text, now) {
     if (this.bubble) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); }
