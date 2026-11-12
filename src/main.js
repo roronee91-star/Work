@@ -64,7 +64,7 @@ $('brandTagline').textContent = CONFIG.companyTagline;
 
 const me = { id: makeId(), name: '', color: AVATAR_COLORS[0], gender: 'm' };
 const player = { floor: SPAWN.floor, x: SPAWN.x, z: SPAWN.z, ry: SPAWN.yaw + Math.PI, speed: 0, zone: 'f1' };
-const cam = { yaw: SPAWN.yaw, pitch: 0.22, dist: 4.4, cur: 4.4 };
+const cam = { yaw: SPAWN.yaw, pitch: 0.25, dist: 3.8, cur: 3.8 };
 const orbit = { angle: 0.35, elev: 0.2, radius: 85, target: new THREE.Vector3(0, 8, 0) };
 let mode = 'intro'; // intro | office | exterior | fly
 let fly = null;
@@ -106,7 +106,7 @@ const pv = { renderer: null, scene: new THREE.Scene(), cam: new THREE.Perspectiv
   pv.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   pv.renderer.setSize(c.clientWidth || 120, c.clientHeight || 160, false);
   pv.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  pv.cam.position.set(0, 1.05, 3.7); pv.cam.lookAt(0, 0.92, 0);
+  pv.cam.position.set(0, 0.8, 3.3); pv.cam.lookAt(0, 0.68, 0);
   pv.scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x3a3028, 2.2));
   const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(2, 3, 4); pv.scene.add(key);
 }
@@ -313,7 +313,7 @@ function officeCamPose(dt, out) {
   const outside = player.floor === 0 && (Math.abs(player.x) > HX || Math.abs(player.z) > HZ);
   const fy = FLOORS[player.floor].y, top = player.floor === ROOF || outside ? 7 : CEIL - 0.15;
   const bx = player.floor === 0 ? LOT : HX, bz = player.floor === 0 ? LOT : HZ;
-  const tx = player.x, ty = fy + 1.5, tz = player.z;
+  const tx = player.x, ty = fy + 1.05, tz = player.z;
   const dir = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   let allowed = cam.dist;
   for (let t = 0.3; t <= cam.dist; t += 0.12) {

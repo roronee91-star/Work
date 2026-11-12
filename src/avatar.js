@@ -65,88 +65,91 @@ const G = {
 };
 const cap = (r, len) => { const g = new THREE.CapsuleGeometry(r, len, 4, 12); return g; };
 
-const MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 });
-const SKIN = 0xf1c9a5, HAIR_M = 0x2a211b, HAIR_F = 0x3a281d;
+const MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, emissive: 0x1c140e });
+const SKIN = 0xffe0c4, HAIR = 0x3b2516, EYE = 0x241a16;
+export const SCALE = 1.3; // 2등신 캐릭터 (약 1.35m)
 
 function shade(hex, k) { return new THREE.Color(hex).multiplyScalar(k); }
 function isLight(hex) { const c = new THREE.Color(hex); return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.6; }
+const bottomOf = (g, top) => g === 'f' ? (isLight(top) ? 0x39415a : 0xc9b59a) : (isLight(top) ? 0x353c4a : 0xb9a888);
 
+// 머리 + 몸통 (굳은 부분) — 교회 메타버스 캐릭터와 같은 비율, 옷만 회사원 차림
 function buildBody(gender, top) {
   const f = gender === 'f';
   const p = new Part();
-  const shoulder = f ? 0.9 : 1.0;
-  // 몸통 (상의)
-  p.add(cap(0.19, 0.36), top, 0, 1.16, 0, { sx: shoulder, sz: 0.7 });
-  // 목 · 머리
-  p.add(G.cyl, SKIN, 0, 1.44, 0, { sx: 0.055, sy: 0.12, sz: 0.055 });
-  p.add(G.sphere, SKIN, 0, 1.6, 0, { sx: 0.13, sy: 0.14, sz: 0.13 });
-  p.add(G.sphereLo, SKIN, -0.13, 1.6, 0, { sx: 0.025, sy: 0.04, sz: 0.03 });
-  p.add(G.sphereLo, SKIN, 0.13, 1.6, 0, { sx: 0.025, sy: 0.04, sz: 0.03 });
-  // 얼굴
-  for (const s of [-1, 1]) {
-    p.add(G.sphereLo, 0x1a1512, s * 0.045, 1.612, 0.118, { sx: 0.017, sy: 0.022, sz: 0.012 });
-    p.add(G.box, f ? HAIR_F : HAIR_M, s * 0.047, 1.655, 0.12, { sx: 0.04, sy: 0.009, sz: 0.01, rz: s * (f ? -0.12 : -0.05) });
-    if (f) p.add(G.sphereLo, 0xf2a0a0, s * 0.075, 1.575, 0.105, { sx: 0.02, sy: 0.012, sz: 0.008 });
-  }
-  p.add(G.box, f ? 0xc9605f : 0xb0705f, 0, 1.545, 0.127, { sx: 0.035, sy: 0.009, sz: 0.008 });
-  // 머리카락
+  const bottom = bottomOf(gender, top);
+  // 상의 (셔츠 / 블라우스)
+  p.add(new THREE.CylinderGeometry(0.15, 0.185, 0.26, 20), top, 0, 0.41, 0);
+  p.add(new THREE.SphereGeometry(0.15, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), top, 0, 0.54, 0, { sy: 0.35 });
+  const collar = isLight(top) ? 0x56667f : 0xffffff;
   if (f) {
-    p.add(G.halfSphere, HAIR_F, 0, 1.615, -0.005, { sx: 0.148, sy: 0.15, sz: 0.148 });
-    p.add(cap(0.13, 0.2), HAIR_F, 0, 1.5, -0.045, { sx: 1.1, sz: 0.7 });           // 어깨까지 오는 긴 머리
-    p.add(G.box, HAIR_F, -0.05, 1.7, 0.1, { sx: 0.13, sy: 0.05, sz: 0.04, rz: 0.25 }); // 앞머리
-    p.add(G.box, HAIR_F, 0.06, 1.71, 0.1, { sx: 0.1, sy: 0.04, sz: 0.04, rz: -0.2 });
-    for (const s of [-1, 1]) p.add(cap(0.04, 0.16), HAIR_F, s * 0.125, 1.53, 0.02);  // 옆머리
+    p.add(new THREE.TorusGeometry(0.075, 0.018, 8, 20), collar, 0, 0.555, 0.02, { rx: Math.PI / 2 - 0.25 });      // 둥근 깃
   } else {
-    p.add(G.halfSphere, HAIR_M, 0, 1.625, -0.01, { sx: 0.145, sy: 0.13, sz: 0.145 });
-    p.add(G.box, HAIR_M, 0.02, 1.71, 0.085, { sx: 0.2, sy: 0.05, sz: 0.06, rx: 0.4, rz: -0.12 }); // 옆으로 넘긴 앞머리
-    for (const s of [-1, 1]) p.add(G.box, HAIR_M, s * 0.128, 1.63, -0.01, { sx: 0.025, sy: 0.08, sz: 0.16 });
-  }
-  // 옷깃 · 단추선
-  const collar = isLight(top) ? 0x5b6b86 : 0xf4f2ee;
-  if (f) {
-    p.add(G.box, collar, 0, 1.4, 0.07, { sx: 0.16, sy: 0.025, sz: 0.04 });            // 블라우스 라운드 깃
-  } else {
-    for (const s of [-1, 1]) p.add(G.box, collar, s * 0.05, 1.41, 0.075, { sx: 0.07, sy: 0.03, sz: 0.045, rz: s * 0.6 }); // 셔츠 깃
-    p.add(G.box, shade(top, 0.75), 0, 1.18, 0.133, { sx: 0.012, sy: 0.32, sz: 0.006 }); // 단추선
+    for (const sx of [-1, 1]) p.add(new THREE.ConeGeometry(0.035, 0.07, 3), collar, sx * 0.04, 0.545, 0.11, { rx: Math.PI / 2 + 0.5, rz: sx * 0.9 }); // 셔츠 깃
+    p.add(new THREE.BoxGeometry(0.008, 0.2, 0.005), shade(top, 0.72), 0, 0.42, 0.18, { rx: -0.14 });             // 단추선
+    for (const y of [0.48, 0.42, 0.36]) p.add(new THREE.SphereGeometry(0.007, 6, 4), 0xffffff, 0, y, 0.18 + (0.5 - y) * 0.14);
   }
   // 사원증 목걸이
-  for (const s of [-1, 1]) p.add(G.box, 0x2b5dc9, s * 0.045, 1.3, 0.125, { sx: 0.012, sy: 0.2, sz: 0.008, rz: s * -0.22 });
-  p.add(G.box, 0xffffff, 0, 1.15, 0.138, { sx: 0.075, sy: 0.1, sz: 0.008 });
-  p.add(G.box, 0x2b5dc9, 0, 1.185, 0.143, { sx: 0.075, sy: 0.022, sz: 0.004 });
-  // 하의 (몸에 붙는 부분)
+  for (const sx of [-1, 1]) p.add(new THREE.BoxGeometry(0.01, 0.13, 0.006), 0x2b5dc9, sx * 0.032, 0.5, 0.15, { rx: -0.35, rz: sx * 0.25 });
+  p.add(new THREE.BoxGeometry(0.065, 0.085, 0.008), 0xffffff, 0, 0.415, 0.183, { rx: -0.14 });
+  p.add(new THREE.BoxGeometry(0.065, 0.02, 0.004), 0x2b5dc9, 0, 0.445, 0.188, { rx: -0.14 });
+  // 하의
   if (f) {
-    const skirt = isLight(top) ? 0x3b4256 : 0xcbb79c;
-    p.add(G.cone, skirt, 0, 0.72, 0, { sx: 0.25, sy: 0.4, sz: 0.2 });               // 플레어 스커트
-    p.add(G.cyl, skirt, 0, 0.93, 0, { sx: 0.155, sy: 0.06, sz: 0.125 });
+    p.add(new THREE.CylinderGeometry(0.18, 0.25, 0.15, 24), bottom, 0, 0.22, 0);                                   // 치마
+    p.add(new THREE.CylinderGeometry(0.186, 0.186, 0.02, 24), shade(bottom, 0.8), 0, 0.29, 0);
   } else {
-    const pants = isLight(top) ? 0x2f3644 : 0xbba98b;
-    p.add(cap(0.16, 0.06), pants, 0, 0.9, 0, { sx: 1.05, sy: 0.9, sz: 0.75 });
-    p.add(G.box, 0x3a2a20, 0, 0.97, 0, { sx: 0.33, sy: 0.035, sz: 0.24 });            // 벨트
+    p.add(new THREE.CylinderGeometry(0.19, 0.17, 0.07, 20), bottom, 0, 0.265, 0);                                  // 바지 골반
+    p.add(new THREE.CylinderGeometry(0.188, 0.188, 0.022, 20), 0x3a2a20, 0, 0.3, 0);                               // 벨트
+    p.add(new THREE.BoxGeometry(0.03, 0.02, 0.01), 0xc9a45c, 0, 0.3, 0.188);
   }
+  // 머리
+  const H = 0.78;
+  p.add(new THREE.SphereGeometry(0.25, 28, 24), SKIN, 0, H, 0, { sx: 1.04, sy: 0.96 });
+  for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.05, 12, 10), SKIN, sx * 0.255, H - 0.02, 0, { sx: 0.5, sz: 0.8 });
+  p.add(new THREE.SphereGeometry(0.272, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.5), HAIR, 0, H, -0.01, { rx: -0.42 });
+  for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.09, 12, 10), HAIR, sx * 0.21, H + 0.04, 0.05, { sx: 0.55, sy: 1.15, sz: 0.9 });
+  for (const [x, y, rz] of [[-0.1, 0.118, -0.35], [0, 0.128, 0], [0.1, 0.118, 0.35]]) p.add(new THREE.SphereGeometry(0.08, 14, 10), HAIR, x, H + y, 0.19, { sx: 0.95, sy: 0.42, sz: 0.5, rz });
+  if (f) {
+    p.add(new THREE.SphereGeometry(0.27, 24, 18), HAIR, 0, H - 0.1, -0.08, { sx: 1.02, sy: 1.32, sz: 0.82 });    // 긴 뒷머리
+    for (const sx of [-1, 1]) {
+      p.add(new THREE.SphereGeometry(0.085, 12, 12), HAIR, sx * 0.215, H - 0.13, 0.03, { sx: 0.55, sy: 1.9, sz: 0.75 });
+      p.add(new THREE.SphereGeometry(0.07, 12, 10), HAIR, sx * 0.2, H - 0.3, 0, { sx: 0.7, sy: 0.8, sz: 0.8 });
+    }
+    for (const sx of [-1, 1]) p.add(new THREE.ConeGeometry(0.05, 0.09, 4), 0xf28bb0, 0.16 + sx * 0.045, H + 0.2, 0.06, { rz: sx * Math.PI / 2 }); // 리본
+    p.add(new THREE.SphereGeometry(0.022, 10, 8), 0xf28bb0, 0.16, H + 0.2, 0.065);
+  } else {
+    p.add(new THREE.ConeGeometry(0.022, 0.08, 8), HAIR, 0.03, H + 0.275, 0.02, { rx: -0.5, rz: -0.4 });            // 삐침 머리
+  }
+  // 얼굴: 큰 눈 + 반짝임, 눈썹, 볼터치, 웃는 입
+  for (const sx of [-1, 1]) {
+    p.add(new THREE.SphereGeometry(0.04, 16, 12), EYE, sx * 0.09, H, 0.225, { sx: 0.85, sy: 1.2, sz: 0.35 });
+    p.add(new THREE.SphereGeometry(0.013, 8, 8), 0xffffff, sx * 0.09 + 0.012, H + 0.02, 0.238);
+    p.add(new THREE.SphereGeometry(0.006, 6, 6), 0xffffff, sx * 0.09 - 0.012, H - 0.015, 0.238);
+    const arc = Math.PI * 0.62;
+    p.add(new THREE.TorusGeometry(0.02, 0.0035, 4, 12, arc), HAIR, sx * 0.09, H + 0.058, 0.233, { sx: 1.15, sy: 0.7, rz: (Math.PI - arc) / 2 - sx * 0.1 });
+    p.add(new THREE.SphereGeometry(0.03, 14, 10), 0xf9b4c2, sx * 0.15, H - 0.06, 0.2, { sz: 0.25, ry: sx * 0.55 });
+  }
+  p.add(new THREE.TorusGeometry(0.022, 0.006, 6, 16, Math.PI), 0x8a3b3b, 0, H - 0.075, 0.236, { rz: Math.PI });
   return p.mesh(MAT);
 }
+// 다리 (엉덩이 관절 기준)
 function buildLeg(gender, top) {
   const f = gender === 'f';
   const p = new Part();
-  if (f) {
-    p.add(cap(0.06, 0.56), 0xe8c2a0, 0, -0.38, 0);                                   // 다리
-    p.add(G.box, 0x1b1b1f, 0, -0.81, 0.04, { sx: 0.1, sy: 0.06, sz: 0.2 });          // 단화
-  } else {
-    const pants = isLight(top) ? 0x2f3644 : 0xbba98b;
-    p.add(cap(0.085, 0.58), pants, 0, -0.38, 0);
-    p.add(G.box, 0xf3f3f3, 0, -0.8, 0.045, { sx: 0.12, sy: 0.08, sz: 0.24 });         // 운동화
-    p.add(G.box, 0x2b5dc9, 0, -0.775, 0.045, { sx: 0.122, sy: 0.015, sz: 0.2 });
-  }
-  const m = p.mesh(MAT);
-  return m;
+  const leg = f ? 0x2a2a31 : bottomOf(gender, top);
+  p.add(new THREE.CylinderGeometry(0.065, 0.06, 0.13, 12), leg, 0, -0.065, 0);
+  p.add(new THREE.CylinderGeometry(0.058, 0.055, 0.1, 12), leg, 0, -0.18, 0);
+  p.add(new THREE.SphereGeometry(0.07, 14, 10), f ? 0x1d1d22 : 0xf5f5f2, 0, -0.235, 0.03, { sx: 0.9, sy: 0.55, sz: 1.35 });
+  p.add(new THREE.CylinderGeometry(0.065, 0.065, 0.018, 14), f ? 0x111114 : 0x9aa0a8, 0, -0.26, 0.03, { sx: 0.95, sz: 1.4 });
+  return p.mesh(MAT);
 }
+// 팔 (어깨 관절 기준)
 function buildArm(gender, top) {
-  const f = gender === 'f';
   const p = new Part();
-  p.add(cap(f ? 0.055 : 0.062, 0.2), top, 0, -0.13, 0);                             // 소매
-  p.add(G.cyl, isLight(top) ? shade(top, 0.85) : shade(top, 1.25), 0, -0.26, 0, { sx: f ? 0.058 : 0.065, sy: 0.04, sz: f ? 0.058 : 0.065 }); // 걷어 올린 소매 끝
-  p.add(cap(f ? 0.043 : 0.048, 0.2), SKIN, 0, -0.39, 0);                            // 팔뚝
-  p.add(G.sphereLo, SKIN, 0, -0.55, 0.005, { sx: 0.05, sy: 0.06, sz: 0.04 });        // 손
+  p.add(new THREE.SphereGeometry(0.05, 12, 10), top, 0, 0, 0);
+  p.add(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 12), top, 0, -0.11, 0);
+  p.add(new THREE.CylinderGeometry(0.049, 0.049, 0.03, 12), isLight(top) ? shade(top, 0.85) : 0xffffff, 0, -0.215, 0); // 소맷부리
+  p.add(new THREE.SphereGeometry(0.048, 12, 10), SKIN, 0, -0.26, 0);
   return p.mesh(MAT);
 }
 
@@ -159,13 +162,13 @@ export class Avatar {
     this.color = color;
     this.build();
 
-    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }));
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.32, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }));
     shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.025;
     this.root.add(shadow);
 
     this.name = name;
     this.label = makeSprite(name, { size: 40 }, 0.22);
-    this.label.position.y = 1.98;
+    this.label.position.y = 1.55;
     this.root.add(this.label);
     this.bubble = null;
     this.bubbleUntil = 0;
@@ -180,11 +183,12 @@ export class Avatar {
     const f = g === 'f';
     this.torso = buildBody(g, top);
     this.legL = buildLeg(g, top); this.legR = buildLeg(g, top);
-    this.legL.position.set(-0.09, 0.86, 0); this.legR.position.set(0.09, 0.86, 0);
+    this.legL.position.set(-0.085, 0.25, 0); this.legR.position.set(0.085, 0.25, 0);
     this.armL = buildArm(g, top); this.armR = buildArm(g, top);
-    const sx = f ? 0.235 : 0.26;
-    this.armL.position.set(-sx, 1.37, 0); this.armR.position.set(sx, 1.37, 0);
-    this.armL.rotation.z = -0.08; this.armR.rotation.z = 0.08;
+    this.armL.position.set(-0.18, 0.52, 0); this.armR.position.set(0.18, 0.52, 0);
+    this.armL.rotation.z = -0.12; this.armR.rotation.z = 0.12;
+    void f;
+    this.body.scale.setScalar(SCALE);
     this.body.add(this.torso, this.legL, this.legR, this.armL, this.armR);
   }
 
@@ -201,7 +205,7 @@ export class Avatar {
     if (this.bubble) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); }
     this.bubble = makeSprite(text, { bg: 'rgba(255,255,255,0.94)', fg: '#111', font: 500, size: 40, maxW: 520 }, 0.3);
     const lines = Math.max(1, Math.round(this.bubble.scale.y / 0.3));
-    this.bubble.position.y = 2.25 + this.bubble.scale.y / 2 - 0.1 * lines;
+    this.bubble.position.y = 1.8 + this.bubble.scale.y / 2 - 0.1 * lines;
     this.root.add(this.bubble);
     this.bubbleUntil = now + 6 + Math.min(text.length / 15, 6);
   }
@@ -210,7 +214,7 @@ export class Avatar {
     this.speed += (speed - this.speed) * Math.min(1, dt * 10);
     const s = Math.min(this.speed / 4, 1.2);
     this.phase += dt * (4 + this.speed * 2.2);
-    const swing = Math.sin(this.phase) * 0.6 * s;
+    const swing = Math.sin(this.phase) * 0.75 * s;
     this.legL.rotation.x = swing;
     this.legR.rotation.x = -swing;
     this.armL.rotation.x = -swing * 0.8;
@@ -218,7 +222,7 @@ export class Avatar {
     // 서 있을 때 숨쉬기
     this.idle += dt;
     const breathe = Math.sin(this.idle * 1.8) * 0.006 * (1 - Math.min(s * 3, 1));
-    this.body.position.y = Math.abs(Math.cos(this.phase)) * 0.035 * Math.min(s, 1) + breathe;
+    this.body.position.y = Math.abs(Math.cos(this.phase)) * 0.04 * Math.min(s, 1) + breathe;
     this.torso.scale.y = 1 + breathe * 0.5;
     if (this.bubble && now > this.bubbleUntil) {
       this.root.remove(this.bubble);
