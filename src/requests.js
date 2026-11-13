@@ -8,22 +8,25 @@ const LABEL = { 요청: '요청', 진행: '진행 중', 완료: '완료' };
 
 export function createRequests(api) {
   const { $, me, esc } = api;
-  let list = [], tab = 'in', loaded = false, useLocal = !supa;
+  let list = [], tab = 'in', loaded = false, useLocal = !supa, why = supa ? '' : '로컬 데모 모드';
 
   // ---------- 저장소 ----------
   const localAll = () => { try { return JSON.parse(localStorage.getItem(LS) || '[]'); } catch { return []; } };
   const localSave = (a) => { try { localStorage.setItem(LS, JSON.stringify(a.slice(0, 300))); } catch {} };
   async function fetchMine() {
     const name = me.name;
+    if (supa) useLocal = false; // 매번 서버부터 다시 시도 (SQL을 나중에 실행해도 새로 고침 없이 연결)
     if (!useLocal) {
       const sel = 'id,from_name,to_name,title,body,due,status,created_at,updated_at';
       const [a, b] = await Promise.all([
         supa.from('requests').select(sel).eq('to_name', name).order('created_at', { ascending: false }).limit(50),
         supa.from('requests').select(sel).eq('from_name', name).order('created_at', { ascending: false }).limit(50),
       ]);
-      if (!a.error && !b.error) return [...a.data, ...b.data];
-      console.warn('업무 요청 불러오기 실패', (a.error || b.error).message);
-      if (/requests|relation|schema/i.test((a.error || b.error).message || '')) useLocal = true; // 표가 아직 없음 → 이 기기에만
+      if (!a.error && !b.error) { why = ''; return [...a.data, ...b.data]; }
+      const err = a.error || b.error;
+      console.warn('업무 요청 불러오기 실패', err);
+      why = [err.code, err.message].filter(Boolean).join(' ').slice(0, 120);
+      if (/requests|relation|schema|permission|42P01|42501|PGRST/i.test(why)) useLocal = true; // 표가 없거나 권한 없음 → 이 기기에만
       else return list;
     }
     return localAll().filter((r) => r.to_name === name || r.from_name === name);
@@ -69,7 +72,7 @@ export function createRequests(api) {
   async function refresh() {
     try { list = await fetchMine(); loaded = true; } catch (e) { console.warn(e); }
     badge(); if (!$('reqModal').hidden) render();
-    $('reqMode').textContent = useLocal ? '지금은 이 브라우저에만 저장돼요 (Supabase 표 준비 전).' : '요청은 회사 서버(Supabase)에 저장돼요. 비밀 업무는 적지 마세요.';
+    $('reqMode').textContent = useLocal ? `지금은 이 브라우저에만 저장돼요 (Supabase 표 준비 전).${why ? ` [이유: ${why}]` : ''}` : '요청은 회사 서버(Supabase)에 저장돼요. 비밀 업무는 적지 마세요.';
   }
   function open(t = 'in', to = '') {
     tab = t;
