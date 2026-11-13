@@ -77,6 +77,7 @@
         <button id="btnMe" title="내 캐릭터 바꾸기"><i>👤</i><span>내 캐릭터</span></button>
         <button id="btnFloor" title="층 이동"><i>🛗</i><span>층 이동</span></button>
         <button id="btnNotice" title="공지"><i>📢</i><span>공지</span></button>
+        <button id="btnReq" title="업무 요청"><i>📋</i><span>업무</span><b id="reqBadge" class="badge" hidden>0</b></button>
         <button id="btnPeople" title="접속자"><i>👥</i><b id="onlineCount">1</b></button>
         <button id="btnView" title="외관 보기"><i>🏢</i><span>외관 보기</span></button>
         <button id="btnDay" title="낮/밤"><i>☀️</i><span>낮</span></button>
@@ -103,6 +104,7 @@
     </aside>
     <button id="chatOpen" class="round" hidden>💬</button>
 
+    <div id="toast" hidden></div>
     <div id="prompt" hidden></div>
     <div id="hint">WASD·방향키 이동 · Space 점프 · Shift 달리기 · 드래그 회전 · 휠 줌 · Enter 채팅 · E 엘리베이터/공지판</div>
 
@@ -153,6 +155,28 @@
         <button class="primary">공지 올리기</button>
       </form>
       <p class="sub" id="noticeMode"></p>
+    </div>
+  </div>
+
+  <!-- 📋 업무 요청 -->
+  <div id="reqModal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>📋 업무 요청</h2><button class="close" data-close>✕</button></header>
+      <div id="reqTabs" class="req-tabs">
+        <button type="button" data-t="in">받은 요청<b id="reqInN"></b></button>
+        <button type="button" data-t="out">보낸 요청</button>
+        <button type="button" data-t="new">＋ 새 요청</button>
+      </div>
+      <ul id="reqList"></ul>
+      <form id="reqForm" autocomplete="off" hidden>
+        <label>받는 사람<input id="reqTo" list="reqNames" maxlength="16" placeholder="이름 (접속 안 한 사람도 돼요)" required></label>
+        <datalist id="reqNames"></datalist>
+        <label>제목<input id="reqTitle" maxlength="60" placeholder="예: 주간 보고서 검토 부탁드려요" required></label>
+        <label>내용<textarea id="reqBody" maxlength="500" rows="3" placeholder="자세한 내용 (선택)"></textarea></label>
+        <label>마감일<input id="reqDue" type="date"></label>
+        <button class="primary">요청 보내기</button>
+      </form>
+      <p class="sub" id="reqMode"></p>
     </div>
   </div>
 

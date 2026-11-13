@@ -8,6 +8,7 @@ import { sharedUniforms, createSky, createMountains, createGround, createCity, c
 import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA } from './building.js';
 import { createGarden, STREAM } from './garden.js';
 import { createDuel, SWORD, BOT_NAME } from './duel.js';
+import { createRequests } from './requests.js';
 import { startAudio, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar, WorkMonster } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
@@ -176,6 +177,19 @@ const duel = createDuel({
   },
 });
 const busy = () => game.on || duel.fighting;
+// 📋 업무 요청
+const reqs = createRequests({
+  $, me, esc: (t) => esc(t), openModal: (id) => openModal(id), sys: (t) => sysMessage(t), toast: (t) => toast(t),
+  send: (e) => net?.sendEvent(e), onlineNames: () => [...peers.values()].map((p) => p.name),
+});
+$('btnReq').onclick = () => { if (mode === 'office' || mode === 'exterior') reqs.open('in'); };
+let toastTimer = 0;
+function toast(text) {
+  const el = $('toast'); el.textContent = text; el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  el.onclick = () => { el.hidden = true; reqs.open('in'); };
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 7000);
+  sysMessage(text); playBeep(740, 0.12);
+}
 // 칼이 맞는 자리에 번쩍 (두 사람 사이) · 맞으면 화면 흔들림
 let camShake = 0;
 const sparkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.0, 1.2), transparent: true, depthWrite: false });
@@ -305,6 +319,7 @@ function saveProfile() {
   myAvatar.setLook(me.color, me.gender);
   if (renamed) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   if (renamed) duel.load(me.name);
+  if (renamed) reqs.refresh();
   closeProfile();
   sysMessage('캐릭터를 바꿨어요.');
   sendState(true);
@@ -335,11 +350,12 @@ function enter() {
   myAvatar = new Avatar(me.name, me.color, me.gender);
   if (duel.level > 1 || duel.loser) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   duel.load(me.name); // 결투 레벨 · 칭호 (Supabase)
+  reqs.refresh().then(() => { if (reqs.pending) toast(`📋 아직 끝나지 않은 업무 요청이 ${reqs.pending}개 있어요. (위쪽 📋 업무)`); });
   scene.add(myAvatar.root);
   placeAvatar(myAvatar, player);
   me.jt = Date.now();
   net = connect(me, {
-    onState, onChat: receiveChat, onLeave: removePeer, onSync: () => sendState(true), onEvent: (e) => duel.onEvent(e),
+    onState, onChat: receiveChat, onLeave: removePeer, onSync: () => sendState(true), onEvent: (e) => { duel.onEvent(e); reqs.onEvent(e); },
     onStatus(text, online) { $('netText').textContent = text; $('netDot').classList.toggle('on', online); },
   });
   sysMessage(returning
@@ -1087,11 +1103,12 @@ function renderOnline() {
   box.style.top = `${Math.round(tb.bottom + 6)}px`;
   const fl = (f) => FLOORS[f]?.label || '';
   const rows = [{ name: me.name, floor: player.floor, me: true }, ...[...peers.values()].sort((a, b) => (a.floor - b.floor) || String(a.name).localeCompare(b.name, 'ko'))];
-  const html = rows.map((p) => `<li${p.me ? ' class="me"' : ''}><i></i><span>${esc(p.name)}${p.me ? ' (나)' : ''}</span><small>${fl(p.floor)}</small></li>`).join('');
+  const html = rows.map((p) => `<li${p.me ? ' class="me"' : ` data-name="${esc(p.name)}" title="눌러서 업무 요청"`}><i></i><span>${esc(p.name)}${p.me ? ' (나)' : ''}</span><small>${fl(p.floor)}</small></li>`).join('');
   $('onlineNum').textContent = rows.length;
   if (html !== onlineHtml) { onlineHtml = html; $('onlineList').innerHTML = html; }
 }
 setInterval(renderOnline, 1000);
+$('onlineList').addEventListener('click', (e) => { const li = e.target.closest('li[data-name]'); if (li) reqs.open('new', li.dataset.name); });
 $('onlineHead').onclick = () => { const f = $('online').classList.toggle('fold'); $('onlineFold').textContent = f ? '▸' : '▾'; try { localStorage.setItem('work-online-fold', f ? '1' : '0'); } catch {} };
 try { if (localStorage.getItem('work-online-fold') === '1') { $('online').classList.add('fold'); $('onlineFold').textContent = '▸'; } } catch {}
 $('btnPeople').onclick = () => {

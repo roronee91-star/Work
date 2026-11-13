@@ -30,7 +30,7 @@
 | 배포 | GitHub Pages가 `main` 루트를 서비스 → 작업 브랜치에서 `git push origin HEAD:main` (fast-forward만) |
 | 사이트(직원용 입장 링크) | https://roronee91-star.github.io/Work/ |
 | Supabase | 회사용 `work` 프로젝트 (지역 Sydney), URL·Publishable 키는 `src/config.js` |
-| Supabase 표 | `notices`(공지판), `duel_stats`(결투 레벨, 이름별) — `docs/supabase.sql`. `duel_stats`는 2026-11-12에 추가, 사용자가 SQL을 실행했는지 확인 필요 |
+| Supabase 표 | `notices`(공지판), `duel_stats`(결투 레벨, 이름별), `requests`(업무 요청, 2026-11-13 추가 — 사용자가 SQL 실행했는지 확인 필요) — `docs/supabase.sql`. `duel_stats`는 2026-11-12에 추가, 사용자가 SQL을 실행했는지 확인 필요 |
 | 라이브러리 | `vendor/three`(0.169.0 + 쓰는 addons), `vendor/supabase`(2.45.4) — 저장소 안에 있음, 빌드 없음 |
 | 사용자용 안내서 | `README.md` (비개발자용 Fork → 이름 바꾸기 → Supabase → Pages) |
 
@@ -42,6 +42,7 @@
 - **낮/밤**: 버튼 + 처음엔 실제 시간(7~18시 낮). 밤 빛번짐은 약하게, 실내등 은은하게.
 - **캐릭터**: 교회 메타버스와 같은 2등신(약 1m), 남/여, 회사원 차림, 사원증. 이름·모습은 기기에 기억(다음부터 바로 출근), 👤로 변경. 같은 이름 금지(나중에 온 사람이 변경).
 - 💻 일하기 터미널 화면은 만들었다가 사용자가 원하지 않아 뺐음 (다시 넣지 말 것).
+- **📋 업무 요청** (`src/requests.js`): 위쪽 📋 업무 버튼(빨간 숫자 = 아직 안 끝난 받은 요청) 또는 왼쪽 접속자 이름 누르기 → 받는 사람·제목·내용·마감일. 받은 사람은 ▶ 시작하기 → ✔ 완료하기. 실시간 알림은 이벤트 `{t:'req'}` + 화면 위 알림(`toast`), 접속 안 했을 때 온 것은 들어올 때와 90초마다 확인. 표가 없으면 브라우저에만 저장. 상태·시각만 고칠 수 있게 SQL에서 열 권한 제한.
 - **엘리베이터 창**: 위층이 위(RF→1F). 열리면 캐릭터 멈춤(`floorOpen`, 걷던 키 반복 무시 `heldAtOpen`), ↑↓/W·S로 고르기, Enter·E·Space로 이동, 숫자 1~5, Esc. 지금 층은 못 고름(`floorBlocked`, 건물 밖 보기에서는 허용).
 - **이동 방향 고정**: 걷기 시작할 때 시점 방향(`moveYaw`)으로 고정 → 걷는 중 화면을 돌려도 가던 방향 그대로. 손을 떼면 새 시점 기준.
 - **가구 윗면 높이 자동 맞춤**: `Kit.fitTops` — 부딪힘 상자를 넓게 덮는 조각의 실제 윗면(±0.35m 안)으로 `top`을 맞춤(발이 가구 속에 파묻히지 않게). 직접 정하고 싶으면 `fixedTop: true`.
@@ -77,6 +78,7 @@ node tools/check/monster.cjs <그림폴더>   # 업무 괴물 연습·쓰러짐
 node tools/check/path.cjs                  # 층마다 엘리베이터까지 길찾기
 node tools/check/npc.cjs <그림폴더>       # 1층 비서·카페
 node tools/check/controls.cjs <그림폴더>  # 책상 높이·이동 방향 고정·엘리베이터 키보드
+node tools/check/requests.cjs <그림폴더>  # 업무 요청 보내기→알림→시작→완료
 ```
 - 크롬 옵션: `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --no-proxy-server`. 매우 느림(2~10fps) → 성능 판단은 실제 휴대폰으로.
 - 테스트는 `config.js`를 가로채 `supabaseUrl: ''`로 바꿔 **로컬 데모 모드(같은 브라우저 탭끼리)** 로 돈다.

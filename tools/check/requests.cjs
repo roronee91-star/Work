@@ -1,0 +1,50 @@
+const { chromium, devices } = require('playwright'); const fs = require('fs');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-proxy-server'] });
+  const cfg = fs.readFileSync('/home/user/work/src/config.js', 'utf8').replace(/supabaseUrl: '[^']*'/, "supabaseUrl: ''");
+  const errs = []; const S = process.argv[2];
+  async function open(ctx, name, color) {
+    await ctx.route('**/src/config.js', (r) => r.fulfill({ body: cfg, contentType: 'text/javascript' }));
+    const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(name + ': ' + e.message));
+    await p.addInitScript(([n, c]) => { localStorage.setItem('work-tower-me', JSON.stringify({ name: n, color: c, gender: 'f' })); }, [name, color]);
+    await p.goto('http://127.0.0.1:8123/', { waitUntil: 'commit' });
+    await p.waitForFunction(() => window.__work && __work.mode === 'office', null, { timeout: 300000 });
+    await p.evaluate(() => document.querySelector('#chatToggle')?.click());
+    return p;
+  }
+  const ctx = await b.newContext({ viewport: { width: 1000, height: 640 } });
+  const A = await open(ctx, '엘리', '#ff6b6b');
+  const B = await open(ctx, '민수', '#4f8cff');
+  await A.waitForFunction(() => document.querySelector('#onlineList li[data-name]'), null, { timeout: 60000 });
+  await A.click('#onlineList li[data-name]');
+  await A.waitForTimeout(500);
+  console.log('to prefilled:', await A.inputValue('#reqTo'));
+  await A.fill('#reqTitle', '주간 보고서 검토 부탁드려요');
+  await A.fill('#reqBody', '금요일 회의 전에 한 번 봐 주세요.');
+  await A.fill('#reqDue', new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10));
+  await A.screenshot({ path: S + '/req_new.png' });
+  await A.click('#reqForm button.primary');
+  await B.waitForFunction(() => !document.getElementById('toast').hidden, null, { timeout: 30000 });
+  console.log('B toast:', await B.textContent('#toast'), '| badge', await B.textContent('#reqBadge'), await B.evaluate(() => !document.getElementById('reqBadge').hidden));
+  await B.screenshot({ path: S + '/req_toast.png' });
+  await B.evaluate(() => document.getElementById('toast').click()); await B.waitForTimeout(800);
+  await B.screenshot({ path: S + '/req_in.png' });
+  await B.click('.req-next'); await B.waitForTimeout(500);
+  console.log('B after start:', await B.textContent('#reqList li .req-st'));
+  await A.waitForFunction(() => !document.getElementById('toast').hidden && document.getElementById('toast').textContent.includes('시작'), null, { timeout: 30000 });
+  console.log('A toast:', await A.textContent('#toast'));
+  await B.click('.req-next'); await B.waitForTimeout(500);
+  console.log('B after done:', await B.textContent('#reqList li .req-st'), '| badge hidden', await B.evaluate(() => document.getElementById('reqBadge').hidden));
+  await A.waitForFunction(() => document.getElementById('toast').textContent.includes('완료'), null, { timeout: 30000 });
+  await A.evaluate(() => { document.getElementById('toast').hidden = true; __work; }); await A.click('#reqTabs [data-t=out]'); await A.waitForTimeout(500);
+  console.log('A sent tab:', (await A.textContent('#reqList')).replace(/\s+/g, ' ').trim());
+  await A.screenshot({ path: S + '/req_out.png' });
+  await ctx.close();
+  // 휴대폰
+  const m = await b.newContext({ ...devices['iPhone 13'] });
+  const P = await open(m, '지수', '#3ecf8e');
+  await P.evaluate(() => { localStorage.setItem('work-requests', JSON.stringify([{ id: 1, from_name: '엘리', to_name: '지수', title: '견적서 확인', body: '거래처 견적서 금액 맞는지 봐 주세요', due: new Date().toISOString().slice(0, 10), status: '요청', created_at: new Date().toISOString() }, { id: 2, from_name: '김대리', to_name: '지수', title: '회의실 예약', body: '', due: null, status: '진행', created_at: new Date(Date.now() - 3600e3).toISOString() }])); });
+  await P.click('#btnReq'); await P.waitForTimeout(1200);
+  await P.screenshot({ path: S + '/req_phone.png' });
+  console.log('errors:', errs.join('|') || 'none'); await b.close();
+})();

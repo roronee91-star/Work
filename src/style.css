@@ -245,3 +245,34 @@ input, textarea { font: inherit; color: var(--fg); }
 
 .kbd-only { margin: 12px 0 0; font-size: 12px; text-align: center; }
 @media (pointer: coarse) { .kbd-only { display: none; } }
+
+/* 📋 업무 요청 */
+.actions button { position: relative; }
+.badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ff5a4f; color: #fff; font-size: 11px; line-height: 18px; text-align: center; font-weight: 700; }
+.req-tabs { display: flex; gap: 6px; margin-top: 14px; }
+.req-tabs button { flex: 1; padding: 9px 0; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--muted); font-size: 14px; }
+.req-tabs button.on { border-color: var(--gold); background: rgba(232,211,160,.16); color: var(--gold); font-weight: 700; }
+.req-tabs b { color: #ff8a80; }
+#reqList { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }
+#reqList li { padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.05); border-left: 3px solid #ff8a80; }
+#reqList li.st-진행 { border-left-color: #ffc94d; }
+#reqList li.st-완료 { border-left-color: #6fdc8c; opacity: .6; }
+.req-top { display: flex; align-items: center; gap: 8px; }
+.req-top h3 { margin: 0; font-size: 16px; }
+.req-st { flex: none; font-size: 11px; padding: 2px 7px; border-radius: 6px; background: rgba(255,138,128,.18); color: #ff8a80; }
+.st-진행 .req-st { background: rgba(255,201,77,.18); color: #ffc94d; }
+.st-완료 .req-st { background: rgba(111,220,140,.18); color: #6fdc8c; }
+#reqList p { margin: 6px 0 0; color: #c3cad8; font-size: 14px; white-space: pre-wrap; }
+.req-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.req-meta small { color: var(--muted); }
+.req-meta em { font-style: normal; color: var(--gold); }
+.req-next { margin-left: auto; flex: none; padding: 7px 12px; border-radius: 9px; border: 0; font-weight: 700; font-size: 13px; color: #1a1408; background: linear-gradient(90deg, #d4b06c, #f3dfae); }
+#reqForm { display: grid; gap: 10px; margin-top: 14px; }
+#reqForm label { display: grid; gap: 5px; font-size: 13px; color: var(--muted); }
+#reqForm input, #reqForm textarea { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); outline: none; resize: vertical; font-size: 15px; color-scheme: dark; }
+#reqForm input:focus, #reqForm textarea:focus { border-color: var(--gold); }
+#toast { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); max-width: min(520px, calc(100% - 24px)); padding: 12px 18px; border-radius: 14px; background: rgba(20, 24, 36, .95); border: 1px solid rgba(232,211,160,.5); color: var(--fg); font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.4); cursor: pointer; animation: toastIn .3s ease-out; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, -10px); } }
+#onlineList li[data-name] { cursor: pointer; }
+#onlineList li[data-name]:hover span { text-decoration: underline; }
+@media (pointer: coarse), (max-width: 700px) { #toast { top: 140px; font-size: 13px; } }
