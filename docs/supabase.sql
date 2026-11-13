@@ -1,4 +1,5 @@
--- 공지판용 표. Supabase 대시보드 > SQL Editor에서 한 번 실행하세요.
+-- 공지판용 표. Supabase 대시보드 > SQL Editor에서 실행하세요.
+-- 이 파일 전체를 몇 번 다시 실행해도 괜찮아요 (이미 있는 표·자료는 그대로 둠).
 create table if not exists public.notices (
   id bigint generated always as identity primary key,
   title text not null check (char_length(title) <= 60),
@@ -8,7 +9,9 @@ create table if not exists public.notices (
 );
 alter table public.notices enable row level security;
 -- 누구나 읽고 올릴 수 있음 (수정·삭제는 대시보드에서만)
+drop policy if exists "notices read" on public.notices;
 create policy "notices read" on public.notices for select using (true);
+drop policy if exists "notices insert" on public.notices;
 create policy "notices insert" on public.notices for insert with check (true);
 
 -- ⚔️ 결투 레벨 · 패배자 칭호 (이름별). 이것도 SQL Editor에서 한 번 실행하세요.
@@ -25,8 +28,11 @@ create table if not exists public.duel_stats (
 );
 alter table public.duel_stats enable row level security;
 -- 누구나 읽고, 자기 기록을 올리고 고칠 수 있음 (지우기는 대시보드에서만)
+drop policy if exists "duel read" on public.duel_stats;
 create policy "duel read" on public.duel_stats for select using (true);
+drop policy if exists "duel insert" on public.duel_stats;
 create policy "duel insert" on public.duel_stats for insert with check (true);
+drop policy if exists "duel update" on public.duel_stats;
 create policy "duel update" on public.duel_stats for update using (true) with check (true);
 
 -- 📋 업무 요청. 이것도 SQL Editor에서 한 번 실행하세요.
@@ -45,8 +51,11 @@ create table if not exists public.requests (
 create index if not exists requests_to on public.requests (to_name, created_at desc);
 create index if not exists requests_from on public.requests (from_name, created_at desc);
 alter table public.requests enable row level security;
+drop policy if exists "requests read" on public.requests;
 create policy "requests read" on public.requests for select using (true);
+drop policy if exists "requests insert" on public.requests;
 create policy "requests insert" on public.requests for insert with check (true);
+drop policy if exists "requests update" on public.requests;
 create policy "requests update" on public.requests for update using (true) with check (true);
 -- 바꿀 수 있는 건 상태와 시각뿐 (제목·내용·보낸 사람은 못 고침, 지우기는 대시보드에서만)
 revoke update on public.requests from anon, authenticated;

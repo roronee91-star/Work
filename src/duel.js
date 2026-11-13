@@ -140,6 +140,7 @@ export function createDuel(api) {
     const mineA = e.a === me.id;
     Object.assign(st, { active: true, phase: 'count', id: e.id, opp: mineA ? e.b : e.a, oppName: mineA ? e.bName : e.aName, role: mineA ? 'a' : 'b', referee: mineA, bot: !!e.bot, t: 3.5, myHp: HP, oppHp: HP, combo: 1, pending: 0, sc: 0, oppGoneAt: 0, botNext: 0 });
     invite = null; outgoing = null; api.closeModals();
+    document.activeElement?.blur?.(); // 버튼·채팅 칸에 남은 커서를 빼서 스페이스바가 바로 공격이 되게
     api.enterArena(mineA ? -1 : 1, st.bot);
     $('duelUI').hidden = false; $('dResult').hidden = true; $('dAttack').hidden = false;
     showBars(true);

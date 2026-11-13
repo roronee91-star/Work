@@ -371,6 +371,8 @@ function enter() {
 const keys = new Set();
 const isTyping = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
 addEventListener('keydown', (e) => {
+  // 대결·샌드백 중에는 채팅 칸에 커서가 남아 있어도 스페이스바 등으로 바로 공격 (채팅 칸에서 빠져나옴)
+  if ((duel.fighting || game.on) && document.activeElement?.id === 'chatInput') document.activeElement.blur();
   if (isTyping()) { if (e.key === 'Escape') document.activeElement.blur(); return; }
   if (mode === 'intro') return;
   if (duel.fighting) {

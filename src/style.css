@@ -209,6 +209,8 @@ input, textarea { font: inherit; color: var(--fg); }
 #dFloat { position: absolute; left: 0; right: 0; top: 40%; height: 0; pointer-events: none !important; }
 #dAttack { position: absolute; right: 24px; bottom: 28px; width: 132px; height: 132px; border-radius: 50%; border: 4px solid #fff; background: radial-gradient(circle at 35% 30%, #9ab8ff, #3a5bd8); color: #fff; font-size: 34px; font-weight: 900; display: grid; place-content: center; line-height: 1.1; box-shadow: 0 8px 24px rgba(58,91,216,.5); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 #dAttack span { font-size: 18px; }
+#dAttack .kbd-hint { font-size: 11px; font-weight: 700; opacity: .9; margin-top: 2px; }
+@media (pointer: coarse) { #dAttack .kbd-hint { display: none; } }
 #dAttack:active { transform: scale(.94); }
 #dResult { top: 160px; }
 #dResText { line-height: 1.6; margin: 6px 0 10px; }
