@@ -8,7 +8,6 @@ import { sharedUniforms, createSky, createMountains, createGround, createCity, c
 import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA } from './building.js';
 import { createGarden, STREAM } from './garden.js';
 import { createDuel, SWORD, BOT_NAME } from './duel.js';
-import { createTerminal } from './terminal.js';
 import { startAudio, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar, WorkMonster } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
@@ -177,8 +176,6 @@ const duel = createDuel({
   },
 });
 const busy = () => game.on || duel.fighting;
-const term = createTerminal($, () => me.name);
-$('termClose').onclick = () => { if (player.sit) standUp(); };
 // 칼이 맞는 자리에 번쩍 (두 사람 사이) · 맞으면 화면 흔들림
 let camShake = 0;
 const sparkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.0, 1.2), transparent: true, depthWrite: false });
@@ -370,7 +367,6 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (floorOpen()) { floorKey(e); return; }
-  if (player.working && /^(Key[B-DF-RT-VX-Z]|Digit\d|Backspace)$/.test(e.code)) term.boost(); // 일하는 중 아무 글자 키 → 타닥타닥 (이동 키 · E 제외)
   keys.add(e.code);
   if (e.code === 'Enter') { e.preventDefault(); setChatOpen(true); $('chatInput').focus(); }
   if (e.code === 'KeyE') interact();
@@ -704,7 +700,7 @@ function sitDown(seat) {
   myAvatar.setSit(true, seat.h);
   player.working = !!seat.desk;
   myAvatar.setWorking(player.working);
-  if (player.working) { sysMessage('💻 일하는 중이에요. 다른 사람 화면에 "일하는 중..." 풍선이 보여요.'); term.open(); }
+  if (player.working) sysMessage('💻 일하는 중이에요. 다른 사람 화면에 "일하는 중..." 풍선이 보여요.');
   cam.yaw = seat.ry + Math.PI; cam.pitch = 0.3;
   sendState(true);
 }
@@ -717,7 +713,6 @@ function standUp() {
   myAvatar.setSit(false);
   player.working = false;
   myAvatar.setWorking(false);
-  term.close();
   sendState(true);
 }
 function showFloorHud() {
@@ -1085,7 +1080,7 @@ $('noticeForm').addEventListener('submit', async (e) => {
 let onlineHtml = '';
 function renderOnline() {
   const box = $('online');
-  const hide = mode !== 'office' && mode !== 'exterior' || game.on || duel.active || (isTouch && player.working);
+  const hide = mode !== 'office' && mode !== 'exterior' || game.on || duel.active;
   box.hidden = hide;
   if (hide) return;
   const tb = document.querySelector('.topbar').getBoundingClientRect();
