@@ -1,6 +1,6 @@
 // ⚔️ 소환의 검 결투
 // 4층 결투 관리인(NPC)에게 정식 신청 → 접속자 중 선택(하루 2번까지) 또는 👾 업무 괴물(연습) → 상대 수락 →
-// 모든 층에 "대결이 시작되었습니다" → 4층 결투장에서 연타 → 이기면 Lv +1 / 지면 😵패배자 칭호(다음에 이기면 떨어짐)
+// 모든 층에 "대결이 시작되었습니다" → 4층 결투장에서 연타 → 이기면 Lv +1 / 지면 😵패배자 칭호(그날 하루만, 이기면 바로 떨어짐)
 // 서로 결투 알림만 주고받고, 레벨 · 칭호는 Supabase 'duel_stats' 표에 이름별로 저장 (어느 기기로 들어와도 같음)
 // 표가 없거나 로컬 데모 모드면 이 기기(localStorage)에만 저장
 import { supa } from './net.js';
@@ -13,7 +13,7 @@ export const BOT_NAME = '👾 업무 괴물';
 export function createDuel(api) {
   const { $, me, peers } = api;
   const st = { active: false, phase: 'idle', id: null, opp: null, oppName: '', role: '', t: 0, myHp: HP, oppHp: HP, last: 0, combo: 1, pending: 0, sendAt: 0, sc: 0, referee: false, oppGoneAt: 0, bot: false, botNext: 0 };
-  let stats = { level: 1, loser: false, win: 0, lose: 0, day: '', challenges: 0 };
+  let stats = { level: 1, loser: false, win: 0, lose: 0, day: '', challenges: 0, loseDay: '' }; // loseDay: 진 날 (이 기기에만 기록)
   try { const s = JSON.parse(localStorage.getItem('work-duel2') || '{}'); stats = { ...stats, ...s }; } catch {}
   let owner = '';   // 지금 레벨이 누구(이름) 것인지
   const KEYS = ['level', 'loser', 'win', 'lose', 'day', 'challenges'];
@@ -31,12 +31,17 @@ export function createDuel(api) {
     if (owner !== name) return;
     if (error) { console.warn('결투 기록 불러오기 실패', error.message); return; }
     if (data) {
-      stats = { ...stats, ...pick(data), level: Math.max(1, data.level | 0), loser: !!data.loser };
+      // 패배자 칭호는 진 날 하루만: 기록이 마지막으로 바뀐 날이 오늘이 아니면 이미 지난 칭호
+      const upd = data.updated_at ? new Date(data.updated_at).toLocaleDateString('ko-KR') : '';
+      stats = { ...stats, ...pick(data), level: Math.max(1, data.level | 0), loser: !!data.loser, loseDay: data.loser ? upd : '' };
+      if (expire()) save();
       try { localStorage.setItem('work-duel2', JSON.stringify(stats)); } catch {}
       api.levelChanged(stats.level);
     } else save();
   }
   const today = () => new Date().toLocaleDateString('ko-KR');
+  // 날짜가 바뀌면 패배자 칭호를 뗌 (바뀌었으면 true)
+  const expire = () => { if (stats.loser && stats.loseDay !== today()) { stats.loser = false; stats.loseDay = ''; return true; } return false; };
   const left = () => { if (stats.day !== today()) { stats.day = today(); stats.challenges = 0; save(); } return Math.max(0, DAILY - stats.challenges); };
   let invite = null, outgoing = null;
 
@@ -61,6 +66,7 @@ export function createDuel(api) {
   // ---------- 결투 관리인에게 신청: 상대 고르기 ----------
   function openPicker() {
     if (st.active) return;
+    if (expire()) save();
     const n = left();
     const list = [...peers.entries()];
     $('dPickInfo').innerHTML = `오늘 남은 도전: <b>${n} / ${DAILY}</b> · 내 레벨 <b>Lv.${stats.level}</b>${stats.loser ? ' · 😵패배자' : ''}`;
@@ -97,7 +103,7 @@ export function createDuel(api) {
     if (e.t === 'invite' && e.to === me.id) {
       if (st.active || invite) { send({ t: 'decline', id: e.id, from: me.id, to: e.from, busy: 1 }); return; }
       invite = e;
-      $('dAskText').innerHTML = `<b>Lv.${e.fromLv || 1} ${esc(e.fromName)}</b>님이 <b>${SWORD}</b>으로 정식 결투를 신청했어요!<br><small>이기면 레벨 +1, 지면 😵패배자 칭호가 붙어요.</small>`;
+      $('dAskText').innerHTML = `<b>Lv.${e.fromLv || 1} ${esc(e.fromName)}</b>님이 <b>${SWORD}</b>으로 정식 결투를 신청했어요!<br><small>이기면 레벨 +1, 지면 오늘 하루 😵패배자 칭호가 붙어요.</small>`;
       api.openModal('duelAsk'); api.beep(880, 0.15);
       setTimeout(() => { if (invite?.id === e.id) { send({ t: 'decline', id: e.id, from: me.id, to: e.from }); invite = null; api.closeModals(); } }, 20000);
     } else if (e.t === 'decline' && e.to === me.id && outgoing?.id === e.id) {
@@ -169,7 +175,7 @@ export function createDuel(api) {
     if (st.bot) msg = e.winner === me.id ? `🏆 ${BOT_NAME}을(를) 물리쳤어요! 오늘 업무도 이렇게만! (연습이라 레벨은 그대로)` : !e.winner ? '🤝 무승부! (연습)' : `📚 ${BOT_NAME}에게 깔렸어요… (연습이라 칭호는 안 붙어요)`;
     else if (!e.winner) msg = '🤝 무승부! 레벨 · 칭호는 그대로예요.';
     else if (e.winner === me.id) { stats.win++; stats.level++; const was = stats.loser; stats.loser = false; msg = `🏆 승리! <b>Lv.${stats.level}</b>로 올랐어요 🎉${was ? '<br>😵패배자 칭호도 떨어졌어요!' : ''}`; api.beep(784, 0.3); }
-    else { stats.lose++; stats.loser = true; msg = `😵 패배… 이름표에 <b>패배자</b> 칭호가 붙었어요.<br><small>다음 결투에서 이기면 떨어져요.</small>`; }
+    else { stats.lose++; stats.loser = true; stats.loseDay = today(); msg = `😵 패배… 이름표에 <b>패배자</b> 칭호가 붙었어요.<br><small>오늘 하루만 붙어요. 오늘 다시 이기면 바로 떨어져요.</small>`; }
     save();
     $('dResText').innerHTML = `${msg}<br><small>전적 ${stats.win}승 ${stats.lose}패 · Lv.${stats.level}</small>`;
     $('dResult').hidden = false; $('dAttack').hidden = true;
@@ -222,7 +228,7 @@ export function createDuel(api) {
     get active() { return st.active; },
     get fighting() { return st.active && st.phase !== 'done'; },
     get level() { return stats.level; },
-    get loser() { return stats.loser; },
+    get loser() { if (expire()) save(); return stats.loser; },
     get swings() { return st.bot ? 0 : st.sc; },
     get vsBot() { return st.active && st.bot; },
   };
