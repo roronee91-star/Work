@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{ "imports": { "three": "../../vendor/three/three.module.js", "three/addons/": "../../vendor/three/addons/" } }</script>
+<style>body{margin:0;background:#2a3140}</style></head><body>
+<script type="module">
+// 꾸미기 확인용: 머리 모양 6개(위 줄) · 옷 5개(아래 줄)를 한 화면에
+import * as THREE from 'three';
+import { Avatar } from '../../src/avatar.js';
+const W = 1200, H = 560, r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(W, H); document.body.appendChild(r.domElement);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+const s = new THREE.Scene(); s.background = new THREE.Color(0x2a3140);
+s.add(new THREE.HemisphereLight(0xdfe6ff, 0x3a3028, 2.2)); const k = new THREE.DirectionalLight(0xffffff, 2); k.position.set(2, 3, 4); s.add(k);
+const cam = new THREE.PerspectiveCamera(22, W / H, 0.1, 50); cam.position.set(0, 1.1, 9.5); cam.lookAt(0, 0.95, 0);
+const ry = new URLSearchParams(location.search).get('ry') || 0;
+const hair = [['m', '#4f8cff', '00000'], ['f', '#ff7ac6', '11010'], ['f', '#3ecf8e', '22111'], ['f', '#ffb547', '33110'], ['f', '#b47cff', '44010'], ['m', '#e8e8e8', '55000']];
+const top = [['m', '#4f8cff', '00002'], ['m', '#3a3f4a', '01103'], ['m', '#ff6b6b', '02202'], ['m', '#3ecf8e', '63305'], ['f', '#e8e8e8', '07415']];
+hair.forEach(([g, c, l], i) => { const a = new Avatar('', c, g, l); a.label.visible = false; a.root.position.set((i - 2.5) * 0.85, 1.25, 0); a.root.rotation.y = +ry; s.add(a.root); });
+top.forEach(([g, c, l], i) => { const a = new Avatar('', c, g, l); a.label.visible = false; a.root.position.set((i - 2) * 0.95, 0, 0); a.root.rotation.y = +ry; s.add(a.root); });
+r.render(s, cam); window.done = true;
+</script></body></html>

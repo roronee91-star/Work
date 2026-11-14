@@ -67,35 +67,124 @@ const G = {
 const cap = (r, len) => { const g = new THREE.CapsuleGeometry(r, len, 4, 12); return g; };
 
 const MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, emissive: 0x1c140e });
-const SKIN = 0xffe0c4, HAIR = 0x3b2516, EYE = 0x241a16;
+const SKIN = 0xffe0c4, EYE = 0x241a16;
 export const SCALE = 1.0; // 2등신 캐릭터 (약 1.05m, 교회 메타버스와 같은 크기)
+
+// 👗 꾸미기: 머리 모양 · 머리 색 · 옷 종류 · 하의(바지/치마) · 하의 색. 숫자 5개짜리 글자로 주고받음 (예: '10021')
+export const HAIR_STYLES = ['짧은 머리', '긴 생머리', '단발', '묶은 머리', '똥머리', '뽀글 파마'];
+export const HAIR_COLORS = [0x3b2516, 0x17130f, 0x6b3f22, 0xa8743f, 0xe3c37c, 0xa9aab2, 0xe58fb0, 0x5a78d6];
+export const OUTFITS = ['셔츠', '정장', '후드티', '니트', '반팔 티'];
+export const BOTTOMS = ['바지', '치마'];
+export const BOTTOM_COLORS = [null, 0x2c3446, 0x1e1e22, 0xc9b59a, 0x7b8089, 0x4a6fa8, 0x6a4a34]; // null = 상의에 맞춰 자동
+export function parseLook(look, gender) {
+  const f = gender === 'f', d = String(look || '');
+  const n = (i, max, def) => { const v = parseInt(d[i], 10); return Number.isInteger(v) && v >= 0 && v < max ? v : def; };
+  return { hs: n(0, HAIR_STYLES.length, f ? 1 : 0), hc: n(1, HAIR_COLORS.length, 0), ot: n(2, OUTFITS.length, 0), bt: n(3, BOTTOMS.length, f ? 1 : 0), bc: n(4, BOTTOM_COLORS.length, 0) };
+}
+export const lookKey = (L) => `${L.hs}${L.hc}${L.ot}${L.bt}${L.bc}`;
 
 function shade(hex, k) { return new THREE.Color(hex).multiplyScalar(k); }
 function isLight(hex) { const c = new THREE.Color(hex); return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.6; }
 const bottomOf = (g, top) => g === 'f' ? (isLight(top) ? 0x39415a : 0xc9b59a) : (isLight(top) ? 0x353c4a : 0xb9a888);
 
+// 머리 모양
+function hair(p, hs, HAIR, f, H) {
+  const curly = hs === 5;
+  p.add(new THREE.SphereGeometry(0.272, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.5), HAIR, 0, H, -0.01, { rx: -0.42 });
+  for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.09, 12, 10), HAIR, sx * 0.21, H + 0.04, 0.05, { sx: 0.55, sy: 1.15, sz: 0.9 });
+  for (const [x, y, rz] of [[-0.1, 0.118, -0.35], [0, 0.128, 0], [0.1, 0.118, 0.35]]) p.add(new THREE.SphereGeometry(0.08, 14, 10), HAIR, x, H + y, 0.19, { sx: 0.95, sy: 0.42, sz: 0.5, rz });
+  if (hs === 0) {
+    p.add(new THREE.ConeGeometry(0.022, 0.08, 8), HAIR, 0.03, H + 0.275, 0.02, { rx: -0.5, rz: -0.4 });            // 삐침 머리
+  } else if (hs === 1) {
+    p.add(new THREE.SphereGeometry(0.27, 24, 18), HAIR, 0, H - 0.1, -0.08, { sx: 1.02, sy: 1.32, sz: 0.82 });    // 긴 뒷머리
+    for (const sx of [-1, 1]) {
+      p.add(new THREE.SphereGeometry(0.085, 12, 12), HAIR, sx * 0.215, H - 0.13, 0.03, { sx: 0.55, sy: 1.9, sz: 0.75 });
+      p.add(new THREE.SphereGeometry(0.07, 12, 10), HAIR, sx * 0.2, H - 0.3, 0, { sx: 0.7, sy: 0.8, sz: 0.8 });
+    }
+    if (f) {
+      for (const sx of [-1, 1]) p.add(new THREE.ConeGeometry(0.05, 0.09, 4), 0xf28bb0, 0.16 + sx * 0.045, H + 0.2, 0.06, { rz: sx * Math.PI / 2 }); // 리본
+      p.add(new THREE.SphereGeometry(0.022, 10, 8), 0xf28bb0, 0.16, H + 0.2, 0.065);
+    }
+  } else if (hs === 2) {
+    p.add(new THREE.SphereGeometry(0.275, 24, 18), HAIR, 0, H - 0.03, -0.07, { sx: 1.05, sy: 1.0, sz: 0.85 });   // 단발 뒷머리
+    for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.085, 12, 12), HAIR, sx * 0.22, H - 0.08, 0.04, { sx: 0.55, sy: 1.35, sz: 0.8 });
+  } else if (hs === 3) {
+    p.add(new THREE.SphereGeometry(0.26, 24, 18), HAIR, 0, H + 0.02, -0.05, { sx: 1.0, sy: 0.95, sz: 0.88 });
+    p.add(new THREE.TorusGeometry(0.035, 0.013, 6, 12), 0x2b5dc9, 0, H + 0.05, -0.265, { rx: 0.4 });            // 머리끈
+    p.add(new THREE.SphereGeometry(0.075, 12, 12), HAIR, 0, H - 0.05, -0.3, { sy: 1.5, sz: 0.8 });                // 묶은 꼬리
+    p.add(new THREE.SphereGeometry(0.06, 12, 10), HAIR, 0, H - 0.19, -0.28, { sy: 1.4, sz: 0.8 });
+  } else if (hs === 4) {
+    p.add(new THREE.SphereGeometry(0.26, 24, 18), HAIR, 0, H + 0.02, -0.05, { sx: 1.0, sy: 0.95, sz: 0.88 });
+    p.add(new THREE.SphereGeometry(0.11, 16, 12), HAIR, 0, H + 0.26, -0.08);                                       // 똥머리
+    p.add(new THREE.TorusGeometry(0.075, 0.014, 6, 16), 0xf28bb0, 0, H + 0.19, -0.07, { rx: Math.PI / 2 + 0.2 });
+  } else if (curly) {
+    for (let i = 0; i < 16; i++) {                                                                                  // 뽀글뽀글
+      const a = (i / 16) * Math.PI * 2, back = Math.cos(a) < 0.3;
+      if (!back && Math.abs(Math.sin(a)) < 0.5) continue; // 얼굴 앞은 비움
+      p.add(new THREE.SphereGeometry(0.075, 10, 8), HAIR, Math.sin(a) * 0.24, H + 0.08 + (back ? 0 : 0.04), Math.cos(a) * 0.22 - 0.02);
+    }
+    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; p.add(new THREE.SphereGeometry(0.08, 10, 8), HAIR, Math.sin(a) * 0.12, H + 0.22, Math.cos(a) * 0.1 - 0.04); }
+    for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.07, 10, 8), HAIR, sx * 0.2, H - 0.09, -0.08);
+  }
+}
+
 // 머리 + 몸통 (굳은 부분) — 교회 메타버스 캐릭터와 같은 비율, 옷만 회사원 차림
-function buildBody(gender, top) {
+function buildBody(gender, top, L) {
   const f = gender === 'f';
   const p = new Part();
-  const bottom = bottomOf(gender, top);
+  const HAIR = HAIR_COLORS[L.hc];
+  const bottom = BOTTOM_COLORS[L.bc] ?? bottomOf(L.bt ? 'f' : 'm', top);
   // 상의 (셔츠 / 블라우스)
   p.add(new THREE.CylinderGeometry(0.15, 0.185, 0.26, 20), top, 0, 0.41, 0);
   p.add(new THREE.SphereGeometry(0.15, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), top, 0, 0.54, 0, { sy: 0.35 });
   const collar = isLight(top) ? 0x56667f : 0xffffff;
-  if (f) {
+  const lanyard = () => {
+    for (const sx of [-1, 1]) p.add(new THREE.BoxGeometry(0.01, 0.13, 0.006), 0x2b5dc9, sx * 0.032, 0.5, 0.15, { rx: -0.35, rz: sx * 0.25 });
+    p.add(new THREE.BoxGeometry(0.065, 0.085, 0.008), 0xffffff, 0, 0.415, 0.183, { rx: -0.14 });
+    p.add(new THREE.BoxGeometry(0.065, 0.02, 0.004), 0x2b5dc9, 0, 0.445, 0.188, { rx: -0.14 });
+  };
+  if (L.ot === 1) {
+    // 정장: 흰 셔츠 V + 넥타이 + 옷깃, 사원증은 가슴 주머니에
+    p.add(new THREE.ConeGeometry(0.062, 0.17, 3), 0xf4f4f2, 0, 0.47, 0.152, { rx: Math.PI - 0.14, sz: 0.35 });
+    p.add(new THREE.BoxGeometry(0.03, 0.15, 0.008), isLight(top) ? 0x2b3a6b : 0x9e2b3a, 0, 0.45, 0.176, { rx: -0.14 });
+    p.add(new THREE.BoxGeometry(0.034, 0.025, 0.012), isLight(top) ? 0x2b3a6b : 0x9e2b3a, 0, 0.525, 0.166, { rx: -0.14 });
+    for (const sx of [-1, 1]) {
+      p.add(new THREE.BoxGeometry(0.035, 0.17, 0.01), shade(top, 0.8), sx * 0.055, 0.47, 0.168, { rx: -0.14, rz: sx * 0.32 });
+      p.add(new THREE.ConeGeometry(0.03, 0.06, 3), 0xf4f4f2, sx * 0.035, 0.55, 0.1, { rx: Math.PI / 2 + 0.5, rz: sx * 0.9 });
+    }
+    for (const y of [0.38, 0.33]) p.add(new THREE.SphereGeometry(0.008, 6, 4), shade(top, 0.55), 0.02, y, 0.184);
+    p.add(new THREE.BoxGeometry(0.05, 0.065, 0.006), 0xffffff, -0.09, 0.42, 0.168, { rx: -0.14, ry: -0.35 });
+  } else if (L.ot === 2) {
+    // 후드티: 어깨에 걸친 모자 + 끈 + 큰 앞주머니
+    p.add(new THREE.TorusGeometry(0.115, 0.05, 8, 22), shade(top, 0.86), 0, 0.555, -0.02, { rx: Math.PI / 2 - 0.2, sx: 1.25 });
+    p.add(new THREE.SphereGeometry(0.11, 14, 10), shade(top, 0.82), 0, 0.56, -0.15, { sx: 1.25, sy: 0.85, sz: 0.6 });
+    for (const sx of [-1, 1]) {
+      p.add(new THREE.BoxGeometry(0.01, 0.13, 0.01), 0xf2f2f2, sx * 0.04, 0.47, 0.17, { rx: -0.14 });
+      p.add(new THREE.SphereGeometry(0.012, 6, 6), 0xf2f2f2, sx * 0.04, 0.4, 0.18);
+    }
+    p.add(new THREE.BoxGeometry(0.22, 0.09, 0.03), shade(top, 0.78), 0, 0.355, 0.168, { rx: -0.14 });
+    p.add(new THREE.BoxGeometry(0.2, 0.012, 0.032), shade(top, 0.65), 0, 0.398, 0.172, { rx: -0.14 });
+  } else if (L.ot === 3) {
+    // 니트: 목 폴라 + 아래 고무단 + 세로 골
+    p.add(new THREE.CylinderGeometry(0.085, 0.095, 0.07, 18), shade(top, 0.9), 0, 0.57, 0);
+    p.add(new THREE.CylinderGeometry(0.19, 0.19, 0.035, 20), shade(top, 0.82), 0, 0.3, 0);
+    for (const a of [-0.5, -0.25, 0, 0.25, 0.5]) p.add(new THREE.BoxGeometry(0.012, 0.2, 0.01), shade(top, 0.86), Math.sin(a) * 0.17, 0.42, Math.cos(a) * 0.17, { ry: a, rx: -0.14 });
+  } else if (L.ot === 4) {
+    // 반팔 티: 둥근 목 + 가슴 무늬
+    p.add(new THREE.TorusGeometry(0.07, 0.014, 8, 20), shade(top, 0.8), 0, 0.555, 0.02, { rx: Math.PI / 2 - 0.25 });
+    p.add(new THREE.SphereGeometry(0.035, 14, 10), isLight(top) ? 0x4f6fd0 : 0xffffff, 0.07, 0.46, 0.168, { sz: 0.2 });
+    lanyard();
+  } else if (f) {
     p.add(new THREE.TorusGeometry(0.075, 0.018, 8, 20), collar, 0, 0.555, 0.02, { rx: Math.PI / 2 - 0.25 });      // 둥근 깃
+    lanyard();
   } else {
     for (const sx of [-1, 1]) p.add(new THREE.ConeGeometry(0.035, 0.07, 3), collar, sx * 0.04, 0.545, 0.11, { rx: Math.PI / 2 + 0.5, rz: sx * 0.9 }); // 셔츠 깃
     p.add(new THREE.BoxGeometry(0.008, 0.2, 0.005), shade(top, 0.72), 0, 0.42, 0.18, { rx: -0.14 });             // 단추선
     for (const y of [0.48, 0.42, 0.36]) p.add(new THREE.SphereGeometry(0.007, 6, 4), 0xffffff, 0, y, 0.18 + (0.5 - y) * 0.14);
+    lanyard();
   }
-  // 사원증 목걸이
-  for (const sx of [-1, 1]) p.add(new THREE.BoxGeometry(0.01, 0.13, 0.006), 0x2b5dc9, sx * 0.032, 0.5, 0.15, { rx: -0.35, rz: sx * 0.25 });
-  p.add(new THREE.BoxGeometry(0.065, 0.085, 0.008), 0xffffff, 0, 0.415, 0.183, { rx: -0.14 });
-  p.add(new THREE.BoxGeometry(0.065, 0.02, 0.004), 0x2b5dc9, 0, 0.445, 0.188, { rx: -0.14 });
   // 하의
-  if (f) {
+  if (L.bt === 1) {
     p.add(new THREE.CylinderGeometry(0.18, 0.25, 0.15, 24), bottom, 0, 0.22, 0);                                   // 치마
     p.add(new THREE.CylinderGeometry(0.186, 0.186, 0.02, 24), shade(bottom, 0.8), 0, 0.29, 0);
   } else {
@@ -107,20 +196,7 @@ function buildBody(gender, top) {
   const H = 0.78;
   p.add(new THREE.SphereGeometry(0.25, 28, 24), SKIN, 0, H, 0, { sx: 1.04, sy: 0.96 });
   for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.05, 12, 10), SKIN, sx * 0.255, H - 0.02, 0, { sx: 0.5, sz: 0.8 });
-  p.add(new THREE.SphereGeometry(0.272, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.5), HAIR, 0, H, -0.01, { rx: -0.42 });
-  for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.09, 12, 10), HAIR, sx * 0.21, H + 0.04, 0.05, { sx: 0.55, sy: 1.15, sz: 0.9 });
-  for (const [x, y, rz] of [[-0.1, 0.118, -0.35], [0, 0.128, 0], [0.1, 0.118, 0.35]]) p.add(new THREE.SphereGeometry(0.08, 14, 10), HAIR, x, H + y, 0.19, { sx: 0.95, sy: 0.42, sz: 0.5, rz });
-  if (f) {
-    p.add(new THREE.SphereGeometry(0.27, 24, 18), HAIR, 0, H - 0.1, -0.08, { sx: 1.02, sy: 1.32, sz: 0.82 });    // 긴 뒷머리
-    for (const sx of [-1, 1]) {
-      p.add(new THREE.SphereGeometry(0.085, 12, 12), HAIR, sx * 0.215, H - 0.13, 0.03, { sx: 0.55, sy: 1.9, sz: 0.75 });
-      p.add(new THREE.SphereGeometry(0.07, 12, 10), HAIR, sx * 0.2, H - 0.3, 0, { sx: 0.7, sy: 0.8, sz: 0.8 });
-    }
-    for (const sx of [-1, 1]) p.add(new THREE.ConeGeometry(0.05, 0.09, 4), 0xf28bb0, 0.16 + sx * 0.045, H + 0.2, 0.06, { rz: sx * Math.PI / 2 }); // 리본
-    p.add(new THREE.SphereGeometry(0.022, 10, 8), 0xf28bb0, 0.16, H + 0.2, 0.065);
-  } else {
-    p.add(new THREE.ConeGeometry(0.022, 0.08, 8), HAIR, 0.03, H + 0.275, 0.02, { rx: -0.5, rz: -0.4 });            // 삐침 머리
-  }
+  hair(p, L.hs, HAIR, f, H);
   // 얼굴: 큰 눈 + 반짝임, 눈썹, 볼터치, 웃는 입
   for (const sx of [-1, 1]) {
     p.add(new THREE.SphereGeometry(0.04, 16, 12), EYE, sx * 0.09, H, 0.225, { sx: 0.85, sy: 1.2, sz: 0.35 });
@@ -134,10 +210,10 @@ function buildBody(gender, top) {
   return p.mesh(MAT);
 }
 // 다리 (엉덩이 관절 기준)
-function buildLeg(gender, top) {
-  const f = gender === 'f';
+function buildLeg(gender, top, L) {
+  const f = L.bt === 1; // 치마면 검은 스타킹 + 구두
   const p = new Part();
-  const leg = f ? 0x2a2a31 : bottomOf(gender, top);
+  const leg = f ? 0x2a2a31 : (BOTTOM_COLORS[L.bc] ?? bottomOf('m', top));
   p.add(new THREE.CylinderGeometry(0.065, 0.06, 0.13, 12), leg, 0, -0.065, 0);
   p.add(new THREE.CylinderGeometry(0.058, 0.055, 0.1, 12), leg, 0, -0.18, 0);
   p.add(new THREE.SphereGeometry(0.07, 14, 10), f ? 0x1d1d22 : 0xf5f5f2, 0, -0.235, 0.03, { sx: 0.9, sy: 0.55, sz: 1.35 });
@@ -145,11 +221,17 @@ function buildLeg(gender, top) {
   return p.mesh(MAT);
 }
 // 팔 (어깨 관절 기준)
-function buildArm(gender, top) {
+function buildArm(gender, top, L) {
   const p = new Part();
   p.add(new THREE.SphereGeometry(0.05, 12, 10), top, 0, 0, 0);
-  p.add(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 12), top, 0, -0.11, 0);
-  p.add(new THREE.CylinderGeometry(0.049, 0.049, 0.03, 12), isLight(top) ? shade(top, 0.85) : 0xffffff, 0, -0.215, 0); // 소맷부리
+  if (L.ot === 4) { // 반팔: 소매는 짧고 팔은 맨살
+    p.add(new THREE.CylinderGeometry(0.05, 0.054, 0.09, 12), top, 0, -0.045, 0);
+    p.add(new THREE.CylinderGeometry(0.036, 0.04, 0.16, 12), SKIN, 0, -0.16, 0);
+  } else {
+    p.add(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 12), top, 0, -0.11, 0);
+    const cuff = L.ot === 1 ? 0xf4f4f2 : L.ot === 2 || L.ot === 3 ? shade(top, 0.82) : isLight(top) ? shade(top, 0.85) : 0xffffff;
+    p.add(new THREE.CylinderGeometry(0.049, 0.049, 0.03, 12), cuff, 0, -0.215, 0); // 소맷부리
+  }
   p.add(new THREE.SphereGeometry(0.048, 12, 10), SKIN, 0, -0.26, 0);
   return p.mesh(MAT);
 }
@@ -162,12 +244,13 @@ function workTextures() {
 }
 
 export class Avatar {
-  constructor(name, color, gender = 'm') {
+  constructor(name, color, gender = 'm', look = '') {
     this.root = new THREE.Group();
     this.body = new THREE.Group();
     this.root.add(this.body);
     this.gender = gender === 'f' ? 'f' : 'm';
     this.color = color;
+    this.look = lookKey(parseLook(look, this.gender));
     this.build();
 
     const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.26, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }));
@@ -191,12 +274,12 @@ export class Avatar {
 
   build() {
     this.body.clear();
-    const g = this.gender, top = this.color;
+    const g = this.gender, top = this.color, L = parseLook(this.look, g);
     const f = g === 'f';
-    this.torso = buildBody(g, top);
-    this.legL = buildLeg(g, top); this.legR = buildLeg(g, top);
+    this.torso = buildBody(g, top, L);
+    this.legL = buildLeg(g, top, L); this.legR = buildLeg(g, top, L);
     this.legL.position.set(-0.085, 0.25, 0); this.legR.position.set(0.085, 0.25, 0);
-    this.armL = buildArm(g, top); this.armR = buildArm(g, top);
+    this.armL = buildArm(g, top, L); this.armR = buildArm(g, top, L);
     this.armL.position.set(-0.18, 0.52, 0); this.armR.position.set(0.18, 0.52, 0);
     this.armL.rotation.z = -0.12; this.armR.rotation.z = 0.12;
     void f;
@@ -229,14 +312,14 @@ export class Avatar {
   }
   hurt(now) { this.hurtAt = now; }
 
-  setLook(color, gender) {
-    const g = gender === 'f' ? 'f' : 'm';
-    if (color === this.color && g === this.gender) return;
+  setLook(color, gender, look = '') {
+    const g = gender === 'f' ? 'f' : 'm', lk = lookKey(parseLook(look, g));
+    if (color === this.color && g === this.gender && lk === this.look) return;
     this.dispose(true);
-    this.color = color; this.gender = g;
+    this.color = color; this.gender = g; this.look = lk;
     this.build();
   }
-  setColor(color) { this.setLook(color, this.gender); }
+  setColor(color) { this.setLook(color, this.gender, this.look); }
   setName(name) {
     this.name = name;
     this.root.remove(this.label);

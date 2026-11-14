@@ -55,9 +55,15 @@
           <div id="genderPick" class="seg"><button type="button" data-g="m">남자</button><button type="button" data-g="f">여자</button></div>
         </div>
       </div>
-      <div class="field">
-        <span>상의 색깔</span>
-        <div id="colorPick" class="colors"></div>
+      <div id="lookTabs" class="seg look-tabs"><button type="button" data-t="top" class="on">👕 옷</button><button type="button" data-t="hair">💇 머리</button></div>
+      <div id="lookTop" class="look-panel">
+        <div class="field"><span>옷 종류</span><div id="outfitPick" class="chips"></div></div>
+        <div class="field"><span>상의 색깔</span><div id="colorPick" class="colors"></div></div>
+        <div class="field"><span>하의</span><div id="bottomPick" class="chips"></div><div id="bottomColorPick" class="colors small"></div></div>
+      </div>
+      <div id="lookHair" class="look-panel" hidden>
+        <div class="field"><span>머리 모양</span><div id="hairPick" class="chips"></div></div>
+        <div class="field"><span>머리 색</span><div id="hairColorPick" class="colors"></div></div>
       </div>
       <button id="enterBtn" class="primary">출근하기</button>
       <button id="introCancel" class="link cancel" type="button" hidden>바꾸지 않고 닫기</button>

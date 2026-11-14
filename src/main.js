@@ -10,7 +10,7 @@ import { createGarden, STREAM } from './garden.js';
 import { createDuel, SWORD, BOT_NAME } from './duel.js';
 import { createRequests } from './requests.js';
 import { startAudio, setMuted, isMuted, playThump, playBeep } from './audio.js';
-import { Avatar, WorkMonster } from './avatar.js';
+import { Avatar, WorkMonster, HAIR_STYLES, HAIR_COLORS, OUTFITS, BOTTOMS, BOTTOM_COLORS, parseLook, lookKey } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
 
@@ -127,7 +127,7 @@ document.title = CONFIG.companyName;
 $('brandName').textContent = CONFIG.companyName;
 $('brandTagline').textContent = CONFIG.companyTagline;
 
-const me = { id: makeId(), name: '', color: AVATAR_COLORS[0], gender: 'm', jt: 0, dev: '' };
+const me = { id: makeId(), name: '', color: AVATAR_COLORS[0], gender: 'm', look: '', jt: 0, dev: '' };
 // 이 기기 고유 번호 (같은 기기에서 다시 들어온 것인지 알아보려고)
 try { me.dev = localStorage.getItem('work-dev') || makeId(); localStorage.setItem('work-dev', me.dev); } catch { me.dev = makeId(); }
 const player = { floor: SPAWN.floor, x: SPAWN.x, z: SPAWN.z, ry: SPAWN.yaw + Math.PI, speed: 0, zone: 'f1' };
@@ -233,6 +233,7 @@ try {
   if (saved?.name) { $('nameInput').value = saved.name; returning = true; }
   if (saved?.color) me.color = saved.color;
   if (saved?.gender) me.gender = saved.gender === 'f' ? 'f' : 'm';
+  if (saved?.look) me.look = String(saved.look).slice(0, 8);
 } catch {}
 
 // ---------- 시작 화면 ----------
@@ -248,8 +249,28 @@ AVATAR_COLORS.forEach((c) => {
 });
 document.querySelectorAll('#genderPick button').forEach((b) => {
   b.classList.toggle('on', b.dataset.g === me.gender);
-  b.onclick = () => { me.gender = b.dataset.g; document.querySelectorAll('#genderPick button').forEach((x) => x.classList.toggle('on', x === b)); updatePreview(); };
+  b.onclick = () => {
+    if (me.gender !== b.dataset.g) { const L = parseLook(me.look, me.gender); me.gender = b.dataset.g; const D = parseLook('', me.gender); L.hs = D.hs; L.bt = D.bt; me.look = lookKey(L); } // 성별을 바꾸면 머리·하의는 기본으로
+    syncLookUI(); updatePreview();
+  };
 });
+// 👗 꾸미기 (옷 종류 · 하의 · 머리 모양 · 머리 색)
+const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+function setLookPart(k, v) { const L = parseLook(me.look, me.gender); L[k] = v; me.look = lookKey(L); syncLookUI(); updatePreview(); }
+function chipRow(id, names, k) { $(id).innerHTML = names.map((n, i) => `<button type="button" data-v="${i}">${n}</button>`).join(''); $(id).querySelectorAll('button').forEach((b) => (b.onclick = () => setLookPart(k, +b.dataset.v))); }
+function swatchRow(id, cols, k, titles) { $(id).innerHTML = cols.map((c, i) => `<button type="button" data-v="${i}" title="${titles?.[i] || ''}" ${c == null ? 'class="auto"' : `style="background:${hex(c)}"`}></button>`).join(''); $(id).querySelectorAll('button').forEach((b) => (b.onclick = () => setLookPart(k, +b.dataset.v))); }
+chipRow('outfitPick', OUTFITS, 'ot'); chipRow('bottomPick', BOTTOMS, 'bt'); chipRow('hairPick', HAIR_STYLES, 'hs');
+swatchRow('bottomColorPick', BOTTOM_COLORS, 'bc', ['상의에 맞춰 자동']); swatchRow('hairColorPick', HAIR_COLORS, 'hc');
+function syncLookUI() {
+  const L = parseLook(me.look, me.gender);
+  document.querySelectorAll('#genderPick button').forEach((x) => x.classList.toggle('on', x.dataset.g === me.gender));
+  for (const [id, k] of [['outfitPick', 'ot'], ['bottomPick', 'bt'], ['hairPick', 'hs'], ['bottomColorPick', 'bc'], ['hairColorPick', 'hc']]) $(id).querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.v === L[k]));
+}
+document.querySelectorAll('#lookTabs button').forEach((b) => (b.onclick = () => {
+  document.querySelectorAll('#lookTabs button').forEach((x) => x.classList.toggle('on', x === b));
+  $('lookTop').hidden = b.dataset.t !== 'top'; $('lookHair').hidden = b.dataset.t !== 'hair';
+}));
+syncLookUI();
 
 // 시작 화면 캐릭터 미리보기 (작은 화면, 시작 화면에서만 그림)
 const pv = { renderer: null, scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(28, 0.75, 0.1, 20), av: null };
@@ -264,8 +285,8 @@ const pv = { renderer: null, scene: new THREE.Scene(), cam: new THREE.Perspectiv
   const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(2, 3, 4); pv.scene.add(key);
 }
 function updatePreview() {
-  if (pv.av) { pv.av.setLook(me.color, me.gender); return; }
-  pv.av = new Avatar('', me.color, me.gender);
+  if (pv.av) { pv.av.setLook(me.color, me.gender, me.look); return; }
+  pv.av = new Avatar('', me.color, me.gender, me.look);
   pv.av.label.visible = false;
   pv.scene.add(pv.av.root);
 }
@@ -279,7 +300,7 @@ let editing = false;
 let before = null;
 function openProfile() {
   editing = true;
-  before = { name: me.name, color: me.color, gender: me.gender };
+  before = { name: me.name, color: me.color, gender: me.gender, look: me.look };
   $('nameInput').value = me.name;
   $('enterBtn').textContent = '저장하기';
   $('introCancel').hidden = false;
@@ -315,8 +336,8 @@ function saveProfile() {
   forcedRename = false;
   const renamed = name !== me.name;
   me.name = name;
-  try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
-  myAvatar.setLook(me.color, me.gender);
+  try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender, look: me.look })); } catch {}
+  myAvatar.setLook(me.color, me.gender, me.look);
   if (renamed) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   if (renamed) duel.load(me.name);
   if (renamed) reqs.refresh();
@@ -329,7 +350,7 @@ $('introCancel').onclick = () => {
   // 바꾸지 않고 닫으면 고르던 것을 원래대로
   Object.assign(me, before);
   colorPick.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.title === me.color));
-  document.querySelectorAll('#genderPick button').forEach((x) => x.classList.toggle('on', x.dataset.g === me.gender));
+  syncLookUI();
   updatePreview();
   closeProfile();
 };
@@ -339,7 +360,7 @@ $('introCancel').onclick = () => {
 
 function enter() {
   me.name = ($('nameInput').value.trim() || '게스트' + Math.floor(Math.random() * 900 + 100)).slice(0, 16);
-  try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender })); } catch {}
+  try { localStorage.setItem('work-tower-me', JSON.stringify({ name: me.name, color: me.color, gender: me.gender, look: me.look })); } catch {}
   $('intro').hidden = true;
   camera.clearViewOffset(); camera.updateProjectionMatrix();
   $('hud').hidden = false;
@@ -347,7 +368,7 @@ function enter() {
   $('btnJump').hidden = !isTouch;
   if (isTouch) setChatOpen(false);
   startAudio();
-  myAvatar = new Avatar(me.name, me.color, me.gender);
+  myAvatar = new Avatar(me.name, me.color, me.gender, me.look);
   if (duel.level > 1 || duel.loser) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   duel.load(me.name); // 결투 레벨 · 칭호 (Supabase)
   reqs.refresh().then(() => { if (reqs.pending) toast(`📋 아직 끝나지 않은 업무 요청이 ${reqs.pending}개 있어요. (위쪽 📋 업무)`); });
@@ -836,7 +857,7 @@ function sendState(force = false) {
   if (!force && !(movedEnough && t - lastSend > 300) && t - lastSend < 10000) return;
   lastSend = t;
   lastSent = { x: player.x, z: player.z, ry: player.ry };
-  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, dl: duel.active ? 1 : 0, sc: duel.swings, lv: duel.level, tt: duel.loser ? 1 : 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
+  net.sendState({ id: me.id, name: me.name, color: me.color, g: me.gender, lk: me.look, jt: me.jt, dv: me.dev, floor: player.floor, x: +player.x.toFixed(2), z: +player.z.toFixed(2), ry: +player.ry.toFixed(2), sp: +player.speed.toFixed(1), zone: player.zone, st: player.sit ? player.sit.h : 0, bx: game.on ? game.booth.i : -1, pc: game.pc, wk: player.working ? 1 : 0, jc: player.jc || 0, dl: duel.active ? 1 : 0, sc: duel.swings, lv: duel.level, tt: duel.loser ? 1 : 0, hy: myAvatar ? +myAvatar.ground.toFixed(2) : 0 });
 }
 
 function onState(p) {
@@ -849,13 +870,13 @@ function onState(p) {
   if (!peer || peer.name !== p.name) {
     if (peer) { scene.remove(peer.av.root); peer.av.dispose(); }
     const fresh = !peer;
-    peer = { av: new Avatar(p.name, p.color, p.g), x: p.x, z: p.z, ry: p.ry, floor: p.floor || 0, name: p.name, color: p.color };
+    peer = { av: new Avatar(p.name, p.color, p.g, p.lk), x: p.x, z: p.z, ry: p.ry, floor: p.floor || 0, name: p.name, color: p.color };
     scene.add(peer.av.root);
     peers.set(p.id, peer);
     if (fresh) { sysMessage(`${p.name}님이 들어왔어요.`); sendState(true); }
     updateOnline();
   }
-  if (peer.color !== p.color || peer.av.gender !== (p.g === 'f' ? 'f' : 'm')) { peer.av.setLook(p.color, p.g); peer.color = p.color; }
+  peer.av.setLook(p.color, p.g, p.lk); peer.color = p.color; // 같으면 아무것도 안 함
   // 받은 위치를 시간과 함께 모아 두고, 조금 늦게(0.45초) 그 사이를 부드럽게 이어 그림
   const tnow = performance.now() / 1000;
   if ((p.floor || 0) !== peer.floor || !peer.buf) { peer.x = p.x; peer.z = p.z; peer.ry = p.ry; peer.buf = []; }
