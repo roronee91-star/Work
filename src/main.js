@@ -581,7 +581,7 @@ function updatePlayer(dt) {
   // 엘리베이터 앞에 오면 몇 층 갈지 자동으로 물어봄 (한 번 뜨면 멀어졌다 다시 와야 또 뜸)
   const elevD = Math.hypot(player.x - ELEV.x, player.z - ELEV.z);
   if (elevD > 2.4) elevAsked = false;
-  else if (what === 'elev' && !elevAsked && !busy() && !player.sit && document.querySelectorAll('.modal:not([hidden])').length === 0) { elevAsked = true; openFloorMenu(); }
+  else if (what === 'elev' && !elevAsked && !elevMoving && !moveTarget?.then && !busy() && !player.sit && document.querySelectorAll('.modal:not([hidden])').length === 0) { elevAsked = true; openFloorMenu(); }
   if (busy()) pr.hidden = true;
   else if (what && what.booth) { pr.textContent = isTouch ? `🥊 ${what.booth.i + 1}번 샌드백 치기 (누르기)` : `E  🥊 ${what.booth.i + 1}번 샌드백 치기`; pr.hidden = false; }
   else if (player.sit && player.working) { pr.textContent = isTouch ? '일 그만하기 (누르기)' : '일 그만하기: E 또는 이동 키'; pr.hidden = false; }
@@ -1031,6 +1031,7 @@ try { if (localStorage.getItem('work-mute') === '1') { setMuted(true); $('btnSou
 
 // ---------- 엘리베이터 · 층 이동 ----------
 let elevAsked = false;
+let elevMoving = false; // 층 이동 중(화면 어두워지는 동안)에는 층 선택 창을 다시 띄우지 않음
 const floorOpen = () => !$('floorModal').hidden;
 let floorSel = 0, heldAtOpen = new Set();
 // 지금 있는 층은 고를 수 없음 (건물 밖에서 볼 때는 그 층으로 들어갈 수 있게 허용)
@@ -1072,7 +1073,9 @@ function goFloor(f) {
   if (mode !== 'office') return;
   const fade = $('fade');
   fade.classList.add('on');
+  elevMoving = true;
   setTimeout(() => {
+    elevMoving = false;
     player.floor = f;
     arrive();
     bld.setFloor(f);
