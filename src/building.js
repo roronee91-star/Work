@@ -245,7 +245,7 @@ function chair(k, x, y, z, ry, mat = M.chairGray) {
 }
 function stool(k, x, y, z, ry = 0, h = 0.5) {
   // 캐릭터(약 1m)에 맞춘 낮은 스툴
-  SEATS?.push({ x, z, ry, h: h + 0.06 });
+  SEATS?.push({ x, z, ry, h: h + 0.06, desk: DESK });
   k.cyl(0.2, 0.06, x, y + h, z, M.walnut, 12);
   k.cyl(0.025, h, x, y, z, M.metal, 6);
   k.cyl(0.18, 0.03, x, y, z, M.metal, 10);
@@ -677,9 +677,19 @@ export function createBuilding() {
     k.cyl(0.18, 0.2, -9.42, 1.35, 0.3, M.fabricBlue, 8, 0.12);                   // 걸린 겉옷
     col(-9.65, 0.05, -9.15, 0.55);
     for (const [x, z] of [[-4.4, -1.25], [4.4, -1.25], [0, -1.25]]) k.cyl(0.13, 0.32, x, 0, z, M.metal, 10, 0.15);
-    // 책장 (서쪽 창가)
-    k.box(0.5, 2.1, 4.4, -9.5, 0, 3.2, M.walnut); col(-9.8, 1.0, -9.2, 5.4, true);
-    for (let i = 0; i < 4; i++) k.box(0.36, 0.38, 4.0, -9.35, 0.15 + i * 0.5, 3.2, i % 2 ? M.books : M.books2);
+    // 창가 노트북 바 (서쪽 창을 바라보고 스툴에 앉아 일하기 — 4층 창가 바처럼)
+    k.box(0.5, 0.05, 4.6, -9.4, 0.75, 3.2, M.walnut); col(-9.7, 0.9, -9.1, 5.5, false, 0.8);
+    for (const z of [1.1, 3.2, 5.3]) k.cyl(0.02, 0.75, -9.4, 0, z, M.metal, 6);
+    DESK = true;
+    for (const z of [1.6, 2.65, 3.7, 4.75]) {
+      stool(k, -8.7, 0, z, -Math.PI / 2);
+      k.box(0.24, 0.015, 0.32, -9.32, 0.8, z, M.metal);                       // 노트북 바닥
+      k.box(0.014, 0.22, 0.32, -9.45, 0.8, z, M.metal);                       // 노트북 화면 뒷판
+      k.box(0.004, 0.19, 0.29, -9.44, 0.815, z, M.screen);                    // 화면
+      mug(k, -9.35, 0.8, z + 0.3, z > 3 ? M.mugYellow : M.white);
+    }
+    DESK = false;
+    pendant(k, -9.2, 2.1); pendant(k, -9.2, 4.2);
     // 화이트보드 (책상 쪽을 바라봄)
     k.box(2.6, 1.3, 0.05, -1, 0.9, 4.6, M.white); k.box(0.06, 0.9, 0.06, -2.2, 0, 4.6, M.metal); k.box(0.06, 0.9, 0.06, 0.2, 0, 4.6, M.metal);
     col(-2.3, 4.5, 0.3, 4.7, true);
