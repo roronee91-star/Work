@@ -71,7 +71,7 @@ const SKIN = 0xffe0c4, EYE = 0x241a16;
 export const SCALE = 1.0; // 2등신 캐릭터 (약 1.05m, 교회 메타버스와 같은 크기)
 
 // 👗 꾸미기: 머리 모양 · 머리 색 · 옷 종류 · 하의(바지/치마) · 하의 색. 숫자 5개짜리 글자로 주고받음 (예: '10021')
-export const HAIR_STYLES = ['짧은 머리', '긴 생머리', '단발', '묶은 머리', '똥머리', '뽀글 파마'];
+export const HAIR_STYLES = ['짧은 머리', '긴 생머리', '단발', '묶은 머리', '똥머리', '뽀글 파마', '땋은 머리', '웨이브'];
 export const HAIR_COLORS = [0x3b2516, 0x17130f, 0x6b3f22, 0xa8743f, 0xe3c37c, 0xa9aab2, 0xe58fb0, 0x5a78d6];
 export const OUTFITS = ['셔츠', '정장', '후드티', '니트', '반팔 티'];
 export const BOTTOMS = ['바지', '치마'];
@@ -125,6 +125,27 @@ function hair(p, hs, HAIR, f, H) {
     }
     for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; p.add(new THREE.SphereGeometry(0.08, 10, 8), HAIR, Math.sin(a) * 0.12, H + 0.22, Math.cos(a) * 0.1 - 0.04); }
     for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.07, 10, 8), HAIR, sx * 0.2, H - 0.09, -0.08);
+  } else if (hs === 6) {
+    // 땋은 머리: 양쪽 어깨로 내려오는 두 갈래, 마디마디 볼록 + 끝에 머리끈
+    p.add(new THREE.SphereGeometry(0.265, 24, 18), HAIR, 0, H + 0.0, -0.06, { sx: 1.02, sy: 0.98, sz: 0.86 });
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 5; i++) {
+        const y = H - 0.08 - i * 0.065, x = sx * (0.2 - i * 0.012), z = -0.02 + i * 0.03;
+        p.add(new THREE.SphereGeometry(0.045 - i * 0.003, 10, 8), HAIR, x + sx * 0.012 * (i % 2 ? 1 : -1), y, z, { sy: 1.25, rz: sx * (i % 2 ? 0.5 : -0.5) });
+      }
+      p.add(new THREE.SphereGeometry(0.022, 8, 6), 0xf28bb0, sx * 0.145, H - 0.4, 0.13);
+      p.add(new THREE.ConeGeometry(0.03, 0.06, 8), HAIR, sx * 0.14, H - 0.445, 0.14, { rx: Math.PI });
+    }
+  } else if (hs === 7) {
+    // 웨이브: 긴 머리 끝이 S자로 부드럽게 굽이침
+    p.add(new THREE.SphereGeometry(0.275, 24, 18), HAIR, 0, H - 0.07, -0.08, { sx: 1.05, sy: 1.2, sz: 0.82 });
+    for (let i = 0; i < 3; i++) {
+      const y = H - 0.2 - i * 0.085, sw = (i % 2 ? 1 : -1) * 0.025;
+      p.add(new THREE.SphereGeometry(0.2 - i * 0.02, 18, 12), HAIR, sw, y, -0.12, { sx: 1.25, sy: 0.5, sz: 0.85 });
+    }
+    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) {
+      p.add(new THREE.SphereGeometry(0.07, 12, 10), HAIR, sx * (0.215 + (i % 2 ? 0.03 : 0)), H - 0.1 - i * 0.09, 0.02 - i * 0.015, { sx: 0.75, sy: 1.25 });
+    }
   }
 }
 
