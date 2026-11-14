@@ -709,7 +709,42 @@ export function createBuilding() {
     // 프린터 · 정수기
     k.box(0.7, 0.9, 0.6, 9.4, 0, 0.6, M.white); k.box(0.6, 0.1, 0.5, 9.4, 0.9, 0.6, M.black); col(9.0, 0.25, 9.8, 0.95);
     k.box(0.4, 1.2, 0.4, 9.5, 0, -0.5, M.white); k.cyl(0.15, 0.4, 9.5, 1.2, -0.5, M.glassRoom); col(9.25, -0.75, 9.75, -0.25);
-    for (const [x, z, s] of [[-6.5, 5.8, 0.9], [9.3, 5.8, 1], [-6.6, -1.2, 0.8]]) plant(k, col, x, 0, z, s);
+    for (const [x, z, s] of [[9.3, 5.8, 1], [-6.6, -1.2, 0.8]]) plant(k, col, x, 0, z, s);
+    // ☕ 홈카페장 (남서쪽 창가, 나무 자리) — 커피 머신 · 그라인더 · 주전자 · 컵 선반
+    {
+      const cx = -6.8, cz = 6.05;
+      k.box(2.6, 0.86, 0.5, cx, 0, cz, M.white); k.box(2.66, 0.04, 0.56, cx, 0.86, cz, M.walnut);
+      for (const dx of [-0.65, 0.65]) k.box(0.02, 0.6, 0.01, cx + dx, 0.13, cz - 0.255, M.metal);   // 문 손잡이 선
+      col(cx - 1.35, cz - 0.3, cx + 1.35, cz + 0.4);
+      // 커피 머신
+      k.box(0.38, 0.42, 0.32, cx - 0.85, 0.9, cz + 0.02, M.black); k.box(0.38, 0.05, 0.32, cx - 0.85, 1.32, cz + 0.02, M.metal);
+      k.box(0.24, 0.02, 0.12, cx - 0.85, 0.92, cz - 0.17, M.metal); k.cyl(0.03, 0.06, cx - 0.85, 1.1, cz - 0.12, M.metal, 8);
+      k.cyl(0.035, 0.06, cx - 0.85, 0.94, cz - 0.17, M.white, 10);
+      // 그라인더 (원두 통)
+      k.cyl(0.07, 0.24, cx - 0.35, 0.9, cz + 0.05, M.black, 10); k.cyl(0.05, 0.14, cx - 0.35, 1.14, cz + 0.05, M.glassRoom, 10, 0.085);
+      k.cyl(0.07, 0.06, cx - 0.35, 1.15, cz + 0.05, M.coffee, 10);
+      // 전기 주전자 · 드리퍼
+      k.cyl(0.075, 0.18, cx + 0.1, 0.9, cz + 0.05, M.metal, 12, 0.06); k.box(0.02, 0.1, 0.06, cx + 0.18, 0.96, cz + 0.05, M.black);
+      k.cyl(0.035, 0.07, cx + 0.45, 0.98, cz, M.white, 10, 0.07); k.cyl(0.06, 0.08, cx + 0.45, 0.9, cz, M.glassRoom, 10);
+      // 머그 · 쟁반
+      k.box(0.5, 0.02, 0.3, cx + 0.95, 0.9, cz, M.oak);
+      mug(k, cx + 0.82, 0.92, cz - 0.05, M.mugRed); mug(k, cx + 1.02, 0.92, cz + 0.06, M.mugYellow); mug(k, cx + 1.1, 0.92, cz - 0.07, M.white);
+      // 위 선반 2단 + 원두 병 · 컵
+      for (const dx of [-1.25, 1.25]) k.box(0.04, 1.1, 0.25, cx + dx, 0.9, cz + 0.12, M.walnut);
+      for (const y of [1.5, 1.92]) {
+        k.box(2.54, 0.03, 0.26, cx, y, cz + 0.12, M.walnut);
+        for (let i = 0; i < 7; i++) {
+          const x = cx - 1.05 + i * 0.35;
+          if (y < 1.7) k.cyl(0.055, 0.16, x, y + 0.03, cz + 0.12, i % 3 === 0 ? M.coffee : (i % 3 === 1 ? M.glassRoom : M.mugYellow), 10);
+          else { k.cyl(0.045, 0.08, x, y + 0.03, cz + 0.12, i % 2 ? M.white : M.pastelBlue, 8); k.cyl(0.045, 0.08, x, y + 0.11, cz + 0.12, M.white, 8); }
+        }
+      }
+      k.box(0.3, 0.2, 0.2, cx + 0.95, 1.95, cz + 0.12, M.lime);                                        // 작은 화분 받침
+      k.ball(0.12, cx + 0.95, 2.22, cz + 0.12, M.leaf);
+      const sign = signTex('HOME CAFE', '오늘의 커피 한 잔 ☕', { w: 512, h: 160, bg: '#2b2420', fg: '#f3e2c4', size: 64 });
+      panel(group, sign, 0.9, 0.28, cx - 0.6, 2.32, cz + 0.2, Math.PI, false);
+      pendant(k, cx, cz - 0.3);
+    }
   }
 
   // ---------- 3F 회의실 2개 + 공지판 ----------
