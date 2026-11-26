@@ -290,3 +290,4 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - ⚠️ 사용자: 머리를 '얹은 덩어리 없게' 다시 다듬은 버전을 '더 이상하다'며 거절 → 처음 미리보기 모양(05aa76b)으로 되돌려 배포. 다시 다듬을 땐 먼저 물어볼 것.
 - ✅ 11-26 사용자가 menswear.sql 실행 완료 → 남성 옷 서버에서 살 수 있음.
 - 11-26 외부 점검 PR #1(nil-bae)을 작업 브랜치에 합쳐 배포. 지갑 옮기기 마감은 사용자 요청으로 11-27 0시(KST)로 당김. 로컬 Postgres에서 확인: 직접 수정 거절 · 끼어들기 duel_full · 중복 정산 없음 · 레벨 점프 bad_stats · 남의 키 not_owner · 마감 뒤 이름 import → 환영금만 · 마감 전 이름 import 정상 · 새 DB(supabase → security → snow50k → menswear → supabase → patch1)도 성공. **Supabase에 docs/security_patch1.sql 실행 필요.**
+- ✅ 11-26 사용자가 security_patch1.sql 실행 완료 → 판돈 · 결투 기록 · 지갑 옮기기 서버 보완 적용됨.
