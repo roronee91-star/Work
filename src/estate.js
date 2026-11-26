@@ -2,7 +2,7 @@
 // 분양은 3층 💹 투자 상담실 '🏠 부동산' 탭에서 계약 → 산 사람만 자기 집에 들어감
 // 집 안은 건물 층처럼 '층 번호'를 하나씩 가짐(HOME_BASE + 순서) → 같은 집에 있는 사람끼리만 보이고, 들어간 사람에게만 그림
 import * as THREE from 'three';
-import { Kit, MATERIALS as M, canvasTex, panel, BALL } from './building.js';
+import { Kit, MATERIALS as M, canvasTex, panel, BALL, BOX } from './building.js';
 
 export const VILLAGE = { x0: 72, x1: 168, z0: -48, z1: 48 };          // 마을 땅 (회사 블록 동쪽, 레이스 도로 건너)
 export const WALK = { x0: 30, x1: 72.5, z0: 15.4, z1: 18.6 };          // 회사 정원 동쪽 출입구(분수 옆, 산울타리 틈) → 마을 건널목 길
@@ -147,10 +147,11 @@ export function createVillage(colliders, myName = () => '') {
   const { x0, x1, z0, z1 } = VILLAGE;
   // 잔디 · 큰길 · 건널목
   // 언덕을 따라 휘는 바닥 (잔디 · 길): z 방향으로 잘게 나눈 판을 언덕 높이만큼 올림
-  const ground = (cx, cz, w, d, mat, lift = 0.02, segZ = Math.ceil(d)) => {
-    const g = new THREE.PlaneGeometry(w, d, Math.max(1, Math.ceil(w / 24)), Math.max(1, segZ)); g.rotateX(-Math.PI / 2);
-    const pos = g.attributes.position; for (let i = 0; i < pos.count; i++) pos.setY(i, GY + lift + terrainH(pos.getX(i) + cx, pos.getZ(i) + cz));
-    g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.position.set(cx, 0, cz); group.add(m); return m;
+  // 바닥 판(잔디 · 길): 따로 그리지 않고 kit에 합쳐서 한 번에 그림 (휴대폰 가볍게)
+  const ground = (cx, cz, w, d, mat, lift = 0.02, segZ = 1, kit = k) => {
+    const g = new THREE.PlaneGeometry(w, d, 1, Math.max(1, HILL[1] ? segZ : 1)); g.rotateX(-Math.PI / 2);
+    const pos = g.attributes.position; for (let i = 0; i < pos.count; i++) pos.setY(i, lift + terrainH(pos.getX(i) + cx, pos.getZ(i) + cz));
+    g.computeVertexNormals(); kit.add(g, mat, cx, GY, cz);
   };
   ground((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, VM.lawn, 0.02, 96);
   // 언덕 가장자리 돌 옹벽 (서 · 북 · 동)
@@ -233,7 +234,7 @@ export function createVillage(colliders, myName = () => '') {
   function house(hk, cols, u, size, x, z, face, gateClosed, rk) {
     const st = styleOf(u), big = size >= 50, alt = u.n % 2 === 0, [W, D] = dims(u, size), bz = -1, fz = bz + D / 2;
     const P = (lx, lz) => [x + face * lx, z + face * lz];
-    const B = (w, h, d, lx, y, lz, m) => { const [wx, wz] = P(lx, lz); hk.box(w, h, d, wx, y, wz, m); };
+    const B = (w, h, d, lx, y, lz, m) => { const [wx, wz] = P(lx, lz); hk.add(BOX, m, wx, y + h / 2, wz, 0, w, h, d); }; // 둥글리지 않는 작은 조각
     const R = (w, h, d, lx, y, lz, m) => { const [wx, wz] = P(lx, lz); rk.box(w, h, d, wx, y, wz, m); }; // 모서리 둥근 큰 덩어리 (사옥처럼 부드럽게)
     const A = (geo, m, lx, y, lz, ry = 0) => { const [wx, wz] = P(lx, lz); hk.add(geo, m, wx, y, wz, ry + (face > 0 ? 0 : Math.PI)); };
     const ball = (m, lx, y, lz, sx, sy = sx, sz = sx) => { const [wx, wz] = P(lx, lz); hk.add(BALL, m, wx, y, wz, 0, sx, sy, sz); };
@@ -254,7 +255,7 @@ export function createVillage(colliders, myName = () => '') {
       for (const s2 of [-1, 1]) win(s2 * (W / 4 + 0.35), 0.65, 1.8, 1.6, VM.frameW); if (big) for (const s2 of [-1, 1]) win(s2 * (W / 4 + 0.35), 2.95, 1.4, 1.2, VM.frameW); // 집 크기에 맞춘 창 (11-26 '통창이 너무 큼')
       B(1.0, 2.2, 0.08, 0, 0, fz + 0.03, VM.frameW); B(0.85, 2.05, 0.1, 0, 0.05, fz + 0.04, VM.glassW);                              // 유리 현관문
 
-      for (const s2 of [-1, 1]) { const [wx, wz] = P(s2 * (W / 2 + 0.03), bz); hk.box(0.1, 1.0, 1.0, wx, 0.9 + (big ? 2.6 : 0), wz, VM.frameW); hk.box(0.12, 0.85, 0.85, wx, 0.97 + (big ? 2.6 : 0), wz, VM.glassW); } // 옆 창
+      for (const s2 of [-1, 1]) { const [wx, wz] = P(s2 * (W / 2 + 0.03), bz); hk.add(BOX, VM.frameW, wx, 1.4 + (big ? 2.6 : 0), wz, 0, 0.1, 1.0, 1.0); hk.add(BOX, VM.glassW, wx, 1.395 + (big ? 2.6 : 0), wz, 0, 0.12, 0.85, 0.85); } // 옆 창
       R(W + 1.2, 0.18, 2.4, 0.4, GY, fz + 1.2, VM.deck);                                                                               // 데크
       for (let i = 0; i < 10; i++) B(W + 1.2, 0.01, 0.02, 0.4, -0.12, fz + 0.15 + i * 0.23, VM.cedarDk);
       for (const cx of [W / 2 - 1.4, W / 2 - 0.5]) { B(0.5, 0.42, 0.5, cx, -0.12, fz + 1.4, VM.cedar); B(0.5, 0.45, 0.06, cx, 0.3, fz + 1.17, VM.cedar); }
@@ -321,37 +322,52 @@ export function createVillage(colliders, myName = () => '') {
     return { fz, P, B };
   }
   const lotKey = (o) => (o ? `${o.name}|${o.size}|${o.name === myName() ? 'mine' : 'other'}` : '');
-  function buildLot(u, o) {
-    const old = lots.get(u.id);
-    if (old) { group.remove(old.g); old.g.traverse((m) => m.geometry?.dispose?.()); for (const c of old.cols) { const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); } }
-    const g = new THREE.Group(), hk = new Kit(false), rk = new Kit(true), cols = [];
-    const { x, z, face } = u, size = o?.size || 30, base = terrainH(x, z);
-    hk.dy = base; rk.dy = base; // 언덕 위 집터
-    { const gz = z + face * 5.85, tz = z < 0 ? -26 : 26; ground(x, (gz + tz) / 2, 1.5, Math.abs(tz - gz) + 0.4, VM.path, 0.06); } // 대문 → 골목 돌길
-    const { fz, P, B } = house(hk, cols, u, size, x, z, face, !!o && o.name !== myName(), rk);
-    const ry = face > 0 ? 0 : Math.PI;
-    if (o) {
-      // 문패
-      const np = canvasTex(512, 160, (ctx, w, h) => { ctx.fillStyle = '#2d2a26'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#d9ad48'; ctx.lineWidth = 6; ctx.strokeRect(6, 6, w - 12, h - 12); ctx.fillStyle = '#f4e3b2'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `700 56px ${FONT}`; ctx.fillText(`${o.name}`, w / 2, h / 2 - 14); ctx.font = `400 30px ${FONT}`; ctx.fillStyle = '#c9bfa8'; ctx.fillText(`${u.n}번지 · ${o.size}평`, w / 2, h / 2 + 40); });
-      const [nx, nz] = P(-0.95, fz + 0.07); panel(g, np, 0.8, 0.25, nx, 1.55 + base, nz, ry);
-    } else {
-      // 분양 중: 앞마당 울타리에 건 간판 (골목에서 보임)
-      const sg = canvasTex(768, 320, (ctx, w, h) => { ctx.fillStyle = '#c23a3a'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = '#fffaf0'; ctx.fillRect(14, 14, w - 28, h - 28); ctx.fillStyle = '#c23a3a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 92px ${FONT}`; ctx.fillText(`${u.n}번지 분양 중`, w / 2, 120); ctx.fillStyle = '#444'; ctx.font = `600 44px ${FONT}`; ctx.fillText('3층 💹 투자 상담실에서 계약', w / 2, 230); });
-      B(1.75, 0.82, 0.05, -3.0, 0.32, 5.85 + 0.12, VM.frameBlack);                                           // 간판 뒤판
-      const [sx, sz] = P(-3.0, 5.85 + 0.16); panel(g, sg, 1.65, 0.7, sx, 0.73 + base, sz, ry);
-    }
-    hk.flush(g); rk.flush(g);
-    group.add(g); colliders.push(...cols);
-    lots.set(u.id, { g, cols, key: lotKey(o) });
+  // 🪧 분양 간판 · 문패: 집마다 따로 그림판을 만들지 않고 한 장(아틀라스)에 칸칸이 그려서 한 번에 그림
+  const cellQuad = (w, h, i, cols, rows) => { const g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv, c = i % cols, r = Math.floor(i / cols), u0 = c / cols, u1 = (c + 1) / cols, v1 = 1 - r / rows, v0 = 1 - (r + 1) / rows; uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0); return g; };
+  const HN = UNITS.filter((u) => u.kind === 'house').length;
+  const saleTex = canvasTex(2048, 1024, (ctx) => {
+    for (let i = 0; i < HN; i++) { const x = (i % 4) * 512, y = Math.floor(i / 4) * 256; ctx.fillStyle = '#c23a3a'; ctx.fillRect(x, y, 512, 256); ctx.fillStyle = '#fffaf0'; ctx.fillRect(x + 10, y + 10, 492, 236); ctx.fillStyle = '#c23a3a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 64px ${FONT}`; ctx.fillText(`${i + 1}번지 분양 중`, x + 256, y + 96); ctx.fillStyle = '#444'; ctx.font = `600 32px ${FONT}`; ctx.fillText('3층 💹 투자 상담실에서 계약', x + 256, y + 180); }
+  });
+  const saleMat = new THREE.MeshBasicMaterial({ map: saleTex });
+  const nameCanvas = document.createElement('canvas'); nameCanvas.width = 2048; nameCanvas.height = 512;
+  const nameTex = new THREE.CanvasTexture(nameCanvas); nameTex.colorSpace = THREE.SRGBColorSpace;
+  const nameMat = new THREE.MeshBasicMaterial({ map: nameTex });
+  function drawName(i, o, u) {
+    const ctx = nameCanvas.getContext('2d'), x = (i % 4) * 512, y = Math.floor(i / 4) * 128;
+    ctx.fillStyle = '#2d2a26'; ctx.fillRect(x, y, 512, 128); ctx.strokeStyle = '#d9ad48'; ctx.lineWidth = 5; ctx.strokeRect(x + 5, y + 5, 502, 118);
+    if (!o) return; ctx.fillStyle = '#f4e3b2'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `700 46px ${FONT}`; ctx.fillText(o.name, x + 256, y + 50); ctx.font = `400 24px ${FONT}`; ctx.fillStyle = '#c9bfa8'; ctx.fillText(`${u.n}번지 · ${o.size}평`, x + 256, y + 96);
   }
-  for (const u of UNITS) if (u.kind === 'house') buildLot(u, null);
+  // 집 16채 전부를 한 kit에 담아 재질별로 합쳐 그림 (집마다 따로 그리면 조각이 300개 넘음). 주인이 바뀌면 통째로 다시 만듦(가끔 있는 일)
+  let houses = null, houseCols = [];
+  function buildAll(owners) {
+    if (houses) { group.remove(houses); houses.traverse((m) => m.geometry?.dispose?.()); }
+    for (const c of houseCols) { const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); }
+    houses = new THREE.Group(); houseCols = [];
+    const hk = new Kit(true);
+    for (const u of UNITS) {
+      if (u.kind !== 'house') continue;
+      const o = owners.get(u.id), { x, z, face } = u, size = o?.size || 30, base = terrainH(x, z), cols = [];
+      hk.dy = base;
+      { const gz = z + face * 5.85, tz = z < 0 ? -26 : 26; ground(x, (gz + tz) / 2, 1.5, Math.abs(tz - gz) + 0.4, VM.path, 0.06, 1, hk); } // 대문 → 골목 돌길
+      const { fz, P, B } = house(hk, cols, u, size, x, z, face, !!o && o.name !== myName(), hk);
+      const A = (geo, m, lx, y, lz) => { const [wx, wz] = P(lx, lz); hk.add(geo, m, wx, y, wz, face > 0 ? 0 : Math.PI); };
+      if (o) { drawName(u.n - 1, o, u); A(cellQuad(0.8, 0.2, u.n - 1, 4, 4), nameMat, -0.95, 1.55, fz + 0.07); }       // 문패
+      else { B(1.75, 0.82, 0.05, -3.0, 0.32, 5.85 + 0.12, VM.frameBlack); A(cellQuad(1.65, 0.82, u.n - 1, 4, 4), saleMat, -3.0, 0.73, 5.85 + 0.16); } // 앞 울타리 분양 간판
+      houseCols.push(...cols);
+      lots.set(u.id, { key: lotKey(o) });
+    }
+    hk.dy = 0; nameTex.needsUpdate = true;
+    hk.flush(houses); group.add(houses); colliders.push(...houseCols);
+  }
+  buildAll(new Map());
   drawAptBoard(new Map());
   return {
     group,
     // 주인이 바뀐 집만 다시 그림 → 바뀌었으면 true (길찾기 격자를 다시 만들어야 함)
     update(owners) {
       let changed = false;
-      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), key = lotKey(o); if (lots.get(u.id)?.key !== key) { buildLot(u, o); changed = true; } }
+      for (const u of UNITS) if (u.kind === 'house' && lots.get(u.id)?.key !== lotKey(owners.get(u.id))) changed = true;
+      if (changed) buildAll(owners);
       drawAptBoard(owners);
       return changed;
     },

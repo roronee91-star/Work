@@ -1763,6 +1763,7 @@ function frame() {
   updatePeers(dt);
   updateNpc(dt); updateAdvisor(dt);
   shop.update(dt, now, player.x, player.z, mode === 'office' && player.floor === 0);
+  village.group.visible = !(mode === 'office' && player.floor !== 0); // 🏘 사옥 2층 이상 · 집 안에서는 마을을 그리지 않음 (휴대폰 가볍게)
   if (mode === 'office' && player.floor === 0 && shop.inside(player.x, player.z) && now - clerkGreetAt > 90) { clerkGreetAt = now; shop.clerk.say('어서 오세요! 오늘 새로 들어온 왕관 보셨어요? 👑', now); }
   if (XMAS) updateRide(dt);
   updateCamera(dt);
