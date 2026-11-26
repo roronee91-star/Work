@@ -33,9 +33,11 @@ export const SNOW = { x0: -9.5, x1: 9.5, z0: -21.5, z1: -9.5 }; // ⛄ 눈싸움
 export const SPAWN = { floor: 0, x: 0, z: 9.4, yaw: 0 }; // 회사 정문 바로 앞(바깥)에서 문을 바라봄
 
 export const ZONES = {
-  garden: '1F 정원', f1: '1F 로비·카페', f2: '2F 업무 공간', f3: '3F 회의실 홀', meetA: '3F 회의실 A', meetB: '3F 회의실 B', f4: '4F 라운지', arcade: '4F 오락존', roof: '옥상 테라스', snow: '⛄ 눈싸움장', shop: '👜 WORK 부티크', invest: '3F 💹 투자 상담실', race: '🏁 킥보드 레이스', party: '🪩 옥상 파티 무대',
+  garden: '1F 정원', f1: '1F 로비·카페', f2: '2F 업무 공간', f3: '3F 회의실 홀', meetA: '3F 회의실 A', meetB: '3F 회의실 B', f4: '4F 라운지', arcade: '4F 오락존', roof: '옥상 테라스', snow: '⛄ 눈싸움장', shop: '👜 WORK 부티크', invest: '3F 💹 투자 상담실', village: '🏘 WORK 빌리지', home: '🏠 우리 집', race: '🏁 킥보드 레이스', party: '🪩 옥상 파티 무대',
 };
 export function zoneAt(f, x, z) {
+  if (f >= 5) return 'home'; // 🏠 집 안 (estate.js HOME_BASE부터)
+  if (f === 0 && ((x > 72 && x < 168 && z > -48 && z < 48) || (x > 30 && x < 72.5 && z > 0.4 && z < 3.6))) return 'village'; // 🏘 마을 · 건널목 (estate.js VILLAGE · WALK)
   if (f === 4 && x > 6.45 && x < 9.8 && z > 0.65 && z < 5.25) return 'party'; // 🪩 옥상 파티 무대 (party.js PARTY)
   if (f === 0 && (Math.abs(x) > LOT + 1 || Math.abs(z) > LOT + 1)) return 'race'; // 회사 밖 도로 (레이스 중)
   if (f === 0 && x > SNOW.x0 && x < SNOW.x1 && z > SNOW.z0 && z < SNOW.z1) return 'snow';
@@ -1245,8 +1247,8 @@ export function createBuilding() {
   // 낮: 햇빛이 들어오니 실내등은 약하고 하얀빛 / 밤: 실내등이 밝고 따뜻한 빛
   const applyRig = () => {
     const f = curFloor, roof = f === ROOF;
-    LIGHTS[f].forEach(([x, z], i) => {
-      rig[i].position.set(x, FLOORS[f].y + (roof ? 3.2 : 3.3), z);
+    (LIGHTS[f] || [[-2.5, -1.5], [2.5, -1.5], [0, 2]]).forEach(([x, z], i) => { /* 🏠 집 안(5번부터)은 가운데 기본 조명 */
+      rig[i].position.set(x, FLOORS[f].y + (roof ? 3.2 : f >= 5 ? 2.6 : 3.3), z);
       rig[i].intensity = roof ? 7 * (1 - dayK) : 8; // 밤에도 너무 환하지 않게
       rig[i].color.copy(RIG_N).lerp(RIG_D, dayK);
     });

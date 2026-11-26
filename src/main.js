@@ -17,6 +17,7 @@ import { createSnowField, createSnowFight } from './snow.js';
 import { createXmas } from './advent.js';
 import { createRace, createRaceTrack, RACE, inRaceZone } from './race.js';
 import { createPartyStage, inParty, DANCES } from './party.js';
+import { createVillage, createEstate, createHomeInterior, inVillage, VILLAGE, WALK, UNITS, homeFloor, unitOfFloor, doorSpot, HOME_Y } from './estate.js';
 import { startAudio, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar, WorkMonster, HAIR_STYLES, HAIR_COLORS, OUTFITS, BOTTOMS, BOTTOM_COLORS, ACC_SLOTS, parseLook, lookKey } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
@@ -221,11 +222,66 @@ function showToast(text, onClick) {
 }
 // 💰 월급 · 지갑 · 💹 투자
 const money = createMoney({ $, me, priceOf: (id) => ITEMS.find((it) => it.id === id && !it.limited)?.price, canGrant: (id) => !!advent?.earned(id), openItems: () => shopUI.open('mine'), openModal: (id) => openModal(id), sys: (t) => sysMessage(t), toast: (t) => toast(t, () => money.openWallet()),
-  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior'), rate: () => (WORK_BONUS && player.sit && player.working ? 2 : 1) /* 💼 시급 2배 이벤트(일하기 중) — 11-26 종료, 다시 하려면 WORK_BONUS = true */, get board() { return bld.investBoard; } });
+  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior'), rate: () => (WORK_BONUS && player.sit && player.working ? 2 : 1) /* 💼 시급 2배 이벤트(일하기 중) — 11-26 종료, 다시 하려면 WORK_BONUS = true */, get board() { return bld.investBoard; }, estateTab: (el) => estate.render(el) });
 $('workChip').onclick = () => money.openWallet();
 // 👜 WORK BOUTIQUE (1층 정원 동쪽): 아이템 사서 착용
 const shop = createShop(bld.floors[0].colliders);
 scene.add(shop.group);
+// 🏘 WORK 빌리지 (레이스 도로 동쪽 새 땅): 3층 투자 상담실에서 분양 → 우리 집
+const village = createVillage(bld.floors[0].colliders);
+scene.add(village.group);
+const BLDG_N = 5; // 사옥 층 수 (그 뒤 번호는 집 안)
+for (const u of UNITS) { // 집마다 '층 번호' 하나 → 같은 집에 있는 사람끼리만 보임, 안은 들어갈 때 그림
+  const i = FLOORS.length;
+  FLOORS.push({ label: '🏠', name: u.label, y: HOME_Y, home: u.id });
+  const group = new THREE.Group(); group.position.y = HOME_Y; group.visible = false; scene.add(group);
+  bld.floors.push({ index: i, group, colliders: [], seats: [], home: u.id, built: '' });
+}
+const estate = createEstate({ $, supa, money, me, changed: () => estateChanged(), tab: () => money.tab, closeModals: () => closeModals(), openModal: (id) => openModal(id), goHome: () => goHome(), leaveHome: () => leaveHome(), atHome: () => player.floor >= BLDG_N, send: (e) => net?.sendEvent(e), sys: (t) => sysMessage(t), beep: () => playBeep(880, 0.2) });
+function estateChanged() {
+  if (village.update(estate.owners)) GRIDS.delete(0);
+  $('btnHome').hidden = !estate.mine();
+  const f = player.floor;
+  if (f >= BLDG_N && mode === 'office') { const u = unitOfFloor(f), o = estate.owners.get(u.id); if (!o || o.name !== me.name) { leaveHome(); return; } buildHome(f); }
+}
+function buildHome(f) {
+  const F = bld.floors[f], u = unitOfFloor(f), o = estate.owners.get(u.id);
+  const size = o?.size || +Object.keys(u.sizes)[0], key = `${o?.name}|${size}`;
+  if (F.built === key) return F;
+  F.group.clear(); F.colliders.length = 0;
+  const h = createHomeInterior(u, size, o?.name || '');
+  F.group.add(h.group); F.colliders.push(...h.colliders);
+  Object.assign(F, { hx: h.hx, hz: h.hz, ceil: h.ceil, door: h.door, built: key });
+  Object.assign(FLOORS[f], { hx: h.hx, hz: h.hz, name: o ? `${o.name}님 집` : u.label });
+  GRIDS.delete(f);
+  return F;
+}
+// 🏠 우리 집으로 (어디서든 순간이동) / 집에서 나가면 그 집 문 앞으로
+function goHome(id = estate.mine()?.unit.id) {
+  if (!id || mode !== 'office' || race.driving || duel.active) return;
+  closeModals(); clearTarget(); if (player.sit) standUp(); if (game.on) quitGame();
+  const f = homeFloor(id), fade = $('fade');
+  fade.classList.add('on');
+  setTimeout(() => {
+    const F = buildHome(f);
+    player.floor = f; player.x = F.door.x; player.z = F.door.z; player.ry = Math.PI; cam.yaw = 0; cam.pitch = 0.28;
+    bld.setFloor(f); player.zone = 'home'; showFloorHud(); sendState(true);
+    officeCamPose(null, pose); fade.classList.remove('on');
+    sysMessage('🏠 우리 집에 왔어요! 가구는 곧 생길 🛋 가구점에서 사면 배달돼요. 나갈 땐 현관문 앞에서 E (또는 위쪽 🏠 버튼)');
+  }, 450);
+}
+function leaveHome() {
+  const u = unitOfFloor(player.floor); if (!u) return;
+  const s = doorSpot(u, estate.owners.get(u.id)?.size), fade = $('fade');
+  closeModals(); clearTarget(); if (player.sit) standUp();
+  fade.classList.add('on');
+  setTimeout(() => {
+    player.floor = 0; player.x = s.x; player.z = s.z; player.ry = s.ry; cam.yaw = s.ry + Math.PI; cam.pitch = 0.25;
+    bld.setFloor(0); player.zone = zoneAt(0, player.x, player.z); showFloorHud(); sendState(true);
+    officeCamPose(null, pose); fade.classList.remove('on');
+  }, 450);
+}
+$('btnHome').onclick = () => (player.floor >= BLDG_N ? leaveHome() : goHome());
 // ⛄ 눈싸움장 (사옥 뒤쪽 정원)
 const snowField = createSnowField(bld.floors[0].colliders);
 scene.add(snowField.group);
@@ -502,6 +558,7 @@ function enter() {
   myAvatar = new Avatar(me.name, me.color, me.gender, me.look);
   if (duel.level > 1 || duel.loser) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   duel.load(me.name); // 결투 레벨 · 칭호 (Supabase)
+  estate.load(); // 🏘 집 분양 현황
   money.load(me.name).then((notes) => { applyWear(); // 입구에 도착하면(날아 들어오는 장면이 끝나면) 오늘의 일급 알림
     const t = setInterval(() => { if (mode !== 'office') return; clearInterval(t); showNews(); setTimeout(() => { notes.forEach((n) => toast(n, () => money.openWallet())); toast(money.greeting(), () => money.openWallet()); }, 300); setTimeout(adventCheckIn, 900); }, 200);
   });
@@ -510,7 +567,7 @@ function enter() {
   placeAvatar(myAvatar, player);
   me.jt = Date.now();
   net = connect(me, {
-    onState, onChat: receiveChat, onLeave: removePeer, onSync: (scope) => { sendState(true, scope === 'all'); race.announce(); } /* 새로 온 사람에게 내 레이스 참가도 알림 */, onEvent: (e) => { duel.onEvent(e); reqs.onEvent(e); rideEvent(e); snowFight.onEvent(e); race.onEvent(e); },
+    onState, onChat: receiveChat, onLeave: removePeer, onSync: (scope) => { sendState(true, scope === 'all'); race.announce(); } /* 새로 온 사람에게 내 레이스 참가도 알림 */, onEvent: (e) => { duel.onEvent(e); reqs.onEvent(e); rideEvent(e); snowFight.onEvent(e); race.onEvent(e); estate.onEvent(e); },
     onStatus(text, online) { $('netText').textContent = text; $('netDot').classList.toggle('on', online); },
   });
   sysMessage(returning
@@ -649,7 +706,11 @@ function collide(x, z) {
 }
 
 // 걸어 다닐 수 있는 범위: 층 안 / 1층은 부지 + 정문 앞 광장(🏁 레이스 참가 칸, RACE.plaza)
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+const RECTS0 = [[-LOT + 0.4, -LOT + 0.4, LOT - 0.4, LOT - 0.4], [RACE.plaza.x0, LOT - 0.4, RACE.plaza.x1, RACE.plaza.z1], [WALK.x0, WALK.z0 + 0.25, WALK.x1, WALK.z1 - 0.25], [VILLAGE.x0 + 0.3, VILLAGE.z0 + 0.3, VILLAGE.x1 - 0.3, VILLAGE.z1 - 0.3]]; // 1층 걸을 수 있는 곳: 정원 · 정문 앞 광장 · 건널목 · 🏘 마을
 function clampFloor(f, x, z) {
+  if (f >= BLDG_N) { const F = bld.floors[f], hx = (F.hx || 3) - 0.3, hz = (F.hz || 3) - 0.3; return [clampN(x, -hx, hx), clampN(z, -hz, hz)]; } // 🏠 집 안
+  if (f === 0) { let best = [x, z], bd = Infinity; for (const [a, b, c, d] of RECTS0) { const cx = clampN(x, a, c), cz = clampN(z, b, d), dd = (cx - x) ** 2 + (cz - z) ** 2; if (dd < bd) { bd = dd; best = [cx, cz]; if (!dd) break; } } return best; }
   const lx = f === 0 ? LOT - 0.4 : HX - 0.5, lz = f === 0 ? LOT - 0.4 : HZ - 0.5, zs = f === 0 ? RACE.plaza.z1 : lz;
   x = Math.max(-lx, Math.min(lx, x)); z = Math.max(-lz, Math.min(zs, z));
   if (f === 0 && z > lz) x = Math.max(RACE.plaza.x0, Math.min(RACE.plaza.x1, x));
@@ -742,17 +803,28 @@ function updatePlayer(dt) {
   else if (what === 'npc') { pr.textContent = isTouch ? '💬 비서에게 말 걸기 (누르기)' : 'E  💬 비서에게 말 걸기'; pr.hidden = false; }
   else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
+  else if (what === 'homeExit') { pr.textContent = isTouch ? '🚪 밖으로 나가기 (누르기)' : 'E  🚪 밖으로 나가기'; pr.hidden = false; }
+  else if (what && what.door) { pr.textContent = doorText(what.door); pr.hidden = false; }
   else if (what === 'race') { pr.textContent = race.lobbyText; pr.hidden = false; }
   else if (snowFight.inField) { pr.textContent = isTouch ? '❄ 버튼: 캐릭터가 보는 쪽으로 눈 던지기' : 'F  ❄ 눈 던지기 (캐릭터가 보는 쪽으로)'; pr.hidden = false; }
   else pr.hidden = true;
 }
 
+// 🏘 마을 문 앞 안내
+function doorText(d) {
+  const my = estate.mine(), k = isTouch ? '' : 'E  ';
+  if (d.apt) return my?.unit.kind === 'apt' ? `${k}🏢 우리 집(${my.unit.floor}층) 들어가기` : '🏢 WORK 빌리지 아파트 · 분양은 3층 💹 투자 상담실에서';
+  if (d.owner) return d.owner.name === me.name ? `${k}🏠 우리 집 들어가기` : `🔒 ${d.owner.name}님 집`;
+  return `🏷 ${d.unit.n}번지 분양 중 · 3층 💹 투자 상담실 → 🏠 부동산`;
+}
 // 다른 사람이 이미 앉아 있는 자리인지
 function seatTaken(s) {
   for (const p of peers.values()) if (p.floor === player.floor && p.av.sitting && Math.hypot((p.tx ?? p.x) - s.x, (p.tz ?? p.z) - s.z) < 0.35) return true;
   return false;
 }
 function nearWhat() {
+  if (player.floor >= BLDG_N) { const F = bld.floors[player.floor]; return F.door && Math.hypot(player.x - F.door.x, player.z - F.door.z) < 1.1 ? 'homeExit' : null; } // 🏠 집 안: 현관문
+  if (player.floor === 0 && inVillage(0, player.x, player.z)) { const d = village.doorNear(player.x, player.z, estate.owners); if (d) return { door: d }; }
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
   if (player.floor === 0 && Math.hypot(player.x - (NPC_SPOT.x + 1.4), player.z - NPC_SPOT.z) < 1.3) return 'npc';
   if (player.floor === ARENA.floor && Math.hypot(player.x - HOST.x, player.z - (HOST.z + 0.8)) < 1.2) return 'host';
@@ -800,10 +872,12 @@ const CELL = 0.25;
 const GRIDS = new Map();
 function gridFor(f) {
   if (GRIDS.has(f)) return GRIDS.get(f);
-  const lx = f === 0 ? LOT - 0.4 : HX - 0.4, lz = f === 0 ? LOT - 0.4 : HZ - 0.4, zs = f === 0 ? RACE.plaza.z1 : lz;
-  const nx = Math.ceil((2 * lx) / CELL) + 1, nz = Math.ceil((lz + zs) / CELL) + 1;
+  // 격자 범위: 1층은 정원 서쪽 끝 ~ 🏘 마을 동쪽 끝, 집 안은 방 크기
+  const H0 = f >= BLDG_N ? bld.floors[f] : null;
+  const lx = f === 0 ? LOT - 0.4 : H0 ? (H0.hx || 3) - 0.3 : HX - 0.4, lz = f === 0 ? -VILLAGE.z0 : H0 ? (H0.hz || 3) - 0.3 : HZ - 0.4, zs = f === 0 ? RACE.plaza.z1 : lz, xe = f === 0 ? VILLAGE.x1 : lx;
+  const nx = Math.ceil((lx + xe) / CELL) + 1, nz = Math.ceil((lz + zs) / CELL) + 1;
   const blocked = new Uint8Array(nx * nz);
-  if (f === 0) for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const x = -lx + i * CELL, z = -lz + j * CELL; if (z > lz && (x < RACE.plaza.x0 || x > RACE.plaza.x1)) blocked[j * nx + i] = 1; } // 광장 밖
+  if (f === 0) for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const x = -lx + i * CELL, z = -lz + j * CELL, [cx, cz] = clampFloor(0, x, z); if (Math.abs(cx - x) > 0.01 || Math.abs(cz - z) > 0.01) blocked[j * nx + i] = 1; } // 걸을 수 없는 곳
   const pad = R + 0.06;
   for (const c of bld.floors[f].colliders) {
     const x1 = Math.max(0, Math.floor((c.x1 - pad + lx) / CELL)), x2 = Math.min(nx - 1, Math.ceil((c.x2 + pad + lx) / CELL));
@@ -819,6 +893,7 @@ function gridFor(f) {
   return g;
 }
 function findPath(f, sx, sz, tx, tz) {
+  if (Math.hypot(tx - sx, tz - sz) > 45) return null; // 아주 멀면(마을 ↔ 회사) 길찾기 대신 곧장 (느려지지 않게)
   const g = gridFor(f), { nx, nz, lx, lz, blocked } = g;
   const toI = (x, z) => [Math.max(0, Math.min(nx - 1, Math.round((x + lx) / CELL))), Math.max(0, Math.min(nz - 1, Math.round((z + lz) / CELL)))];
   const free = (i, j) => i >= 0 && j >= 0 && i < nx && j < nz && !blocked[j * nx + i];
@@ -870,7 +945,7 @@ function walkTo(tx, tz, extra = {}) {
 // ---------- 가구 위에 서기 ----------
 // 발밑에 있는 가구 중 발보다 낮은(또는 같은) 가장 높은 윗면 = 서 있을 높이
 function groundAt(x, z, feet) {
-  let g = player.floor === 0 && z > LOT + 0.05 ? -0.3 : 0; // 정문 앞 광장은 부지보다 30cm 낮음
+  let g = player.floor === 0 && (z > LOT + 0.05 || x > LOT + 0.05) ? -0.3 : 0; // 정문 앞 광장 · 건널목 · 🏘 마을은 부지보다 30cm 낮음
   for (const c of bld.floors[player.floor].colliders) {
     if (c.tall || c.noStand) continue;
     const top = c.top ?? 0.6;
@@ -912,7 +987,7 @@ function standUp() {
 }
 function showFloorHud() {
   $('floorLabel').textContent = FLOORS[player.floor].label;
-  const name = ZONES[player.zone].replace(/^\dF /, '');
+  const name = player.floor >= BLDG_N ? FLOORS[player.floor].name : (ZONES[player.zone] || '').replace(/^\dF /, '');
   $('zoneLabel').textContent = name;
   $('zoneTab').textContent = name;
 }
@@ -934,8 +1009,9 @@ function insideTall(x, z) {
 let camLift = 0;
 function officeCamPose(dt, out) {
   const outside = player.floor === 0 && (Math.abs(player.x) > HX || Math.abs(player.z) > HZ);
-  const fy = FLOORS[player.floor].y, top = player.floor === ROOF || outside ? 7 : CEIL - 0.15;
-  const bx = race.driving ? 400 : player.floor === 0 ? LOT : HX, bz = race.driving ? 400 : player.floor === 0 ? (player.z > LOT - 3 ? RACE.plaza.z1 + 6 : LOT) : HZ;
+  const HM = player.floor >= BLDG_N ? bld.floors[player.floor] : null, far = race.driving || (player.floor === 0 && player.x > LOT - 3); // 🏠 집 안 · 🏘 마을
+  const fy = FLOORS[player.floor].y, top = HM ? (HM.ceil || 2.9) - 0.15 : player.floor === ROOF || outside ? 7 : CEIL - 0.15;
+  const bx = far ? 400 : HM ? HM.hx || 3 : player.floor === 0 ? LOT : HX, bz = far ? 400 : HM ? HM.hz || 3 : player.floor === 0 ? (player.z > LOT - 3 ? RACE.plaza.z1 + 6 : LOT) : HZ;
   camLift += (((myAvatar && !player.sit) ? myAvatar.ground : 0) - camLift) * 0.1;
   const jumpLift = myAvatar && !player.sit ? Math.max(0, myAvatar.jy - myAvatar.ground) * 0.4 : 0;
   const tx = player.x, ty = fy + 0.85 + camLift + jumpLift, tz = player.z;
@@ -943,7 +1019,7 @@ function officeCamPose(dt, out) {
   let allowed = cam.dist;
   for (let t = 0.3; t <= cam.dist; t += 0.12) {
     const x = tx + dir.x * t, y = ty + dir.y * t, z = tz + dir.z * t;
-    const inBld = Math.abs(x) < HX && Math.abs(z) < HZ;
+    const inBld = !HM && Math.abs(x) < HX && Math.abs(z) < HZ;
     if (Math.abs(x) > bx - 0.15 || Math.abs(z) > bz - 0.15 || y > fy + (inBld && !outside ? top : 7) || (outside && inBld && y > CEIL - 0.1 && y < 4.1) || y < fy + (race.driving ? -0.1 : 0.15) || insideTall(x, z)) { allowed = Math.max(0.3, t - 0.12); break; }
   }
   if (dt === null) cam.cur = allowed;
@@ -1218,6 +1294,8 @@ function interact() {
   else if (what === 'invest') { advisor.say('네, 어떤 투자를 도와드릴까요? 😊', now); money.openInvest(); }
   else if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
   else if (what === 'elev') openFloorMenu();
+  else if (what === 'homeExit') leaveHome();
+  else if (what && what.door) { const d = what.door, my = estate.mine(); if (d.apt ? my?.unit.kind === 'apt' : d.owner?.name === me.name) goHome(); else if (d.owner) sysMessage(`🔒 ${d.owner.name}님 집이에요. (놀러 가기는 곧 열려요)`); else sysMessage('🏷 분양은 3층 💹 투자 상담실 → 🏠 부동산 탭에서 해요.'); }
 }
 $('btnSound').onclick = () => { setMuted(!isMuted()); $('btnSound').innerHTML = isMuted() ? '🔇' : '🔊'; startAudio(); try { localStorage.setItem('work-mute', isMuted() ? '1' : '0'); } catch {} };
 try { if (localStorage.getItem('work-mute') === '1') { setMuted(true); $('btnSound').textContent = '🔇'; } } catch {}
@@ -1232,9 +1310,9 @@ const floorBlocked = (i) => mode === 'office' && i === player.floor;
 function openFloorMenu() {
   heldAtOpen = new Set(keys); keys.clear(); clearTarget(); // 창이 뜨면 캐릭터는 멈춤 (걷던 키를 계속 누르고 있어도 층이 마구 바뀌지 않게)
   // 실제 엘리베이터처럼 위층이 위에 (↑ = 위층)
-  $('floorList').innerHTML = FLOORS.map((f, i) => [f, i]).reverse().map(([f, i]) => `<button data-f="${i}" class="${i === player.floor ? 'here' : ''}"${floorBlocked(i) ? ' disabled' : ''}><b>${f.label}</b>${f.name}${floorBlocked(i) ? '<small>지금 있는 층</small>' : ''}</button>`).join('');
+  $('floorList').innerHTML = FLOORS.slice(0, BLDG_N).map((f, i) => [f, i]).reverse().map(([f, i]) => `<button data-f="${i}" class="${i === player.floor ? 'here' : ''}"${floorBlocked(i) ? ' disabled' : ''}><b>${f.label}</b>${f.name}${floorBlocked(i) ? '<small>지금 있는 층</small>' : ''}</button>`).join('');
   $('floorList').querySelectorAll('button').forEach((b) => (b.onclick = () => chooseFloor(+b.dataset.f)));
-  floorSel = floorBlocked(player.floor) ? (player.floor + 1 < FLOORS.length ? player.floor + 1 : player.floor - 1) : player.floor;
+  floorSel = player.floor >= BLDG_N ? 0 : floorBlocked(player.floor) ? (player.floor + 1 < BLDG_N ? player.floor + 1 : player.floor - 1) : player.floor;
   markFloorSel();
   openModal('floorModal');
   document.activeElement?.blur?.();
@@ -1248,8 +1326,8 @@ function floorKey(e) {
   if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowDown' || c === 'KeyS') {
     const d = c === 'ArrowUp' || c === 'KeyW' ? 1 : -1; // ↑ 위층, ↓ 아래층 (끝에서 멈춤)
     let i = floorSel + d;
-    if (i >= 0 && i < FLOORS.length && floorBlocked(i)) i += d;
-    if (i >= 0 && i < FLOORS.length) { floorSel = i; markFloorSel(); }
+    if (i >= 0 && i < BLDG_N && floorBlocked(i)) i += d;
+    if (i >= 0 && i < BLDG_N) { floorSel = i; markFloorSel(); }
   } else if (c === 'Enter' || c === 'NumpadEnter' || c === 'Space' || (c === 'KeyE' && !e.repeat)) {
     if (!floorBlocked(floorSel)) chooseFloor(floorSel);
   } else if (/^(Digit|Numpad)[1-5]$/.test(c)) {
@@ -1713,5 +1791,5 @@ requestAnimationFrame(() => {
 
 // 테스트용 훅
 // 🛡 11-26: 개발자 콘솔에서 돈 · 결투를 건드릴 수 있던 통로 → 서버 없는 로컬 데모(점검용)에서만 열어 둠
-if (!supa || /^(127\.0\.0\.1|localhost)$/.test(location.hostname)) window.__work = { danceTap, sitDown, race, advent, snowFight, shop, shopUI, money, ride, rideJoin, sleigh, FLY, duel, findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
+if (!supa || /^(127\.0\.0\.1|localhost)$/.test(location.hostname)) window.__work = { estate, goHome, leaveHome, village, danceTap, sitDown, race, advent, snowFight, shop, shopUI, money, ride, rideJoin, sleigh, FLY, duel, findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
 window.__workMain = true;

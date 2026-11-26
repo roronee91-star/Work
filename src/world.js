@@ -252,6 +252,7 @@ export function createCity(uniforms) {
   for (let bx = -N; bx <= N; bx++) {
     for (let bz = -N; bz <= N; bz++) {
       if (bx === 0 && bz === 0) continue; // 우리 건물 블록
+      if (bx === 1 && bz === 0) continue; // 🏘 WORK 빌리지 (estate.js, 회사 동쪽 블록)
       const cx = bx * B, cz = bz * B;
       for (let q = 0; q < 4; q++) {
         if (rand() < 0.1) continue;

@@ -225,6 +225,7 @@ export function createMoney(api) {
     if (!w) return;
     document.querySelectorAll('#invTabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === tab));
     $('invCash').innerHTML = `지갑 현금 <b>${won(w.cash)}</b>`;
+    if (tab === 'estate') { api.estateTab?.($('invBody')); return; } // 🏠 부동산 분양 (estate.js)
     if (tab === 'stock') {
       $('invBody').innerHTML = STOCKS.map((st) => {
         const p = price(st), c = chg(st), h = w.stocks[st.code] || { q: 0, c: 0 }, pl = h.q ? (p - h.c) * h.q : 0;
@@ -329,5 +330,5 @@ export function createMoney(api) {
   function stampDay(day) { if (!w || xmasDays().includes(day)) return false; w.stocks.__xmas = [...xmasDays(), day]; save(); return true; }
   // 🛡 출석 조건을 채운 선물만 (api.canGrant)
   function grant(id) { if (!w || items().includes(id) || !api.canGrant?.(id)) return false; w.stocks.__items = [...items(), id]; save(); return true; }
-  return { reward, stake, duelReport, linkCode, keyFor, adventCheckin, get server() { return server; }, xmasDays, stampDay, grant, today, items, wear, buy, setWear, spend, earn, cash: () => (w ? w.cash : 0), load, greeting, openWallet, openInvest, save, get ready() { return !!w; }, get mode() { return useLocal ? 'local' : 'server'; } };
+  return { call: (fn, args) => rpc(fn, args).then((row) => { apply(row); return row; }), get tab() { return tab; }, reward, stake, duelReport, linkCode, keyFor, adventCheckin, get server() { return server; }, xmasDays, stampDay, grant, today, items, wear, buy, setWear, spend, earn, cash: () => (w ? w.cash : 0), load, greeting, openWallet, openInvest, save, get ready() { return !!w; }, get mode() { return useLocal ? 'local' : 'server'; } };
 }

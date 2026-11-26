@@ -458,3 +458,47 @@ dl.wal small { color: var(--muted); font-size: 11px; margin-left: 4px; }
 #btnDance:active { transform: scale(.9); }
 @keyframes danceBtn { from { transform: scale(1) rotate(-6deg); } to { transform: scale(1.06) rotate(6deg); } }
 @media (hover: hover) and (pointer: fine) { #btnDance { bottom: 80px; right: 24px; } }
+
+/* 🏘 부동산 분양 (estate.js) */
+.est { list-style: none; }
+.est-head { margin: 12px 0 6px; font-size: 16px; }
+.est-head small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.est h4 { margin: 14px 0 6px; font-size: 14px; color: var(--gold); }
+.est h4 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.est-note { color: var(--muted); font-size: 13px; margin: 8px 0; }
+.est-mine { padding: 10px 12px; border-radius: 12px; background: rgba(62,207,142,.12); border: 1px solid rgba(62,207,142,.4); font-size: 14px; }
+.est-mine div { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.est-mine button { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--gold); background: rgba(232,211,160,.16); color: var(--gold); font-weight: 700; }
+.est-mine button.link { border: 0; background: none; color: var(--muted); font-weight: 400; text-decoration: underline; padding: 0; }
+.est-apt { display: grid; gap: 5px; }
+.est-row { display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; align-items: center; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.04); cursor: pointer; font-size: 14px; }
+.est-row em { font-style: normal; color: #7fe0b0; font-size: 13px; }
+.est-row.sold { opacity: .55; cursor: default; }
+.est-row.sold em { color: var(--muted); }
+.est-row.on, .est-lots button.on { border-color: var(--gold); background: rgba(232,211,160,.18); }
+.est-lots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.est-lots button { padding: 8px 0 6px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--fg); display: grid; gap: 2px; }
+.est-lots button b { font-size: 15px; }
+.est-lots button small { font-size: 10px; color: #7fe0b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
+.est-lots button.sold { opacity: .5; }
+.est-lots button.sold small { color: var(--muted); }
+.est-pick { margin-top: 12px; padding: 12px; border-radius: 12px; background: rgba(232,211,160,.08); border: 1px solid rgba(232,211,160,.3); }
+.est-sizes { display: flex; gap: 8px; margin: 10px 0 4px; }
+.est-sizes button { flex: 1; padding: 10px 0; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--fg); font-weight: 700; display: grid; gap: 2px; }
+.est-sizes button small { color: var(--muted); font-weight: 400; }
+.est-sizes button.on { border-color: var(--gold); color: var(--gold); background: rgba(232,211,160,.16); }
+.est-pick .primary { width: 100%; margin-top: 6px; }
+.est-pick .primary:disabled { opacity: .5; }
+/* 📝 계약서 */
+.ct-paper { position: relative; margin: 12px 0; padding: 18px 18px 14px; border-radius: 6px; background: #fbf7ec; color: #2c2418; box-shadow: inset 0 0 0 2px #c9b48a, inset 0 0 0 6px #fbf7ec, inset 0 0 0 7px #c9b48a; }
+.ct-paper h3 { margin: 0 0 12px; text-align: center; letter-spacing: 6px; font-size: 19px; }
+.ct-paper table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ct-paper th, .ct-paper td { border: 1px solid #c9b48a; padding: 7px 9px; text-align: left; }
+.ct-paper th { width: 30%; background: #f1e8d2; font-weight: 600; }
+.ct-terms { font-size: 12px; color: #6a5a40; line-height: 1.6; margin: 10px 0; }
+.ct-ok { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.ct-sign { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; margin-top: 10px; font-size: 13px; color: #6a5a40; }
+.ct-sign i { min-width: 90px; border-bottom: 1px solid #6a5a40; font-style: normal; font-family: "Nanum Pen Script", cursive, var(--font); font-size: 22px; color: #1d3c8a; text-align: center; }
+#ctSeal { position: absolute; right: 22px; bottom: 34px; width: 74px; height: 74px; border-radius: 50%; border: 4px solid #c8102e; color: #c8102e; font-weight: 900; font-size: 15px; display: grid; place-content: center; text-align: center; line-height: 1.1; transform: rotate(-14deg); animation: ctStamp .45s cubic-bezier(.2,1.6,.4,1); background: rgba(200,16,46,.06); }
+#ctSeal[hidden] { display: none; }
+@keyframes ctStamp { from { transform: rotate(-14deg) scale(2.4); opacity: 0; } to { transform: rotate(-14deg) scale(1); opacity: 1; } }

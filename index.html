@@ -87,6 +87,7 @@
         <button id="btnXmas" class="xmas-btn" title="크리스마스 출석" hidden><i>🎄</i><span>출석</span><b id="xmasCount">0</b></button>
         <button id="btnMe" title="내 캐릭터 바꾸기"><i>👤</i><span>내 캐릭터</span></button>
         <button id="btnFloor" title="층 이동"><i>🛗</i><span>층 이동</span></button>
+        <button id="btnHome" title="우리 집" hidden><i>🏠</i><span>우리 집</span></button>
         <button id="btnNotice" title="공지"><i>📢</i><span>공지</span></button>
         <button id="btnReq" title="업무 요청"><i>📋</i><span>업무</span><b id="reqBadge" class="badge" hidden>0</b></button>
         <button id="btnPeople" title="접속자"><i>👥</i><b id="onlineCount">1</b></button>
@@ -228,8 +229,16 @@
     <div class="modal-card">
       <header><h2>💹 투자 상담실</h2><button class="close" data-close>✕</button></header>
       <p id="invCash" class="inv-cash"></p>
-      <div id="invTabs" class="req-tabs"><button type="button" data-t="stock">📈 주식</button><button type="button" data-t="save">🏦 적금</button></div>
+      <div id="invTabs" class="req-tabs"><button type="button" data-t="stock">📈 주식</button><button type="button" data-t="save">🏦 적금</button><button type="button" data-t="estate">🏠 부동산</button></div>
       <ul id="invBody"></ul>
+    </div>
+  </div>
+
+  <!-- 📝 부동산 분양 계약서 (estate.js) -->
+  <div id="contractModal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>📝 분양 계약</h2><button class="close" data-close>✕</button></header>
+      <div id="contractBody"></div>
     </div>
   </div>
 
