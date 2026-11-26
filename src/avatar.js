@@ -87,16 +87,6 @@ function shade(hex, k) { return new THREE.Color(hex).multiplyScalar(k); }
 function isLight(hex) { const c = new THREE.Color(hex); return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.6; }
 const bottomOf = (g, top) => g === 'f' ? (isLight(top) ? 0x39415a : 0xc9b59a) : (isLight(top) ? 0x353c4a : 0xb9a888);
 
-// 끝으로 갈수록 가늘어지는 매끈한 머리 다발 (포니테일 · 양갈래)
-function taper(pts, r0, r1, seg = 24, rad = 12) {
-  const curve = new THREE.CatmullRomCurve3(pts.map((q) => new THREE.Vector3(...q)));
-  const geo = new THREE.TubeGeometry(curve, seg, 1, rad, false), pos = geo.attributes.position, c = new THREE.Vector3();
-  for (let i = 0; i <= seg; i++) {
-    const t = i / seg, r = r0 + (r1 - r0) * t * t, P = curve.getPointAt(t);
-    for (let j = 0; j <= rad; j++) { const k = i * (rad + 1) + j; c.fromBufferAttribute(pos, k).sub(P).multiplyScalar(r).add(P); pos.setXYZ(k, c.x, c.y, c.z); }
-  }
-  geo.computeVertexNormals(); return geo;
-}
 // 머리 모양
 function hair(p, hs, HAIR, f, H) {
   const curly = hs === 5;
@@ -158,17 +148,21 @@ function hair(p, hs, HAIR, f, H) {
       p.add(new THREE.SphereGeometry(0.07, 12, 10), HAIR, sx * (0.215 + (i % 2 ? 0.03 : 0)), H - 0.1 - i * 0.09, 0.02 - i * 0.015, { sx: 0.75, sy: 1.25 });
     }
   } else if (hs === 8) {
-    // 댄디컷 · 쉼표머리: 둥근 머리 + 이마를 덮는 앞머리, 오른쪽 끝만 안으로 살짝 말림
+    // 댄디컷 · 쉼표머리: 둥근 버섯 모양 + 이마를 덮는 앞머리 + 한쪽 끝을 쉼표처럼 말아 넘김
     p.add(new THREE.SphereGeometry(0.275, 24, 18), HAIR, 0, H + 0.05, -0.03, { sx: 1.04, sy: 0.92, sz: 0.95 });
-    for (const [x, y] of [[-0.13, 0.105], [-0.045, 0.1], [0.04, 0.1]]) p.add(new THREE.SphereGeometry(0.08, 14, 10), HAIR, x, H + y, 0.195, { sx: 1.0, sy: 0.45, sz: 0.5, rz: x * 1.2 });
-    p.add(new THREE.SphereGeometry(0.05, 12, 10), HAIR, 0.125, H + 0.08, 0.2, { sx: 0.9, sy: 0.8, sz: 0.55, rz: -0.5 });      // 안으로 말린 끝 (쉼표)
+    for (const [x, y] of [[-0.14, 0.1], [-0.05, 0.095], [0.04, 0.1]]) p.add(new THREE.SphereGeometry(0.075, 14, 10), HAIR, x, H + y, 0.2, { sx: 0.95, sy: 0.5, sz: 0.5, rz: x * 1.2 });
+    p.add(new THREE.TorusGeometry(0.034, 0.017, 8, 14, Math.PI * 1.4), HAIR, 0.12, H + 0.075, 0.215, { rz: -0.6 });     // 쉼표
   } else if (hs === 9) {
-    // 가르마펌 6:4: 왼쪽 가르마에서 오른쪽으로 비스듬히 넘긴 앞머리 (이마가 살짝 보임) + 둥근 볼륨
-    p.add(new THREE.SphereGeometry(0.278, 24, 18), HAIR, 0, H + 0.055, -0.03, { sx: 1.05, sy: 0.94, sz: 0.95 });
-    for (const [x, y, rz] of [[-0.075, 0.122, -0.28], [0.02, 0.112, -0.22], [0.11, 0.095, -0.15]]) p.add(new THREE.SphereGeometry(0.085, 14, 10), HAIR, x, H + y, 0.19 - Math.abs(x) * 0.08, { sx: 1.05, sy: 0.45, sz: 0.5, rz }); // 가르마 왼쪽(-0.14)은 비워 이마가 보이게
+    // 가르마펌 6:4: 왼쪽에서 가르마를 타고 오른쪽으로 크게 넘긴 볼륨 + 이마가 살짝 보임
+    p.add(new THREE.SphereGeometry(0.278, 24, 18), HAIR, 0, H + 0.06, -0.03, { sx: 1.05, sy: 0.95, sz: 0.95 });
+    p.add(new THREE.SphereGeometry(0.13, 16, 12), HAIR, 0.06, H + 0.17, 0.15, { sx: 1.45, sy: 0.6, sz: 0.75, rz: -0.28 });      // 넘긴 앞머리
+    p.add(new THREE.SphereGeometry(0.08, 12, 10), HAIR, 0.19, H + 0.06, 0.15, { sx: 0.7, sy: 1.0, sz: 0.8 });                   // 오른쪽으로 흘러내린 끝
+    p.add(new THREE.SphereGeometry(0.07, 12, 10), HAIR, -0.15, H + 0.2, 0.12, { sx: 0.9, sy: 0.55, sz: 0.7, rz: 0.5 });         // 가르마 왼쪽
   } else if (hs === 10) {
-    // 리젠트 · 올백: 이마가 다 보이게 넘기고, 앞쪽 머리선만 머리 폭 그대로 매끈하게 살짝 세움
-    p.add(new THREE.SphereGeometry(0.28, 26, 18), HAIR, 0, H + 0.075, -0.035, { sx: 1.02, sy: 0.98, sz: 0.97, rx: -0.25 }); // 앞이 살짝 높은 둥근 머리 (따로 얹지 않고 한 덩어리)
+    // 리젠트 · 올백: 앞머리를 위로 세워 뒤로 넘김 (이마가 다 보임)
+    p.add(new THREE.SphereGeometry(0.27, 24, 18), HAIR, 0, H + 0.04, -0.05, { sx: 1.02, sy: 0.95, sz: 0.92 });
+    p.add(new THREE.SphereGeometry(0.14, 18, 12), HAIR, 0, H + 0.2, 0.13, { sx: 1.5, sy: 0.62, sz: 0.95, rx: -0.55 });           // 세운 앞머리 (이마 위로 둥글게)
+    for (const sx of [-1, 1]) p.add(new THREE.SphereGeometry(0.06, 10, 8), HAIR, sx * 0.17, H + 0.16, 0.12, { sx: 0.8, sy: 0.5, sz: 1.2, ry: sx * 0.5 }); // 옆으로 넘긴 결
   } else if (hs === 11) {
     // 투블럭 · 버즈컷: 옆은 짧게 민 짙은 색, 위만 짧게 남김 + 짧은 앞머리 끝
     p.add(new THREE.SphereGeometry(0.262, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.42), HAIR, 0, H + 0.035, -0.015, { sx: 1.0, sy: 0.95, sz: 1.0, rx: -0.2 });
@@ -177,13 +171,13 @@ function hair(p, hs, HAIR, f, H) {
     // 높은 포니테일: 정수리 뒤에서 높게 묶어 뒤로 흘러내림
     p.add(new THREE.SphereGeometry(0.26, 24, 18), HAIR, 0, H + 0.02, -0.05, { sx: 1.0, sy: 0.95, sz: 0.88 });
     p.add(new THREE.TorusGeometry(0.04, 0.015, 6, 14), 0xf28bb0, 0, H + 0.22, -0.2, { rx: 0.9 });                              // 머리끈
-    p.add(taper([[0, H + 0.24, -0.22], [0, H + 0.2, -0.33], [0, H + 0.05, -0.38], [0, H - 0.12, -0.34], [0, H - 0.27, -0.27]], 0.07, 0.025), HAIR, 0, 0, 0); // 매끈하게 이어진 꼬리
+    for (let i = 0; i <= 12; i++) { const t = i / 12, y = 0.25 - t * 0.52, z = -0.25 - Math.sin(Math.min(1, t * 1.6) * Math.PI / 2) * 0.12 + t * t * 0.07; p.add(new THREE.SphereGeometry(0.078 - t * 0.035, 12, 10), HAIR, 0, H + y, z, { sx: 0.95, sy: 1.25, sz: 0.85 }); } // 이어진 꼬리
   } else if (hs === 13) {
     // 양갈래: 양쪽 귀 위에서 묶어 바깥으로 살짝 뻗친 두 갈래
     p.add(new THREE.SphereGeometry(0.262, 24, 18), HAIR, 0, H + 0.02, -0.05, { sx: 1.0, sy: 0.96, sz: 0.88 });
     for (const sx of [-1, 1]) {
       p.add(new THREE.TorusGeometry(0.032, 0.013, 6, 12), 0xf28bb0, sx * 0.25, H + 0.06, -0.08, { ry: Math.PI / 2, rx: sx * 0.6 });
-      p.add(taper([[sx * 0.27, H + 0.06, -0.08], [sx * 0.33, H - 0.03, -0.08], [sx * 0.345, H - 0.15, -0.07], [sx * 0.32, H - 0.28, -0.05]], 0.06, 0.022), HAIR, 0, 0, 0); // 매끈한 갈래
+      for (let i = 0; i <= 8; i++) { const t = i / 8; p.add(new THREE.SphereGeometry(0.068 - t * 0.03, 12, 10), HAIR, sx * (0.29 + Math.sin(t * Math.PI) * 0.045), H + 0.02 - t * 0.32, -0.08, { sx: 0.9, sy: 1.25 }); } // 이어진 갈래
     }
   } else if (hs === 14) {
     // 허쉬컷: 층을 많이 낸 어깨 길이 + 끝이 바깥으로 뻗침 + 가볍게 내린 시스루 앞머리
