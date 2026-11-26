@@ -308,7 +308,8 @@ export function createMoney(api) {
   // 눈싸움 · 레이스 상금: 서버가 한 번 · 하루 상한을 확인
   function reward(kind, n) { if (!w || n <= 0) return; if (!server) { earn(n); return; } w.cash += n; chip(); sv('wallet_reward', { p_kind: kind, p_amount: n }); }
   // ⚔️ 판돈: 서버가 보관 → 두 사람 결과가 맞을 때만 이긴 쪽에 2배
-  function stake(id, n) { if (!w || n <= 0 || w.cash < n) return false; w.cash -= n; if (server) sv('duel_stake', { p_duel: id, p_amount: n }); else save(); chip(); return true; }
+  // 🛡 opp: 고른 상대 이름 → 서버는 서로 고른 두 사람일 때만 정산(남이 끼어들어 판돈을 가로채지 못하게)
+  function stake(id, n, opp) { if (!w || n <= 0 || w.cash < n) return false; w.cash -= n; if (server) sv('duel_stake', { p_duel: id, p_amount: n, p_opp: opp || null }); else save(); chip(); return true; }
   function duelReport(id, result, bet) {
     if (!server) { if (result === 'win') earn(bet * 2); else if (result === 'draw') earn(bet); return; }
     sv('duel_report', { p_duel: id, p_result: result });
@@ -328,5 +329,5 @@ export function createMoney(api) {
   function stampDay(day) { if (!w || xmasDays().includes(day)) return false; w.stocks.__xmas = [...xmasDays(), day]; save(); return true; }
   // 🛡 출석 조건을 채운 선물만 (api.canGrant)
   function grant(id) { if (!w || items().includes(id) || !api.canGrant?.(id)) return false; w.stocks.__items = [...items(), id]; save(); return true; }
-  return { reward, stake, duelReport, linkCode, adventCheckin, get server() { return server; }, xmasDays, stampDay, grant, today, items, wear, buy, setWear, spend, earn, cash: () => (w ? w.cash : 0), load, greeting, openWallet, openInvest, save, get ready() { return !!w; }, get mode() { return useLocal ? 'local' : 'server'; } };
+  return { reward, stake, duelReport, linkCode, keyFor, adventCheckin, get server() { return server; }, xmasDays, stampDay, grant, today, items, wear, buy, setWear, spend, earn, cash: () => (w ? w.cash : 0), load, greeting, openWallet, openInvest, save, get ready() { return !!w; }, get mode() { return useLocal ? 'local' : 'server'; } };
 }

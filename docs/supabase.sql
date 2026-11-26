@@ -29,14 +29,13 @@ create table if not exists public.duel_stats (
   updated_at timestamptz not null default now()
 );
 alter table public.duel_stats enable row level security;
-/* 누구나 읽고, 자기 기록을 올리고 고칠 수 있음 (지우기는 대시보드에서만) */
+/* 누구나 읽기만. 레벨 · 칭호를 바꾸는 건 docs/security.sql의 duel_stats_save 함수로만 (주인만, 한 판씩) */
 drop policy if exists "duel read" on public.duel_stats;
 create policy "duel read" on public.duel_stats for select using (true);
 drop policy if exists "duel insert" on public.duel_stats;
-create policy "duel insert" on public.duel_stats for insert with check (true);
 drop policy if exists "duel update" on public.duel_stats;
-create policy "duel update" on public.duel_stats for update using (true) with check (true);
-grant select, insert, update on public.duel_stats to anon, authenticated;
+revoke insert, update, delete on public.duel_stats from anon, authenticated;
+grant select on public.duel_stats to anon, authenticated;
 
 /* 📋 업무 요청. 이것도 SQL Editor에서 한 번 실행하세요. */
 /* 이 표가 없으면 업무 요청은 각자 브라우저에만 저장됩니다(다른 사람에게 안 감). */
@@ -69,7 +68,7 @@ grant update (status, updated_at) on public.requests to anon, authenticated;
 notify pgrst, 'reload schema';
 
 /* 💰 월급 · 지갑 · 💹 투자 (게임 속 가상 돈). 이것도 SQL Editor에서 실행하세요. */
-/* 이 표가 없으면 지갑은 각자 브라우저에만 저장됩니다. */
+/* 이 표가 없으면 지갑은 각자 브라우저에만 저장됩니다. 지갑 · 결투 레벨을 서버에 저장하려면 이 파일 다음에 docs/security.sql도 실행하세요. */
 create table if not exists public.wallets (
   name text primary key check (char_length(name) <= 16),
   cash double precision not null default 0,
@@ -83,11 +82,11 @@ create table if not exists public.wallets (
   updated_at timestamptz not null default now()
 );
 alter table public.wallets enable row level security;
+/* 누구나 읽기만. 돈이 바뀌는 일은 docs/security.sql의 서버 함수로만 (이 파일을 다시 실행해도 직접 고치기가 다시 열리지 않음) */
 drop policy if exists "wallets read" on public.wallets;
 create policy "wallets read" on public.wallets for select using (true);
 drop policy if exists "wallets insert" on public.wallets;
-create policy "wallets insert" on public.wallets for insert with check (true);
 drop policy if exists "wallets update" on public.wallets;
-create policy "wallets update" on public.wallets for update using (true) with check (true);
-grant select, insert, update on public.wallets to anon, authenticated;
+revoke insert, update, delete on public.wallets from anon, authenticated;
+grant select on public.wallets to anon, authenticated;
 notify pgrst, 'reload schema';

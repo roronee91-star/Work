@@ -162,7 +162,8 @@ const peers = new Map();
 const lvName = (name, lv, loser = false) => `${loser ? '😵패배자 ' : ''}${lv > 1 ? `Lv.${lv} ` : ''}${name}`;
 const duel = createDuel({
   $, me, peers, isTouch,
-  cash: () => money.cash(), stake: (id, n) => money.stake(id, n), duelReport: (id, r, bet) => money.duelReport(id, r, bet),
+  cash: () => money.cash(), stake: (id, n, opp) => money.stake(id, n, opp), duelReport: (id, r, bet) => money.duelReport(id, r, bet),
+  walletKey: (name) => money.keyFor(name), // 🛡 결투 기록도 지갑 주인 키로 저장(security.sql duel_stats_save)
   net: () => net,
   openModal: (id) => openModal(id), closeModals: () => closeModals(),
   sys: (t) => sysMessage(t), chatLine: (t) => sysMessage(t),

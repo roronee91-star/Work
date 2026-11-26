@@ -19,13 +19,26 @@ export function createDuel(api) {
   let owner = '';   // 지금 레벨이 누구(이름) 것인지
   const KEYS = ['level', 'loser', 'win', 'lose', 'day', 'challenges'];
   const pick = (o) => Object.fromEntries(KEYS.map((k) => [k, o[k]]));
+  // 🛡 서버 함수(security.sql duel_stats_save)로만 저장: 지갑 주인 키 확인 + 한 번에 한 판만큼만 바뀜. 함수가 아직 없으면 예전처럼 표에 바로 저장
   const save = () => {
     try { localStorage.setItem('work-duel2', JSON.stringify(stats)); } catch {}
-    if (supa && owner) supa.from('duel_stats').upsert({ name: owner, ...pick(stats), updated_at: new Date().toISOString() }, { onConflict: 'name' })
-      .then(({ error }) => { if (error) console.warn('결투 기록 저장 실패', error.message); });
+    if (!supa || !owner) return;
+    const name = owner;
+    supa.rpc('duel_stats_save', { p_name: name, p_key: api.walletKey(name), p_level: stats.level, p_loser: !!stats.loser, p_win: stats.win, p_lose: stats.lose, p_day: stats.day, p_challenges: stats.challenges })
+      .then(({ error }) => {
+        if (!error) return;
+        if (error.code === 'PGRST202') { // security.sql을 아직 실행하지 않은 곳
+          supa.from('duel_stats').upsert({ name, ...pick(stats), updated_at: new Date().toISOString() }, { onConflict: 'name' })
+            .then(({ error: e2 }) => { if (e2) console.warn('결투 기록 저장 실패', e2.message); });
+          return;
+        }
+        console.warn('결투 기록 저장 실패', error.message);
+        if (/bad_stats/.test(error.message) && owner === name) load(name, true); // 서버 기록과 어긋나면 서버 값으로 맞춤
+      });
   };
   // 들어올 때 · 이름을 바꿨을 때: 그 이름의 기록을 불러옴 (없으면 이 기기 기록을 그 이름으로 올림)
-  async function load(name) {
+  // reset: 서버 기록과 어긋났을 때 — 서버에 기록이 없으면 이 기기 기록을 Lv.1부터 다시 시작
+  async function load(name, reset = false) {
     owner = name;
     if (!supa || !name) return;
     const { data, error } = await supa.from('duel_stats').select('*').eq('name', name).maybeSingle();
@@ -38,7 +51,10 @@ export function createDuel(api) {
       if (expire()) save();
       try { localStorage.setItem('work-duel2', JSON.stringify(stats)); } catch {}
       api.levelChanged(stats.level);
-    } else save();
+    } else {
+      if (reset) { stats = { ...stats, level: 1, win: 0, lose: 0, loser: false, loseDay: '' }; api.levelChanged(stats.level); }
+      save();
+    }
   }
   const today = () => new Date().toLocaleDateString('ko-KR');
   // 날짜가 바뀌면 패배자 칭호를 뗌 (바뀌었으면 true)
@@ -145,7 +161,7 @@ export function createDuel(api) {
       if (st.active || invite) { send({ t: 'decline', id: e.id, from: me.id, to: e.from, busy: 1 }); return; }
       invite = e;
       const bet = e.bet || 0, cash = api.cash(), short = bet > cash;
-      $('dAskText').innerHTML = `<b>Lv.${e.fromLv || 1} ${esc(e.fromName)}</b>님이 <b>${SWORD}</b>으로 정식 결투를 신청했어요!` +
+      $('dAskText').innerHTML = `<b>Lv.${Math.max(1, Math.floor(+e.fromLv) || 1)} ${esc(e.fromName)}</b>님이 <b>${SWORD}</b>으로 정식 결투를 신청했어요!` +
         (bet ? `<br><span class="bet-big">💰 판돈 각 ${won(bet)}</span><small>이기면 ${won(bet * 2)}을 다 가져가요. 내 지갑 ${won(cash)}${short ? ' — <b style="color:#ff8a8a">돈이 모자라요!</b> 아래에서 역제안해 보세요.' : ''}</small>` : '<br><small>돈은 걸지 않은 결투예요.</small>') +
         `<small>이기면 레벨 +1, 지면 오늘 하루 😵패배자 칭호가 붙어요.</small>`;
       $('dAccept').disabled = short;
@@ -207,7 +223,7 @@ export function createDuel(api) {
     invite = null; outgoing = null; counterIn = null; api.closeModals();
     // 💰 판돈: 시작할 때 각자 지갑에서 미리 빼 둠 → 끝나면 이긴 사람이 두 배를 받음 (비기면 돌려받음)
     st.bet = 0;
-    if (!e.bot && e.bet > 0) { if (api.stake(e.id, e.bet)) { /* 🛡 서버가 판돈을 보관(security.sql duel_stake) */ st.bet = e.bet; api.sys(`💰 판돈 ${won(e.bet)}을 걸었어요!`); } else api.sys('💰 지갑에 돈이 모자라서 판돈 없이 싸워요.'); }
+    if (!e.bot && e.bet > 0) { if (api.stake(e.id, e.bet, st.oppName)) { /* 🛡 서버가 판돈을 보관(security.sql duel_stake) */ st.bet = e.bet; api.sys(`💰 판돈 ${won(e.bet)}을 걸었어요!`); } else api.sys('💰 지갑에 돈이 모자라서 판돈 없이 싸워요.'); }
     document.activeElement?.blur?.(); // 버튼·채팅 칸에 남은 커서를 빼서 스페이스바가 바로 공격이 되게
     api.enterArena(mineA ? -1 : 1, st.bot);
     $('duelUI').hidden = false; $('dResult').hidden = true; $('dAttack').hidden = false;

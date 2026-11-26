@@ -135,6 +135,7 @@ export function createRace(api) {
   const pad2 = (n) => String(n).padStart(2, '0');
   const fmt = (ms) => `${Math.floor(ms / 60000)}:${pad2(Math.floor((ms % 60000) / 1000))}.${Math.floor((ms % 1000) / 100)}`;
   const won = (n) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const today = () => new Date().toLocaleDateString('ko-KR');
   let pay = { day: '', won: 0 };
   try { pay = { ...pay, ...JSON.parse(localStorage.getItem('work-race') || '{}') }; } catch {}
@@ -228,7 +229,7 @@ export function createRace(api) {
     const r = st.myResult; if (!r) return;
     const rows = st.racers.map((x) => ({ ...x, f: st.fin.find((f) => f.id === x.id) })).sort((a, b) => (a.f ? a.f.ms : 1e12) - (b.f ? b.f.ms : 1e12));
     $('raceResult').innerHTML = `<b>${r.many ? `${r.place}등!` : '완주!'} ${fmt(r.ms)}</b>${r.pb ? '<span>🎉 내 최고 기록!</span>' : ''}<em>${r.g ? `+${won(r.g)}` : '오늘 상금 한도에 닿았어요'}</em>`
-      + `<ol>${rows.map((x) => `<li class="${x.id === me.id ? 'me' : ''}">${x.name}<small>${x.f ? fmt(x.f.ms) : x.left ? '나감' : '달리는 중…'}</small></li>`).join('')}</ol><button type="button" id="raceBack">회사로 돌아가기</button>`;
+      + `<ol>${rows.map((x) => `<li class="${x.id === me.id ? 'me' : ''}">${esc(x.name)}<small>${x.f ? fmt(x.f.ms) : x.left ? '나감' : '달리는 중…'}</small></li>`).join('')}</ol><button type="button" id="raceBack">회사로 돌아가기</button>`;
     $('raceResult').hidden = false;
     $('raceBack').onclick = () => { $('raceResult').hidden = true; quit(true); };
   }
