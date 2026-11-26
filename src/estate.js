@@ -56,6 +56,8 @@ const VM = {
   curb: new THREE.MeshStandardMaterial({ color: 0xbdb6a8, roughness: 0.8 }),
   post: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }),
   gold: new THREE.MeshStandardMaterial({ color: 0xd9ad48, roughness: 0.3, metalness: 0.7 }),
+  model: new THREE.MeshStandardMaterial({ color: 0xf7f7f4, roughness: 0.9 }),     // 견본 주택
+  modelRoof: new THREE.MeshStandardMaterial({ color: 0xb9bcc2, roughness: 0.8 }),
 };
 
 // ---------- 마을 (밖) ----------
@@ -136,7 +138,17 @@ export function createVillage(colliders) {
       const np = canvasTex(512, 160, (ctx, w, h) => { ctx.fillStyle = '#2d2a26'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#d9ad48'; ctx.lineWidth = 6; ctx.strokeRect(6, 6, w - 12, h - 12); ctx.fillStyle = '#f4e3b2'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `700 56px ${FONT}`; ctx.fillText(`${o.name}`, w / 2, h / 2 - 14); ctx.font = `400 30px ${FONT}`; ctx.fillStyle = '#c9bfa8'; ctx.fillText(`${u.n}번지 · ${o.size}평`, w / 2, h / 2 + 40); });
       panel(g, np, 0.9, 0.28, x + 1.0, 1.5, fz + face * 0.05, face > 0 ? 0 : Math.PI);
     } else {
-      // 분양 중 팻말
+      // 분양 중: 하얀 견본 주택 + '분양 중' 현수막 (빈 땅만 있으면 마을이 허전해서)
+      const H = HOUSE[30], bz = z - face * 1.0, fz = bz + face * (H.d / 2 + 0.03);
+      hk.box(H.w, H.h, H.d, x, -0.3, bz, VM.model);
+      const rg = new THREE.CylinderGeometry(H.d * 0.72, H.d * 0.72, H.w + 0.6, 3, 1); rg.rotateZ(Math.PI / 2); rg.scale(1, 0.55, 1);
+      hk.add(rg, VM.modelRoof, x, -0.3 + H.h + H.d * 0.2, bz);
+      hk.box(1.1, 2.1, 0.08, x, -0.3, fz, VM.modelRoof);
+      for (const s2 of [-1, 1]) hk.box(1.4, 1.1, 0.06, x + s2 * (H.w / 4 + 0.4), 0.7, fz, VM.win);
+      cols.push({ x1: x - H.w / 2 - 0.1, z1: bz - H.d / 2 - 0.1, x2: x + H.w / 2 + 0.1, z2: bz + H.d / 2 + 0.1, tall: true });
+      const bn = canvasTex(1024, 200, (ctx, w, h) => { ctx.fillStyle = '#c23a3a'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 92px ${FONT}`; ctx.fillText(`${u.n}번지 분양 중`, w / 2, h / 2 + 4); });
+      panel(g, bn, 3.6, 0.7, x, 2.55, fz + face * 0.05, face > 0 ? 0 : Math.PI);
+      // 길가 팻말
       const sz = z + face * 4.5;
       hk.box(0.1, 1.2, 0.1, x, -0.3, sz, VM.post);
       const sg = canvasTex(512, 256, (ctx, w, h) => { ctx.fillStyle = '#fffaf0'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#c23a3a'; ctx.lineWidth = 10; ctx.strokeRect(8, 8, w - 16, h - 16); ctx.fillStyle = '#c23a3a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 70px ${FONT}`; ctx.fillText('분양 중', w / 2, 90); ctx.fillStyle = '#333'; ctx.font = `600 38px ${FONT}`; ctx.fillText(`${u.n}번지 · 3층 투자 상담실`, w / 2, 180); });
@@ -161,7 +173,7 @@ export function createVillage(colliders) {
     // 문 앞에 서 있으면 그 물건 (아파트는 현관 하나)
     doorNear(x, z, owners) {
       if (Math.hypot(x - APT.x, z - (APT.z + APT.d / 2 + 0.8)) < 1.6) return { apt: true };
-      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), s = doorSpot(u, o?.size); if (Math.hypot(x - s.x, z - s.z) < (o ? 1.3 : 2.2) && (o || Math.abs(z - (u.z + u.face * 4.5)) < 2.2)) return { unit: u, owner: o }; }
+      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), s = doorSpot(u, o?.size); if (Math.hypot(x - s.x, z - s.z) < 1.4 || (!o && Math.hypot(x - u.x, z - (u.z + u.face * 4.5)) < 1.6)) return { unit: u, owner: o }; }
       return null;
     },
   };
@@ -206,7 +218,7 @@ export function createHomeInterior(u, size, owner) {
   // 벽에 붙은 이름 액자
   const tag = canvasTex(512, 200, (ctx, w, h) => { ctx.fillStyle = '#fffaf0'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#b08a4a'; ctx.lineWidth = 10; ctx.strokeRect(5, 5, w - 10, h - 10); ctx.fillStyle = '#3a2c1c'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 58px ${FONT}`; ctx.fillText(`🏠 ${owner}님의 집`, w / 2, 80); ctx.font = `500 32px ${FONT}`; ctx.fillStyle = '#7a6a55'; ctx.fillText(`${u.label} · ${size}평`, w / 2, 150); });
   panel(group, tag, 1.3, 0.5, -hx + 0.02, 1.7, 0, Math.PI / 2);
-  return { group, colliders, hx, hz, ceil: Hh, door: { x: 0, z: hz - 0.9 }, box: { x: hx - 1.0, z: hz - 1.0 } };
+  return { group, colliders, hx, hz, ceil: Hh, door: { x: 0, z: hz - 0.9 }, spawn: { x: 0, z: hz - 2.3 }, box: { x: hx - 1.0, z: hz - 1.0 } };
 }
 
 // ---------- 분양 · 계약 (3층 투자 상담실 '🏠 부동산' 탭) ----------

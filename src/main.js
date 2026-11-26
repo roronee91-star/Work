@@ -252,7 +252,7 @@ function buildHome(f) {
   F.group.clear(); F.colliders.length = 0;
   const h = createHomeInterior(u, size, o?.name || '');
   F.group.add(h.group); F.colliders.push(...h.colliders);
-  Object.assign(F, { hx: h.hx, hz: h.hz, ceil: h.ceil, door: h.door, built: key });
+  Object.assign(F, { hx: h.hx, hz: h.hz, ceil: h.ceil, door: h.door, spawn: h.spawn, built: key });
   Object.assign(FLOORS[f], { hx: h.hx, hz: h.hz, name: o ? `${o.name}님 집` : u.label });
   GRIDS.delete(f);
   return F;
@@ -265,7 +265,7 @@ function goHome(id = estate.mine()?.unit.id) {
   fade.classList.add('on');
   setTimeout(() => {
     const F = buildHome(f);
-    player.floor = f; player.x = F.door.x; player.z = F.door.z; player.ry = Math.PI; cam.yaw = 0; cam.pitch = 0.28;
+    player.floor = f; player.x = F.spawn.x; player.z = F.spawn.z; player.ry = Math.PI; cam.yaw = 0; cam.pitch = 0.42; cam.dist = 2.2;
     bld.setFloor(f); player.zone = 'home'; showFloorHud(); sendState(true);
     officeCamPose(null, pose); fade.classList.remove('on');
     sysMessage('🏠 우리 집에 왔어요! 집에서는 일급이 쌓이지 않아요(퇴근 후 공간). 가구는 곧 생길 🛋 가구점에서 사면 배달돼요. 나갈 땐 현관문 앞에서 E (또는 위쪽 🏠 버튼)');
