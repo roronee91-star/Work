@@ -318,3 +318,9 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - 끄면: 마을 · 가구점을 그리지 않고 부딪힘 · 걸을 수 있는 땅(RECTS0)에서 빠짐, 투자 상담실 부동산 탭 버튼 제거, 원래 꽃밭 · 벤치 · 동쪽 도시 블록 되돌림. 업데이트 소식은 '분양 · 가구점 종료(환불)'로.
 - 환불: **docs/estate_refund.sql** (사용자 실행 필요) — 집은 (산 값 − 되판 값 − 이미 환불)을, 가구는 (산 값 − 이미 환불)을 지갑으로, estates 비움 · __furn/__home 지움, estate_buy · furn_buy 실행 권한 회수(public 포함). 여러 번 실행해도 차액만. 로컬 Postgres로 확인.
 - ⛄ 눈사람 마당(src/snowman.js, docs/snowman.sql)은 만들어 두었고 미리보기 그림을 보여 줌 — 켤지 사용자 답 기다리는 중. 켜려면 config `snowman: true` + snowman.sql 실행.
+
+## ⛄ 눈사람 마당 켬 (11-27, `src/snowman.js`, config `snowman: true`)
+- 마당 `YARD` x -23~-11.5, z -25~-11.5 (눈싸움장 서쪽, 남쪽 가운데 문). garden.js 꽃밭(-20,-16) · 벤치 2개 뺌.
+- ⛄ 버튼(#btnRoll, 컴퓨터 F)/안내 누르기 = 만들기 · 잡기 · 내려놓기. 굴린 거리 × 0.03만큼 커짐(처음 반지름 0.1, 최대 0.45). 굴리는 작은 덩이(≥0.16)가 놓인 큰 덩이(≥0.26, 작은 것 ≤ 큰 것×0.92)에 닿으면 쌓임 → 🖊 얼굴 그리기(#smModal, 320 캔버스 → 160px PNG) → 서버 `snowman_add`(지갑 키 · 한 사람 3 · 전체 30 · 마당 안 · 크기 · PNG만). 얼굴은 머리 앞 구면 조각(FACE_GEO)에 붙임. 이름표 '○○의 눈사람'(makeSprite). 부수기는 만든 사람만 `snowman_smash`. 몸통은 한 Kit로 합쳐 그림.
+- 실시간: 이벤트 {t:'sm', k:roll|drop|grab|gone|man|smash}. 놓인 눈덩이는 저장 안 함(10분 뒤 녹음, 늦게 들어온 사람은 못 봄).
+- **docs/snowman.sql 실행 필요.** 이상한 그림은 Supabase Table Editor → snowmen에서 줄 삭제. 확인: 로컬 Postgres(too_many · bad_place · bad_size · bad_face · not_yours · 직접 삭제 거부), 데모 화면 전 과정. 두 사람 동시 · 휴대폰 손맛은 확인 못 함.

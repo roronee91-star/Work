@@ -14,7 +14,7 @@ export const CONFIG = {
 
   // 기능 스위치 (true로 바꾸면 다시 켜짐)
   estate: false,  // 🏘 WORK 빌리지 · 🏠 부동산 분양 · 🛋 가구점 — 11-27 사용자: '회사와 맞지 않아 취소, 나중에 고민되면'
-  snowman: false, // ⛄ 눈사람 마당 — 미리보기만, 사용자 확인 전
+  snowman: true,  // ⛄ 눈사람 마당 — 11-27 사용자 '해줘'
 
   // Supabase가 없을 때 공지판에 보여 줄 기본 공지
   defaultNotices: [
