@@ -291,3 +291,15 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - ✅ 11-26 사용자가 menswear.sql 실행 완료 → 남성 옷 서버에서 살 수 있음.
 - 11-26 외부 점검 PR #1(nil-bae)을 작업 브랜치에 합쳐 배포. 지갑 옮기기 마감은 사용자 요청으로 11-27 0시(KST)로 당김. 로컬 Postgres에서 확인: 직접 수정 거절 · 끼어들기 duel_full · 중복 정산 없음 · 레벨 점프 bad_stats · 남의 키 not_owner · 마감 뒤 이름 import → 환영금만 · 마감 전 이름 import 정상 · 새 DB(supabase → security → snow50k → menswear → supabase → patch1)도 성공. **Supabase에 docs/security_patch1.sql 실행 필요.**
 - ✅ 11-26 사용자가 security_patch1.sql 실행 완료 → 판돈 · 결투 기록 · 지갑 옮기기 서버 보완 적용됨.
+
+## 🏘 WORK 빌리지 — 부동산 분양 1차 (11-26 밤 배포, `src/estate.js`)
+- 위치: 회사 블록 동쪽(레이스 도로 건너) `VILLAGE` x 72~168, z -48~48 (world.js에서 그 블록 도시 건물 뺌). 정원 동쪽 산울타리 틈(분수 옆, z 15~19)에서 `WALK` 건널목 → 입구 아치. 바닥 높이 `GY` -0.18(큰 땅 -0.3과 겹쳐 잔디가 가려지던 것 → 조금 위로). 언덕(`terrainH`/`HILL`)은 만들었다가 사용자가 별로라 해서 0으로(코드는 남김).
+- 물건 `UNITS`: 아파트 A1~A5(5층 레지던스, 층마다 1집, 1~4층 34평 · 5층 펜트 45평) + 단독주택 H1~H16(4줄 × 4채, 골목 z ±26을 사이에 두고 현관끼리 마주봄, 30/50평). 가격은 estate.js `sizes`와 docs/estate.sql `estate_prices`가 같아야 함.
+- 집 모양 3가지 `styleOf`(금속 박공 목조 · 화이트 단층 · 모던 큐브, 참고 사진 분위기). 큰 덩어리는 둥근 Kit. 창: 보통 크기 + 흰 창틀(`frameW`) + 반투명 유리(`glassW`) + 유리 너머 '하나의 빈 거실' 그림(`VM.room`, `roomPlane`으로 창마다 자기 자리 부분 → 창 여러 개로 한 방이 이어져 보임, 이웃집은 좌우 반대). 사용자: 통창은 너무 큼 · 회색 유리 싫음 · 창마다 같은 방은 방이 두 개처럼 보임 · 집이 비었으니 빈 방이 보이게.
+- 단독주택 둘레 울타리(집 모양별) + 대문: 내 집만 열림, 남의 집은 닫힘(`createVillage(colliders, myName)`). 분양 전 집은 앞 울타리에 '○번지 분양 중' 간판(현관 위 현수막 X — 사용자 요청).
+- 집 안: 집마다 '층 번호'(HOME_BASE 5 + UNITS 순서, `FLOORS`/`bld.floors`에 덧붙임, y 60 하늘 높이) → 같은 집에 있는 사람끼리만 보임. 들어갈 때 `createHomeInterior`로 그림(빈 방, 남쪽 벽 통창 + 한강 그림 `riverTex`, 이름 액자). 현관 앞 E로 나가면 그 집 문 앞. 위쪽 🏠 버튼(#btnHome) 순간이동. 엘리베이터 목록은 `BLDG_N`(5)까지만.
+- 일급: 마을 · 집에서는 멈춤(`atWork`에 floor<5 && zone≠village) — 사용자 '사옥 의미가 없어' → A안.
+- 분양: 3층 투자 상담실 '🏠 부동산' 탭(`money.js` estateTab → `createEstate.render`) → 고르기 → 📝 계약서 모달(#contractModal, 체크 · 서명 · 도장) → `money.call('estate_buy')`. 되팔기 90% `estate_sell`. 서버 표 `estates`(unit pk, name unique), 함수 `estate_list/buy/sell`(advisory lock) — **docs/estate.sql을 Supabase에서 실행해야 열림**(함수 없으면 탭에 '서버 준비 중', 서버 없는 로컬 데모는 localStorage `work-estate`).
+- 확인: 로컬 Postgres에서 계약 · 한 사람 한 채(has_home) · 팔린 집(sold) · 돈 부족 · 남의 키 · 되팔기 90% · 직접 insert 거부. 화면: 데모로 분양 → 계약 → 집 들어가기/나가기 · 걸어서 마을 가기 · 그림 여러 장. 확인 못 함: 실제 서버 · 여러 사람 · 휴대폰 성능(집 16채라 무거울 수 있음).
+- 남은 것(2차): 부티크 옆 🛋 가구점 → 가구 사면 우리 집 현관 배달 상자 → 집 안에 놓기 · 돌리기. 집 안 남쪽 통창을 줄일지 사용자에게 아직 답 못 받음. 나중에 놀러 가기 · 문 잠금.
+- ⚠️ 작업 메모: `node --check`는 ESM 문법 오류(줄 끝 `//` 설명이 뒤 코드까지 주석으로 만든 것)를 못 잡음 → **`node --input-type=module --check < 파일`** 로 검사할 것.
