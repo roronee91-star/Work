@@ -8,7 +8,7 @@ export const YARD = { x0: -23, x1: -11.5, z0: -25, z1: -11.5 };           // 마
 export const inYard = (f, x, z) => f === 0 && x > YARD.x0 && x < YARD.x1 && z > YARD.z0 && z < YARD.z1;
 const GATE = { x: -17.25, w: 1.6 };                                         // 남쪽 문
 export const SM_LIMIT = { mine: 3, all: 30 };
-const R0 = 0.16, RMAX = 0.7, GROW = 0.045;                                  // 처음 크기 · 최대 · 1m 굴릴 때마다 커지는 양
+const R0 = 0.1, RMAX = 0.45, GROW = 0.03;                                   // 처음 크기 · 최대(지름 90cm, 캐릭터 키에 맞춤) · 1m 굴릴 때마다 커지는 양
 
 const YM = {
   snow: new THREE.MeshStandardMaterial({ color: 0xfbfbfd, roughness: 0.9, emissive: 0x1c2030 }),
@@ -148,7 +148,7 @@ export function createSnowmen(api) {
     for (const o of balls.values()) {
       if (o === b || o.rolling) continue;
       if (Math.hypot(o.x - b.x, o.z - b.z) > o.r + b.r + 0.05) continue;
-      if (b.r < 0.22 || o.r < 0.32) { hint('⛄ 둘 다 조금 더 크게 굴려 주세요!'); return; }
+      if (b.r < 0.16 || o.r < 0.26) { hint('⛄ 둘 다 조금 더 크게 굴려 주세요!'); return; }
       if (b.r > o.r * 0.92) { hint('⛄ 위에 올릴 눈덩이는 아래 것보다 작아야 해요!'); return; }
       if (myCount() >= SM_LIMIT.mine) { hint(`⛄ 눈사람은 한 사람에 ${SM_LIMIT.mine}개까지예요. 내 눈사람을 부수면 또 만들 수 있어요.`); return; }
       if (men.size >= SM_LIMIT.all) { hint(`⛄ 마당이 꽉 찼어요 (${SM_LIMIT.all}개).`); return; }

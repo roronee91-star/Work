@@ -19,7 +19,7 @@ begin
   if (select count(*) from snowmen where owner = p_name) >= 3 then raise exception 'too_many'; end if;
   if (select count(*) from snowmen) >= 30 then raise exception 'yard_full'; end if;
   if p_x < -23 or p_x > -11.5 or p_z < -25 or p_z > -11.5 then raise exception 'bad_place'; end if;
-  if p_r1 < 0.3 or p_r1 > 0.75 or p_r2 < 0.2 or p_r2 > p_r1 then raise exception 'bad_size'; end if;
+  if p_r1 < 0.25 or p_r1 > 0.5 or p_r2 < 0.14 or p_r2 > p_r1 then raise exception 'bad_size'; end if;
   if p_face is null or left(p_face, 22) <> 'data:image/png;base64,' or char_length(p_face) > 60000 then raise exception 'bad_face'; end if;
   insert into snowmen (owner, x, z, r1, r2, ry, face) values (p_name, p_x, p_z, p_r1, p_r2, coalesce(p_ry, 0), p_face) returning * into s;
   return s;
