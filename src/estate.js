@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { Kit, MATERIALS as M, canvasTex, panel, BALL } from './building.js';
 
 export const VILLAGE = { x0: 72, x1: 168, z0: -48, z1: 48 };          // 마을 땅 (회사 블록 동쪽, 레이스 도로 건너)
-export const WALK = { x0: 30, x1: 72.5, z0: 0.4, z1: 3.6 };            // 회사 정원 → 마을 건널목 길
+export const WALK = { x0: 30, x1: 72.5, z0: 15.4, z1: 18.6 };          // 회사 정원 동쪽 출입구(분수 옆, 산울타리 틈) → 마을 건널목 길
 export const HOME_BASE = 5;                                           // 집 안 '층 번호' 시작 (0~4는 사옥)
 export const HOME_Y = 60;                                             // 집 안은 하늘 높이에 따로 그림 (사옥 · 마을과 겹치지 않게)
 export const inVillage = (f, x, z) => f === 0 && ((x > VILLAGE.x0 && x < VILLAGE.x1 && z > VILLAGE.z0 && z < VILLAGE.z1) || (x > WALK.x0 && x < WALK.x1 && z > WALK.z0 && z < WALK.z1));
@@ -73,14 +73,16 @@ export function createVillage(colliders) {
   for (const z of [-25, 30]) k.box(70, 0.03, 2.6, 128, -0.29, z, VM.path);                  // 집 앞 골목
   k.box(2.6, 0.03, 70, 93, -0.29, -6, VM.path);                                            // 남북 골목
   // 마을 입구 아치 + 간판
-  for (const z of [-0.2, 4.2]) { k.box(0.5, 4.2, 0.5, 73.5, -0.3, z, VM.wallB); colliders.push({ x1: 73.2, z1: z - 0.3, x2: 73.8, z2: z + 0.3, tall: true }); }
-  k.box(0.6, 0.5, 5.2, 73.5, 3.9, 2, VM.wallB);
+  const GZ = (WALK.z0 + WALK.z1) / 2; // 입구 아치 z
+  k.box(21, 0.03, 3.2, 82.5, -0.29, GZ, VM.path);                                          // 입구 → 남북 골목
+  for (const z of [GZ - 2.2, GZ + 2.2]) { k.box(0.5, 4.2, 0.5, 73.5, -0.3, z, VM.wallB); colliders.push({ x1: 73.2, z1: z - 0.3, x2: 73.8, z2: z + 0.3, tall: true }); }
+  k.box(0.6, 0.5, 5.2, 73.5, 3.9, GZ, VM.wallB);
   const sign = canvasTex(1024, 220, (ctx, w, h) => {
     ctx.fillStyle = '#2b3a2c'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#d9ad48'; ctx.lineWidth = 8; ctx.strokeRect(12, 12, w - 24, h - 24);
     ctx.fillStyle = '#f4e3b2'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 96px ${FONT}`; ctx.fillText('🏘 WORK 빌리지', w / 2, h / 2 + 4);
   });
-  panel(group, sign, 4.6, 1.0, 73.18, 3.4, 2, -Math.PI / 2);
-  panel(group, sign, 4.6, 1.0, 73.82, 3.4, 2, Math.PI / 2);
+  panel(group, sign, 4.6, 1.0, 73.18, 3.4, GZ, -Math.PI / 2);
+  panel(group, sign, 4.6, 1.0, 73.82, 3.4, GZ, Math.PI / 2);
   // 가로등 · 나무 (길가)
   for (let x = 80; x <= 164; x += 12) for (const z of [-0.6, 4.6]) { k.box(0.12, 3.6, 0.12, x, -0.3, z, VM.aptBand); k.add(BALL, M.lamp || VM.win, x, 3.4, z, 0, 0.22, 0.22, 0.22); }
   for (const [x, z] of [[80, 12], [80, 26], [86, 40], [166, -44], [166, 44], [76, -44]]) { k.box(0.3, 1.6, 0.3, x, -0.3, z, M.oak); k.add(BALL, M.leaf, x, 2.2, z, 0, 1.3, 1.5, 1.3); colliders.push({ x1: x - 0.35, z1: z - 0.35, x2: x + 0.35, z2: z + 0.35, tall: true }); }
@@ -103,8 +105,8 @@ export function createVillage(colliders) {
     panel(group, s, 6, 1.2, x, H - 1.2, z + d / 2 + 0.33, 0);
   }
   // 🌳 작은 공원 (마을 남서쪽): 벤치 · 안내판
-  k.box(10, 0.04, 8, 84, -0.29, 20, VM.path);
-  for (const [bx, bz] of [[81, 18], [87, 18]]) { k.box(1.8, 0.45, 0.6, bx, -0.3, bz, M.oak); colliders.push({ x1: bx - 0.9, z1: bz - 0.3, x2: bx + 0.9, z2: bz + 0.3, tall: false, top: 0.15 }); }
+  k.box(10, 0.04, 8, 84, -0.29, 36, VM.path);
+  for (const [bx, bz] of [[81, 34], [87, 34]]) { k.box(1.8, 0.45, 0.6, bx, -0.3, bz, M.oak); colliders.push({ x1: bx - 0.9, z1: bz - 0.3, x2: bx + 0.9, z2: bz + 0.3, tall: false, top: 0.15 }); }
   k.flush(group);
 
   // 집터 15곳: 팔렸으면 집, 아니면 '분양 중' 팻말 (주인이 바뀌면 그 집만 다시 그림)
