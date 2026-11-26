@@ -328,7 +328,9 @@ function decoStore() { const layout = money.homeLayout(); if (!layout[deco.sel])
 // 꾸미는 중 바닥을 누르면: 가구를 누르면 고르고, 빈 바닥이면 고른 가구를 그 자리로
 function decoTap(x, z) {
   const layout = money.homeLayout();
-  const hit = layout.findIndex(([id, fx, fz, r]) => { const [fw, fd] = footprint(id, r); return Math.abs(x - fx) < fw / 2 && Math.abs(z - fz) < fd / 2; });
+  const on = (i) => { const [id, fx, fz, r] = layout[i], [fw, fd] = footprint(id, r); return Math.abs(x - fx) < fw / 2 && Math.abs(z - fz) < fd / 2; };
+  let hit = layout.findIndex((it, i) => i !== deco.sel && !furnById(it[0])?.flat && on(i));          // 소파 · 침대 같은 가구가 먼저
+  if (hit < 0 && deco.sel < 0) hit = layout.findIndex((it, i) => on(i));                              // 러그처럼 바닥에 까는 건 고른 게 없을 때만
   if (hit >= 0 && hit !== deco.sel) { deco.sel = hit; renderFurniture(player.floor); renderDeco(); return; }
   if (deco.sel < 0 || !layout[deco.sel]) return;
   const s3 = layout[deco.sel]; [s3[1], s3[2]] = clampFurn(player.floor, s3[0], s3[3], x, z); decoSet(layout);

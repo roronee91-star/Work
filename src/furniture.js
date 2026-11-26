@@ -170,7 +170,7 @@ export function createFurnShop(colliders) {
 const won = (n) => `${Math.round(n).toLocaleString('ko-KR')}원`;
 export function createFurnUI(api) {
   const { $, money } = api;
-  let cat = 'all';
+  let cat = 'all', pending = [], pendT = 0;
   function render() {
     const owned = money.furnOwned(), home = api.myHome();
     $('furnCash').innerHTML = `지갑 현금 <b>${won(money.cash())}</b>${home ? ` · 🏠 배달지 <b>${home}</b>` : ''}`;
@@ -190,7 +190,9 @@ export function createFurnUI(api) {
     const ok = await money.furnBuy(id);
     if (!ok) return;
     api.sys(`🚚 ${f.name}을(를) 우리 집으로 배달하고 있어요…`); api.beep(); render();
-    setTimeout(() => { api.toast(`📦 배달 완료! ${f.name}이(가) 우리 집 현관 상자에 있어요. 집에서 🛋 꾸미기로 꺼내 놓아요.`); api.delivered(); }, 4000);
+    // 여러 개를 연달아 사면 알림은 마지막에 한 번만 묶어서
+    pending.push(f.name); clearTimeout(pendT);
+    pendT = setTimeout(() => { const n = pending.length, first = pending[0]; pending = []; api.toast(`📦 배달 완료! ${n > 1 ? `${first} 외 ${n - 1}개` : first}이(가) 우리 집 현관 상자에 있어요. 집에서 🛋 꾸미기로 꺼내 놓아요.`); api.delivered(); }, 4000);
   }
   return { open() { render(); api.openModal('furnModal'); }, render };
 }
