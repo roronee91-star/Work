@@ -109,14 +109,42 @@ const VM = {
   podium: new THREE.MeshStandardMaterial({ color: 0x8a6e52, roughness: 0.5, metalness: 0.2 }),
 };
 // 🪟 유리 너머로 보이는 따뜻한 방 (커튼 · 펜던트 등 · 소파 · 나무 바닥) — 반투명 유리 뒤에 붙임
-VM.room = new THREE.MeshBasicMaterial({ color: 0xd9d2c6, map: canvasTex(256, 256, (ctx, w, h) => {
-  let g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#f6ead4'); g.addColorStop(0.72, '#ead8b8'); g.addColorStop(0.72, '#a9805a'); g.addColorStop(1, '#8c6646'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-  g = ctx.createRadialGradient(w * 0.55, h * 0.2, 4, w * 0.55, h * 0.2, 70); g.addColorStop(0, 'rgba(255,236,190,.95)'); g.addColorStop(1, 'rgba(255,236,190,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.ellipse(w * 0.55, h * 0.22, 16, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(w * 0.55 - 1, 0, 2, h * 0.2);
-  ctx.fillStyle = '#9a8f80'; ctx.fillRect(w * 0.25, h * 0.6, w * 0.5, h * 0.14); ctx.fillRect(w * 0.25, h * 0.52, w * 0.5, h * 0.1); // 소파
-  ctx.fillStyle = '#6f8a5c'; ctx.beginPath(); ctx.arc(w * 0.86, h * 0.55, 16, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d8d2c6'; ctx.fillRect(w * 0.82, h * 0.6, 18, 22); // 화분
-  for (const x0 of [0, w - 40]) { ctx.fillStyle = '#fbf8f1'; ctx.fillRect(x0, 0, 40, h * 0.74); ctx.fillStyle = 'rgba(0,0,0,.06)'; for (let i = 0; i < 5; i++) ctx.fillRect(x0 + 4 + i * 8, 0, 3, h * 0.74); } // 커튼
+// 집 앞면 폭 전체에 걸친 '하나의 거실' (왼쪽 주방 · 가운데 소파와 펜던트 등 · 오른쪽 식탁과 화분). 창마다 자기 자리 부분만 보여 줌 → 창 여러 개로 한 공간이 이어져 보임
+VM.room = new THREE.MeshBasicMaterial({ color: 0xdcd5c9, map: canvasTex(1024, 256, (ctx, w, h) => {
+  const fy = h * 0.74; // 바닥선
+  let g = ctx.createLinearGradient(0, 0, 0, fy); g.addColorStop(0, '#f7ecd8'); g.addColorStop(1, '#ead9bb'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, fy);
+  g = ctx.createLinearGradient(0, fy, 0, h); g.addColorStop(0, '#b28a62'); g.addColorStop(1, '#8a6545'); ctx.fillStyle = g; ctx.fillRect(0, fy, w, h - fy);
+  ctx.fillStyle = 'rgba(0,0,0,.05)'; for (let x = 0; x < w; x += 46) ctx.fillRect(x, fy, 2, h - fy); // 마루 줄
+  const glow = (x, y, r) => { const q = ctx.createRadialGradient(x, y, 2, x, y, r); q.addColorStop(0, 'rgba(255,232,180,.95)'); q.addColorStop(1, 'rgba(255,232,180,0)'); ctx.fillStyle = q; ctx.fillRect(x - r, y - r, r * 2, r * 2); };
+  // 왼쪽: 주방 (위 수납장 · 아래 조리대 · 아일랜드 위 펜던트 2)
+  ctx.fillStyle = '#e9e4da'; ctx.fillRect(40, 40, 230, 46); ctx.fillStyle = '#d6cfc2'; for (let i = 0; i < 5; i++) ctx.fillRect(44 + i * 46, 44, 40, 38);
+  ctx.fillStyle = '#cfc6b6'; ctx.fillRect(40, fy - 70, 230, 70); ctx.fillStyle = '#8d7b66'; ctx.fillRect(40, fy - 74, 230, 6);
+  ctx.fillStyle = '#b9a58a'; ctx.fillRect(120, fy - 46, 130, 46); ctx.fillStyle = '#6b5a48'; ctx.fillRect(116, fy - 50, 138, 6);
+  for (const x of [155, 215]) { ctx.fillStyle = '#3a3a3a'; ctx.fillRect(x - 1, 0, 2, 92); ctx.fillStyle = '#2f2f33'; ctx.beginPath(); ctx.moveTo(x - 14, 104); ctx.lineTo(x + 14, 104); ctx.lineTo(x, 90); ctx.fill(); glow(x, 108, 40); }
+  // 가운데: 벽 액자 · 소파 · 러그 · 둥근 펜던트 · 스탠드
+  ctx.fillStyle = '#c7a97c'; ctx.fillRect(452, 64, 120, 70); ctx.fillStyle = '#9fb7c9'; ctx.fillRect(458, 70, 108, 58); ctx.fillStyle = '#e8c98e'; ctx.beginPath(); ctx.arc(512, 112, 18, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#d9cfbf'; ctx.beginPath(); ctx.ellipse(512, fy + 20, 170, 22, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#8f9a8a'; ctx.fillRect(400, fy - 54, 224, 40); ctx.fillRect(392, fy - 30, 240, 30); ctx.fillStyle = '#a5af9f'; for (const x of [420, 490, 560]) ctx.fillRect(x, fy - 48, 44, 26);
+  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.arc(512, 34, 22, Math.PI, 0); ctx.fill(); ctx.fillRect(511, 0, 2, 14); glow(512, 40, 60);
+  ctx.fillStyle = '#3a3a3a'; ctx.fillRect(668, fy - 120, 3, 120); ctx.fillStyle = '#efe2c6'; ctx.beginPath(); ctx.moveTo(652, fy - 118); ctx.lineTo(688, fy - 118); ctx.lineTo(680, fy - 142); ctx.lineTo(660, fy - 142); ctx.fill(); glow(670, fy - 128, 34);
+  // 오른쪽: 식탁 · 의자 · 화분 · 선반
+  ctx.fillStyle = '#7a5a3e'; ctx.fillRect(760, fy - 52, 150, 8); ctx.fillRect(772, fy - 44, 6, 44); ctx.fillRect(892, fy - 44, 6, 44);
+  ctx.fillStyle = '#5c4632'; for (const x of [750, 905]) { ctx.fillRect(x, fy - 70, 6, 70); ctx.fillRect(x - 2, fy - 34, 22, 5); }
+  ctx.fillStyle = '#e9dfc9'; ctx.fillRect(820, fy - 66, 24, 14); ctx.fillStyle = '#5f8a4c'; ctx.beginPath(); ctx.arc(832, fy - 72, 10, 0, Math.PI * 2); ctx.fill();
+  for (const x of [800, 870]) { ctx.fillStyle = '#3a3a3a'; ctx.fillRect(x, 0, 2, 70); ctx.fillStyle = '#d8c39a'; ctx.beginPath(); ctx.arc(x + 1, 78, 12, Math.PI, 0); ctx.fill(); glow(x + 1, 82, 34); }
+  ctx.fillStyle = '#d8d2c6'; ctx.fillRect(950, fy - 40, 34, 40); ctx.fillStyle = '#4f7a3a'; ctx.beginPath(); ctx.arc(967, fy - 62, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#c9b48f'; ctx.fillRect(930, 60, 80, 6); ctx.fillRect(930, 100, 80, 6); ctx.fillStyle = '#9a7f62'; for (let i = 0; i < 5; i++) ctx.fillRect(936 + i * 14, 66, 10, 34);
+  // 양 끝 커튼
+  for (const x0 of [0, w - 30]) { ctx.fillStyle = '#fbf8f1'; ctx.fillRect(x0, 0, 30, fy + 10); ctx.fillStyle = 'rgba(0,0,0,.06)'; for (let i = 0; i < 4; i++) ctx.fillRect(x0 + 3 + i * 7, 0, 3, fy + 10); }
 }) });
+// 판(창 하나)에 '거실 그림'의 일부만 붙임: u0~u1 = 앞면에서 창의 가로 위치, v0~v1 = 층 안에서 창의 세로 위치 (flip이면 좌우 뒤집어 이웃집과 다르게)
+function roomPlane(w, h, u0, u1, v0, v1, flip = false) {
+  const g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv;
+  if (flip) [u0, u1] = [1 - u0, 1 - u1];
+  const cl = (t) => Math.max(0, Math.min(1, t));
+  uv.setXY(0, cl(u0), cl(v1)); uv.setXY(1, cl(u1), cl(v1)); uv.setXY(2, cl(u0), cl(v0)); uv.setXY(3, cl(u1), cl(v0));
+  return g;
+}
 // 땅바닥(GY)과 거의 같은 높이라 멀리서 깜빡이지 않게 앞으로 당겨 그림
 for (const [m, k] of [[VM.lawn, -2], [VM.path, -4], [VM.stripe, -6], [VM.gravel, -4], [VM.stone, -5]]) { m.polygonOffset = true; m.polygonOffsetFactor = k; m.polygonOffsetUnits = k; }
 // 박공(삼각) 기둥: 앞뒤로 기운 지붕 아래 벽 (x 방향으로 길게)
@@ -165,7 +193,7 @@ export function createVillage(colliders, myName = () => '') {
     for (let f = 0; f < 5; f++) {
       const y = f * fh;
       // 통유리 + 안쪽 따뜻한 불빛
-      for (let i = 0; i < 4; i++) { const wx = x - w / 2 + 2.2 + i * 3.87; k.add(new THREE.PlaneGeometry(3.3, fh - 0.75), VM.room, wx, y + 0.2 + (fh - 0.75) / 2, fz - 1.585); k.box(3.3, fh - 0.75, 0.03, wx, y + 0.2, fz - 1.55, VM.aWin); k.box(0.08, fh - 0.75, 0.1, wx + 1.66, y + 0.2, fz - 1.56, VM.frameW); }
+      for (let i = 0; i < 4; i++) { const wx = x - w / 2 + 2.2 + i * 3.87; k.add(roomPlane(3.3, fh - 0.75, (wx - 1.65 - (x - w / 2)) / w, (wx + 1.65 - (x - w / 2)) / w, 0.07, 0.07 + (fh - 0.75) / fh, f % 2 === 1), VM.room, wx, y + 0.2 + (fh - 0.75) / 2, fz - 1.585); k.box(3.3, fh - 0.75, 0.03, wx, y + 0.2, fz - 1.55, VM.aWin); k.box(0.08, fh - 0.75, 0.1, wx + 1.66, y + 0.2, fz - 1.56, VM.frameW); }
       if (f === 0) continue;
       rk.box(w + 0.2, 0.28, 1.8, x, y - 0.14, fz - 0.7, VM.slabW);                                     // 발코니 바닥(흰 슬래브)
       k.box(w - 0.2, 0.02, 1.6, x, y - 0.16, fz - 0.7, VM.cedar);                                       // 아래층에서 보이는 나무 천장
@@ -219,7 +247,7 @@ export function createVillage(colliders, myName = () => '') {
     const R = (w, h, d, lx, y, lz, m) => { const [wx, wz] = P(lx, lz); rk.box(w, h, d, wx, y, wz, m); }; // 모서리 둥근 큰 덩어리 (사옥처럼 부드럽게)
     const A = (geo, m, lx, y, lz, ry = 0) => { const [wx, wz] = P(lx, lz); hk.add(geo, m, wx, y, wz, ry + (face > 0 ? 0 : Math.PI)); };
     const ball = (m, lx, y, lz, sx, sy = sx, sz = sx) => { const [wx, wz] = P(lx, lz); hk.add(BALL, m, wx, y, wz, 0, sx, sy, sz); };
-    const win = (lx, y, w, h, _frame, lzz = fz) => { const frame = VM.frameW; B(w + 0.14, h + 0.14, 0.08, lx, y - 0.07, lzz + 0.02, frame); A(new THREE.PlaneGeometry(w, h), VM.room, lx, y + h / 2, lzz + 0.065); B(w, h, 0.03, lx, y, lzz + 0.085, VM.glassW); const n = Math.max(1, Math.round(w / 1.3)); for (let i = 1; i < n; i++) B(0.05, h, 0.12, lx - w / 2 + (w * i) / n, y, lzz + 0.04, frame); }; // 통창 + 세로 창살
+    const win = (lx, y, w, h, _frame, lzz = fz) => { const frame = VM.frameW; B(w + 0.14, h + 0.14, 0.08, lx, y - 0.07, lzz + 0.02, frame); { const fb = y >= 2.5 ? 2.9 : 0, FH = 2.8; A(roomPlane(w, h, (lx - w / 2 + W / 2) / W, (lx + w / 2 + W / 2) / W, (y - fb) / FH, (y + h - fb) / FH, alt), VM.room, lx, y + h / 2, lzz + 0.065); } B(w, h, 0.03, lx, y, lzz + 0.085, VM.glassW); const n = Math.max(1, Math.round(w / 1.3)); for (let i = 1; i < n; i++) B(0.05, h, 0.12, lx - w / 2 + (w * i) / n, y, lzz + 0.04, frame); }; // 통창 + 세로 창살
     const col = (lx1, lz1, lx2, lz2, tall = true, top = 1) => { const [a, b] = P(lx1, lz1), [c, d] = P(lx2, lz2); cols.push({ x1: Math.min(a, c), z1: Math.min(b, d), x2: Math.max(a, c), z2: Math.max(b, d), tall, top }); };
     const tree = (lx, lz, s2 = 1) => { B(0.14 * s2, 2.6 * s2, 0.14 * s2, lx, GY, lz, VM.birch); ball(VM.leafL, lx, 2.6 * s2, lz, 1.0 * s2, 1.2 * s2); ball(VM.leafL, lx + 0.4, 2.1 * s2, lz + 0.2, 0.7 * s2); col(lx - 0.15, lz - 0.15, lx + 0.15, lz + 0.15); };
     if (st === 'cabin') {
