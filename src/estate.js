@@ -1,4 +1,4 @@
-// 🏘 WORK 빌리지: 레이스 도로 동쪽 새 땅에 아파트 1동(5층, 층마다 1집) + 단독주택 15채
+// 🏘 WORK 빌리지: 레이스 도로 동쪽 새 땅에 아파트 1동(5층, 층마다 1집) + 단독주택 16채(두 줄씩 마주봄)
 // 분양은 3층 💹 투자 상담실 '🏠 부동산' 탭에서 계약 → 산 사람만 자기 집에 들어감
 // 집 안은 건물 층처럼 '층 번호'를 하나씩 가짐(HOME_BASE + 순서) → 같은 집에 있는 사람끼리만 보이고, 들어간 사람에게만 그림
 import * as THREE from 'three';
@@ -10,7 +10,7 @@ export const HOME_BASE = 5;                                           // 집 안
 export const HOME_Y = 60;                                             // 집 안은 하늘 높이에 따로 그림 (사옥 · 마을과 겹치지 않게)
 export const GY = -0.18;                                              // 마을 바닥 높이 (큰 땅바닥 -0.3보다 조금 위: 멀리서 잔디가 땅에 가려지지 않게)
 // 🏔 언덕: 강 쪽(남쪽) 앞줄이 가장 낮고 뒷줄로 갈수록 높아짐 → 뒷줄 · 아파트에서도 한강이 잘 보임
-export const HILL = [2.4, 4.8];
+export const HILL = [0, 0]; // 11-26 사용자: 언덕은 별로 → 평평하게 (높이 함수는 남겨 둠)
 export function terrainH(x, z) {
   if (x < VILLAGE.x0 - 0.2 || z >= 0) return 0;
   if (z >= -8) return HILL[0] * (-z / 8);
@@ -20,16 +20,16 @@ export function terrainH(x, z) {
 }
 export const inVillage = (f, x, z) => f === 0 && ((x > VILLAGE.x0 && x < VILLAGE.x1 && z > VILLAGE.z0 && z < VILLAGE.z1) || (x > WALK.x0 && x < WALK.x1 && z > WALK.z0 && z < WALK.z1));
 
-// 분양 물건: 아파트 5집(층마다 1집) + 단독주택 15채(30평 / 50평 고름)
-const APT = { x: 84, z: -38, w: 16, d: 12, fh: 3.4 }; // 5층 레지던스 (층마다 1집)
+// 분양 물건: 아파트 5집(층마다 1집) + 단독주택 16채(30평 / 50평 고름)
+const APT = { x: 84, z: -32, w: 16, d: 12, fh: 3.4 }; // 5층 레지던스 (층마다 1집)
 export const UNITS = [];
 for (let f = 1; f <= 5; f++) {
   const pent = f === 5;
   UNITS.push({ id: `A${f}`, kind: 'apt', floor: f, label: pent ? '아파트 5층 펜트하우스' : `아파트 ${f}층`, sizes: { [pent ? 45 : 34]: pent ? 2200000 : f === 1 ? 1300000 : f === 4 ? 1600000 : 1500000 } });
 }
-const ROWS = [[-36, 1], [-14, 1], [18, 1]]; // [집 가운데 z, 문 방향] — 모두 남쪽(한강)을 바라봄
-ROWS.forEach(([z, face], r) => [100, 114, 128, 142, 156].forEach((x, i) => {
-  const n = r * 5 + i + 1;
+const ROWS = [[-38, 1], [-14, -1], [14, 1], [38, -1]]; // [집 가운데 z, 문 방향] — 두 줄씩 골목(z -26 · 26)을 사이에 두고 현관끼리 마주봄
+ROWS.forEach(([z, face], r) => [102, 118, 134, 150].forEach((x, i) => {
+  const n = r * 4 + i + 1;
   UNITS.push({ id: `H${n}`, kind: 'house', n, x, z, face, label: `단독주택 ${n}번지`, sizes: { 30: 2000000, 50: 3500000 } });
 }));
 export const unitById = (id) => UNITS.find((u) => u.id === id);
@@ -38,7 +38,7 @@ export const unitOfFloor = (f) => UNITS[f - HOME_BASE] || null;
 export const priceOf = (id, size) => unitById(id)?.sizes?.[size] || 0;
 // 🏡 단독주택 모양 3가지 (참고 사진 분위기): 금속 박공지붕 목조 · 화이트 단층(낮은 담장) · 모던 큐브. 집터마다 정해짐
 const STYLES = ['cabin', 'stucco', 'cube'];
-export const styleOf = (u) => STYLES[(u.n + Math.floor((u.n - 1) / 5)) % 3];
+export const styleOf = (u) => STYLES[(u.n + Math.floor((u.n - 1) / 4)) % 3];
 const DIMS = { cabin: { 30: [7.5, 6.5], 50: [9, 7.5] }, stucco: { 30: [9, 6.5], 50: [11, 7] }, cube: { 30: [7, 6], 50: [9, 7] } };
 const dims = (u, size) => (DIMS[styleOf(u)] || DIMS.cabin)[size >= 50 ? 50 : 30];
 // 집 안 크기 (반 폭 · 반 깊이, m)
@@ -77,6 +77,7 @@ const VM = {
   metalDk: new THREE.MeshStandardMaterial({ color: 0x4c5158, roughness: 0.4, metalness: 0.5 }),
   frameBlue: new THREE.MeshStandardMaterial({ color: 0x34465c, roughness: 0.4 }),
   frameBlack: new THREE.MeshStandardMaterial({ color: 0x1b1c20, roughness: 0.4 }),
+  frameW: new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: 0.45 }),       // 창틀 (모두 흰색, 11-26 사용자 요청)
   glassW: new THREE.MeshStandardMaterial({ color: 0x86a9c2, roughness: 0.05, metalness: 0.45, emissive: 0x4a3622, emissiveIntensity: 0.6 }), // 안쪽 따뜻한 불빛
   deck: new THREE.MeshStandardMaterial({ color: 0xa48a6c, roughness: 0.8 }),
   stucco: new THREE.MeshStandardMaterial({ color: 0xf6f3ee, roughness: 0.9 }),
@@ -127,13 +128,12 @@ export function createVillage(colliders, myName = () => '') {
   ground((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, VM.lawn, 0.02, 96);
   // 언덕 가장자리 돌 옹벽 (서 · 북 · 동)
   const skirt = (pts) => { const v = []; for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], ha = GY + 0.03 + terrainH(ax + (ax < x0 + 1 ? 0.3 : 0), az), hb = GY + 0.03 + terrainH(bx + (bx < x0 + 1 ? 0.3 : 0), bz); v.push(ax, GY - 0.2, az, bx, GY - 0.2, bz, bx, hb, bz, ax, GY - 0.2, az, bx, hb, bz, ax, ha, az); } const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); group.add(new THREE.Mesh(g, VM.retain)); };
-  const zs = []; for (let zz = z0; zz <= 0.01; zz += 1) zs.push(zz);
-  skirt(zs.map((zz) => [x0, zz])); skirt(zs.map((zz) => [x1, zz])); skirt([[x0, z0], [x1, z0]]);
+  void skirt; // 평평해서 옹벽 없음
   k.box(WALK.x1 - WALK.x0, 0.03, WALK.z1 - WALK.z0, (WALK.x0 + WALK.x1) / 2, GY + 0.01, (WALK.z0 + WALK.z1) / 2, VM.path);
   for (let x = 54; x <= 66; x += 1.2) k.box(0.6, 0.035, WALK.z1 - WALK.z0 - 0.4, x, GY + 0.015, (WALK.z0 + WALK.z1) / 2, VM.stripe); // 레이스 도로 위 횡단보도
-  ground((x0 + x1) / 2 + 2, 2, x1 - x0 - 4, 4, VM.path, 0.05);                                // 가운데 큰길 (동서)
-  for (const z of [-25, 30]) ground(128, z, 70, 2.6, VM.path, 0.05);                              // 집 앞 골목
-  ground(93, -6, 2.6, 70, VM.path, 0.05, 70);                                                    // 남북 골목 (언덕길)
+  ground(126.5, 0, 67, 4, VM.path, 0.05);                                                         // 가운데 큰길 (동서, 집 뒤뜰 사이)
+  for (const z of [-26, 26]) ground(126.5, z, 67, 3.2, VM.path, 0.05);                            // 마주보는 집 사이 골목
+  ground(93, 0, 3, 88, VM.path, 0.05, 88);                                                       // 남북 골목
   // 마을 입구 아치 + 간판
   const GZ = (WALK.z0 + WALK.z1) / 2; // 입구 아치 z
   ground(82.5, GZ, 21, 3.2, VM.path, 0.05);                                                      // 입구 → 남북 골목
@@ -146,8 +146,8 @@ export function createVillage(colliders, myName = () => '') {
   panel(group, sign, 4.6, 1.0, 73.18, 3.4, GZ, -Math.PI / 2);
   panel(group, sign, 4.6, 1.0, 73.82, 3.4, GZ, Math.PI / 2);
   // 가로등 · 나무 (길가)
-  for (let x = 80; x <= 164; x += 12) for (const z of [-0.6, 4.6]) { const t = terrainH(x, z); k.box(0.12, 3.6, 0.12, x, GY + t, z, VM.aptBand); k.add(BALL, M.lamp || VM.win, x, 3.4 + t, z, 0, 0.22, 0.22, 0.22); }
-  for (const [x, z] of [[80, 12], [80, 26], [86, 40], [166, -44], [166, 44], [76, -24], [166, -24]]) { const t = terrainH(x, z); k.box(0.3, 1.6, 0.3, x, GY + t, z, M.oak); k.add(BALL, M.leaf, x, 2.2 + t, z, 0, 1.3, 1.5, 1.3); colliders.push({ x1: x - 0.35, z1: z - 0.35, x2: x + 0.35, z2: z + 0.35, tall: true }); }
+  for (const x of [110, 126, 142, 158]) for (const z of [-28.2, -23.8, 23.8, 28.2]) { // 골목 가로등 (집 사이) const t = terrainH(x, z); k.box(0.12, 3.6, 0.12, x, GY + t, z, VM.aptBand); k.add(BALL, M.lamp || VM.win, x, 3.4 + t, z, 0, 0.22, 0.22, 0.22); }
+  for (const [x, z] of [[78, 12], [90, 10], [78, -14], [90, -16], [164, 0], [164, -26], [164, 26], [76, -44], [92, 44]]) { const t = terrainH(x, z); k.box(0.3, 1.6, 0.3, x, GY + t, z, M.oak); k.add(BALL, M.leaf, x, 2.2 + t, z, 0, 1.3, 1.5, 1.3); colliders.push({ x1: x - 0.35, z1: z - 0.35, x2: x + 0.35, z2: z + 0.35, tall: true }); }
   // 🏢 아파트 '레지던스': 따뜻한 베이지 석재 · 층마다 깊은 발코니(유리 난간 · 나무 천장 · 화분) · 옥상 퍼걸러 정원
   {
     const { x, z, w, d, fh } = APT, rk = new Kit(true), fz = z + d / 2, H = fh * 5, AY = HILL[1];
@@ -156,7 +156,7 @@ export function createVillage(colliders, myName = () => '') {
     for (let f = 0; f < 5; f++) {
       const y = f * fh;
       // 통유리 + 안쪽 따뜻한 불빛
-      for (let i = 0; i < 4; i++) { const wx = x - w / 2 + 2.2 + i * 3.87; k.box(3.3, fh - 0.75, 0.06, wx, y + 0.2, fz - 1.58, VM.aWin); k.box(0.08, fh - 0.75, 0.1, wx + 1.66, y + 0.2, fz - 1.56, VM.frameBlack); }
+      for (let i = 0; i < 4; i++) { const wx = x - w / 2 + 2.2 + i * 3.87; k.box(3.3, fh - 0.75, 0.06, wx, y + 0.2, fz - 1.58, VM.aWin); k.box(0.08, fh - 0.75, 0.1, wx + 1.66, y + 0.2, fz - 1.56, VM.frameW); }
       if (f === 0) continue;
       rk.box(w + 0.2, 0.28, 1.8, x, y - 0.14, fz - 0.7, VM.slabW);                                     // 발코니 바닥(흰 슬래브)
       k.box(w - 0.2, 0.02, 1.6, x, y - 0.16, fz - 0.7, VM.cedar);                                       // 아래층에서 보이는 나무 천장
@@ -176,7 +176,7 @@ export function createVillage(colliders, myName = () => '') {
     // 1층 현관: 나무 차양 + 석재 벽 간판 + 유리문
     rk.box(5.0, 0.3, 2.6, x, 3.0, fz + 0.6, VM.slabW); k.box(4.8, 0.02, 2.4, x, 2.98, fz + 0.6, VM.cedar);
     for (const s2 of [-1, 1]) { k.add(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 12), VM.lampOn, x + s2 * 1.2, 2.97, fz + 0.9); }
-    k.box(2.2, 2.6, 0.06, x, 0, fz - 1.5, VM.aWin); k.box(0.06, 2.6, 0.1, x, 0, fz - 1.48, VM.frameBlack);
+    k.box(2.2, 2.6, 0.06, x, 0, fz - 1.5, VM.aWin); k.box(0.06, 2.6, 0.1, x, 0, fz - 1.48, VM.frameW);
     for (let i = 0; i < 3; i++) rk.box(3.0 - i * 0.4, 0.12, 0.45, x, GY + i * 0.1, fz + 1.6 - i * 0.4, VM.stone);
     for (const s2 of [-1, 1]) { rk.box(3.6, 0.55, 1.2, x + s2 * 5.0, GY, fz + 1.4, VM.aStone); for (let i = 0; i < 4; i++) k.add(BALL, i % 2 ? VM.lavender : VM.shrub, x + s2 * 5.0 - 1.3 + i * 0.85, 0.35, fz + 1.4, 0, 0.42, 0.35, 0.42); colliders.push({ x1: x + s2 * 5.0 - 1.8, z1: fz + 0.8, x2: x + s2 * 5.0 + 1.8, z2: fz + 2.0, tall: true }); }
     rk.flush(group);
@@ -186,11 +186,12 @@ export function createVillage(colliders, myName = () => '') {
     k.dy = 0;
   }
   // 🌳 작은 공원 (마을 남서쪽): 벤치 · 안내판
-  ground(84, 36, 10, 8, VM.path, 0.05);
-  for (const [bx, bz] of [[81, 34], [87, 34]]) { k.box(1.8, 0.45, 0.6, bx, GY, bz, M.oak); colliders.push({ x1: bx - 0.9, z1: bz - 0.3, x2: bx + 0.9, z2: bz + 0.3, tall: false, top: 0.15 }); }
+  ground(84, 32, 12, 9, VM.path, 0.05);
+  ground(88.5, -24.4, 9, 2.4, VM.path, 0.05);                                                   // 아파트 현관 → 남북 골목
+  for (const [bx, bz] of [[81, 30], [87, 30], [81, 34], [87, 34]]) { k.box(1.8, 0.45, 0.6, bx, GY, bz, M.oak); colliders.push({ x1: bx - 0.9, z1: bz - 0.3, x2: bx + 0.9, z2: bz + 0.3, tall: false, top: 0.15 }); }
   k.flush(group);
 
-  // 집터 15곳: 팔렸으면 집, 아니면 '분양 중' 팻말 (주인이 바뀌면 그 집만 다시 그림)
+  // 집터 16곳: 팔렸으면 집, 아니면 '분양 중' 팻말 (주인이 바뀌면 그 집만 다시 그림)
   const lots = new Map();
   const nameplate = canvasTex(1024, 256, () => {}); // 아파트 현관 우편함 표 (아래 update에서 다시 그림)
   const aptBoard = panel(group, nameplate, 1.6, 0.4, APT.x + 2.2, 1.5 + HILL[1], APT.z + APT.d / 2 - 1.44, 0, true); // 우편함 표 (현관 유리 옆)
@@ -209,7 +210,7 @@ export function createVillage(colliders, myName = () => '') {
     const R = (w, h, d, lx, y, lz, m) => { const [wx, wz] = P(lx, lz); rk.box(w, h, d, wx, y, wz, m); }; // 모서리 둥근 큰 덩어리 (사옥처럼 부드럽게)
     const A = (geo, m, lx, y, lz, ry = 0) => { const [wx, wz] = P(lx, lz); hk.add(geo, m, wx, y, wz, ry + (face > 0 ? 0 : Math.PI)); };
     const ball = (m, lx, y, lz, sx, sy = sx, sz = sx) => { const [wx, wz] = P(lx, lz); hk.add(BALL, m, wx, y, wz, 0, sx, sy, sz); };
-    const win = (lx, y, w, h, frame, lzz = fz) => { B(w + 0.14, h + 0.14, 0.08, lx, y - 0.07, lzz + 0.02, frame); B(w, h, 0.1, lx, y, lzz + 0.03, VM.glassW); const n = Math.max(1, Math.round(w / 1.3)); for (let i = 1; i < n; i++) B(0.05, h, 0.12, lx - w / 2 + (w * i) / n, y, lzz + 0.04, frame); }; // 통창 + 세로 창살
+    const win = (lx, y, w, h, _frame, lzz = fz) => { const frame = VM.frameW; B(w + 0.14, h + 0.14, 0.08, lx, y - 0.07, lzz + 0.02, frame); B(w, h, 0.1, lx, y, lzz + 0.03, VM.glassW); const n = Math.max(1, Math.round(w / 1.3)); for (let i = 1; i < n; i++) B(0.05, h, 0.12, lx - w / 2 + (w * i) / n, y, lzz + 0.04, frame); }; // 통창 + 세로 창살
     const col = (lx1, lz1, lx2, lz2, tall = true, top = 1) => { const [a, b] = P(lx1, lz1), [c, d] = P(lx2, lz2); cols.push({ x1: Math.min(a, c), z1: Math.min(b, d), x2: Math.max(a, c), z2: Math.max(b, d), tall, top }); };
     const tree = (lx, lz, s2 = 1) => { B(0.14 * s2, 2.6 * s2, 0.14 * s2, lx, GY, lz, VM.birch); ball(VM.leafL, lx, 2.6 * s2, lz, 1.0 * s2, 1.2 * s2); ball(VM.leafL, lx + 0.4, 2.1 * s2, lz + 0.2, 0.7 * s2); col(lx - 0.15, lz - 0.15, lx + 0.15, lz + 0.15); };
     if (st === 'cabin') {
@@ -224,9 +225,9 @@ export function createVillage(colliders, myName = () => '') {
         for (let i = 0; i < Math.floor((W + 0.6) / 0.45); i++) { const r = new THREE.BoxGeometry(0.04, 0.06, L + 0.35); r.rotateX(s2 * slope); A(r, VM.metalDk, -W / 2 - 0.3 + 0.2 + i * 0.45, wh + rh / 2 + 0.14, bz + s2 * D / 4); } }
       A(new THREE.CylinderGeometry(0.1, 0.1, 1.6, 10), VM.metalDk, W * 0.25, wh + rh * 0.6, bz - D / 4);                               // 굴뚝
       const gl = W / 2 - 0.85; win(-0.6 - gl / 2, 0.05, gl, wh - 0.35, VM.frameBlue); win(0.6 + gl / 2, 0.05, gl, wh - 0.35, VM.frameBlue); // 바닥부터 천장까지 통창
-      B(1.0, 2.2, 0.08, 0, 0, fz + 0.03, VM.frameBlue); B(0.85, 2.05, 0.1, 0, 0.05, fz + 0.04, VM.glassW);                              // 유리 현관문
+      B(1.0, 2.2, 0.08, 0, 0, fz + 0.03, VM.frameW); B(0.85, 2.05, 0.1, 0, 0.05, fz + 0.04, VM.glassW);                              // 유리 현관문
 
-      for (const s2 of [-1, 1]) { const [wx, wz] = P(s2 * (W / 2 + 0.03), bz); hk.box(0.1, 1.0, 1.0, wx, 0.9 + (big ? 2.6 : 0), wz, VM.frameBlue); hk.box(0.12, 0.85, 0.85, wx, 0.97 + (big ? 2.6 : 0), wz, VM.glassW); } // 옆 창
+      for (const s2 of [-1, 1]) { const [wx, wz] = P(s2 * (W / 2 + 0.03), bz); hk.box(0.1, 1.0, 1.0, wx, 0.9 + (big ? 2.6 : 0), wz, VM.frameW); hk.box(0.12, 0.85, 0.85, wx, 0.97 + (big ? 2.6 : 0), wz, VM.glassW); } // 옆 창
       R(W + 1.2, 0.18, 2.4, 0.4, GY, fz + 1.2, VM.deck);                                                                               // 데크
       for (let i = 0; i < 10; i++) B(W + 1.2, 0.01, 0.02, 0.4, -0.12, fz + 0.15 + i * 0.23, VM.cedarDk);
       for (const cx of [W / 2 - 1.4, W / 2 - 0.5]) { B(0.5, 0.42, 0.5, cx, -0.12, fz + 1.4, VM.cedar); B(0.5, 0.45, 0.06, cx, 0.3, fz + 1.17, VM.cedar); }
@@ -299,7 +300,7 @@ export function createVillage(colliders, myName = () => '') {
     const g = new THREE.Group(), hk = new Kit(false), rk = new Kit(true), cols = [];
     const { x, z, face } = u, size = o?.size || 30, base = terrainH(x, z);
     hk.dy = base; rk.dy = base; // 언덕 위 집터
-    { const gz = z + 5.85, tz = gz < -20 ? -26.3 : gz < 0 ? 0.2 : 28.8; ground(x, (gz + tz) / 2, 1.5, Math.abs(tz - gz) + 0.4, VM.path, 0.06); } // 대문 → 골목 돌길
+    { const gz = z + face * 5.85, tz = z < 0 ? -26 : 26; ground(x, (gz + tz) / 2, 1.5, Math.abs(tz - gz) + 0.4, VM.path, 0.06); } // 대문 → 골목 돌길
     const { fz, P, B } = house(hk, cols, u, size, x, z, face, !!o && o.name !== myName(), rk);
     const ry = face > 0 ? 0 : Math.PI;
     if (o) {
@@ -347,7 +348,7 @@ const IM = {
   ceil: new THREE.MeshStandardMaterial({ color: 0xfbf8f2, roughness: 0.9, emissive: 0x6a665e }),
   lamp: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.45, 1.2) }),
   door: new THREE.MeshStandardMaterial({ color: 0x7a5a40, roughness: 0.55 }),
-  frame: new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.4 }),
+  frame: new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: 0.45 }), // 창틀 흰색
   mat: new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 1 }),
   rug: new THREE.MeshStandardMaterial({ color: 0xc9b8a0, roughness: 1 }),
   box: new THREE.MeshStandardMaterial({ color: 0xc89a60, roughness: 0.8 }),
@@ -447,7 +448,7 @@ export function createEstate(api) {
       ${my ? `<div class="est-mine">🔑 내 집: <b>${my.unit.label}</b> · ${my.size}평<div><button type="button" id="estGo">🏠 우리 집 가기</button><button type="button" id="estSell" class="link">되팔기 (${man(my.price * 0.9)} 돌려받기)</button></div></div>` : ''}
       <h4>🏢 아파트 <small>5층 · 층마다 한 집</small></h4>
       <div class="est-apt">${apt.map(row).join('')}</div>
-      <h4>🏡 단독주택 <small>15채 · 30평 / 50평 골라요</small></h4>
+      <h4>🏡 단독주택 <small>16채 · 30평 / 50평 골라요 · 마주보는 골목</small></h4>
       <div class="est-lots">${houses.map((u) => { const o = owners.get(u.id); return `<button type="button" class="${o ? 'sold' : ''}${sel?.id === u.id ? ' on' : ''}" data-u="${u.id}" ${o ? `title="${esc(o.name)}"` : ''}><b>${u.n}</b><small>${o ? esc(o.name) : '분양'}</small></button>`; }).join('')}</div>
       <div id="estSel">${sel ? pick() : '<p class="est-note">원하는 집을 골라 주세요.</p>'}</div>
     </li>`;
