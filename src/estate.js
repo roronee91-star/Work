@@ -224,7 +224,7 @@ export function createVillage(colliders, myName = () => '') {
       for (const s2 of [-1, 1]) { const g = new THREE.BoxGeometry(W + 0.6, 0.12, L + 0.35); g.rotateX(s2 * slope); A(g, rm, 0, wh + rh / 2 + 0.06, bz + s2 * D / 4);
         for (let i = 0; i < Math.floor((W + 0.6) / 0.45); i++) { const r = new THREE.BoxGeometry(0.04, 0.06, L + 0.35); r.rotateX(s2 * slope); A(r, VM.metalDk, -W / 2 - 0.3 + 0.2 + i * 0.45, wh + rh / 2 + 0.14, bz + s2 * D / 4); } }
       A(new THREE.CylinderGeometry(0.1, 0.1, 1.6, 10), VM.metalDk, W * 0.25, wh + rh * 0.6, bz - D / 4);                               // 굴뚝
-      const gl = W / 2 - 0.85; win(-0.6 - gl / 2, 0.05, gl, wh - 0.35, VM.frameBlue); win(0.6 + gl / 2, 0.05, gl, wh - 0.35, VM.frameBlue); // 바닥부터 천장까지 통창
+      for (const s2 of [-1, 1]) win(s2 * (W / 4 + 0.35), 0.65, 1.8, 1.6, VM.frameW); if (big) for (const s2 of [-1, 1]) win(s2 * (W / 4 + 0.35), 2.95, 1.4, 1.2, VM.frameW); // 집 크기에 맞춘 창 (11-26 '통창이 너무 큼')
       B(1.0, 2.2, 0.08, 0, 0, fz + 0.03, VM.frameW); B(0.85, 2.05, 0.1, 0, 0.05, fz + 0.04, VM.glassW);                              // 유리 현관문
 
       for (const s2 of [-1, 1]) { const [wx, wz] = P(s2 * (W / 2 + 0.03), bz); hk.box(0.1, 1.0, 1.0, wx, 0.9 + (big ? 2.6 : 0), wz, VM.frameW); hk.box(0.12, 0.85, 0.85, wx, 0.97 + (big ? 2.6 : 0), wz, VM.glassW); } // 옆 창
@@ -234,7 +234,7 @@ export function createVillage(colliders, myName = () => '') {
       B(0.6, 0.55, 0.6, W / 2 + 0.3, -0.12, fz + 1.9, VM.pot); ball(VM.shrub, W / 2 + 0.3, 0.75, fz + 1.9, 0.5);
       for (const [lx, lz] of [[-5, 3.5], [-4.6, 4.4], [4.8, 4.6], [-5.2, -4.8]]) ball(VM.shrub, lx, -0.05, lz, 0.6, 0.45);
       for (let i = 0; i < 18; i++) ball(VM.flowerW, -5 + ((i * 37) % 100) / 10, -0.2, 4.5 + ((i * 13) % 12) / 10, 0.12);
-      tree(-W / 2 - 0.9, fz - 0.3, 1.1);
+      tree(-5.1, 4.9, 1.0); // 앞마당 모서리 (지붕과 겹치지 않게)
       col(-W / 2 - 0.1, bz - D / 2 - 0.1, W / 2 + 0.1, fz + 0.1);
     } else if (st === 'stucco') {
       // 화이트 단층 주택: 짙은 모임지붕 · 검은 창틀 · 벽등 · 디딤돌 · 낮은 흰 담장 + 검은 철제 울타리 · 라벤더 화단
@@ -242,8 +242,8 @@ export function createVillage(colliders, myName = () => '') {
       const hip = (w, d, lx, lz, y) => { const g = new THREE.ConeGeometry(1, rh, 4, 1); g.rotateY(Math.PI / 4); g.scale((w + 0.9) / 1.414, 1, (d + 0.9) / 1.414); A(g, rm, lx, y + rh / 2, lz); B(w + 0.5, 0.22, d + 0.5, lx, y - 0.12, lz, VM.stucco); };
       R(W, h + 0.3, D, 0, GY, bz, wm); R(W + 0.06, 0.35, D + 0.06, 0, GY, bz, VM.trim);
       hip(W, D, 0, bz, h);
-      if (big) { B(4.4, h + 0.3, 3, W / 2 - 2.2, GY, fz + 1.4, wm); hip(4.4, 3, W / 2 - 2.2, fz + 1.4, h - 0.2); win(W / 2 - 2.2, 0.05, 3.6, 2.7, VM.frameBlack, fz + 2.9); col(W / 2 - 4.5, fz, W / 2 + 0.1, fz + 3.0); }
-      { const gl = (big ? W / 2 - 4.6 + W / 2 : W / 2) - 1.0 - 0.4; win(-1.0 - (W / 2 - 1.4) / 2, 0.05, W / 2 - 1.4, 2.7, VM.frameBlack); if (!big) win(1.4 + (W / 2 - 1.8) / 2, 0.05, W / 2 - 1.8, 2.7, VM.frameBlack); } // 통창
+      if (big) { B(4.4, h + 0.3, 3, W / 2 - 2.2, GY, fz + 1.4, wm); hip(4.4, 3, W / 2 - 2.2, fz + 1.4, h - 0.2); win(W / 2 - 2.2, 0.7, 2.2, 1.5, VM.frameW, fz + 2.9); col(W / 2 - 4.5, fz, W / 2 + 0.1, fz + 3.0); }
+      win(-W / 4 - 0.4, 0.7, 2.0, 1.5, VM.frameW); win(-W / 2 + 0.9, 0.7, 0.6, 1.5, VM.frameW); if (!big) win(W / 4 + 0.5, 0.7, 2.0, 1.5, VM.frameW);
       B(1.0, 2.3, 0.1, 0, 0, fz + 0.03, VM.doorSage); B(0.3, 2.3, 0.1, 0.7, 0, fz + 0.03, VM.glassW); B(0.03, 0.5, 0.06, -0.35, 0.9, fz + 0.1, VM.frameBlack);
       for (const s2 of [-1, 1]) { B(0.14, 0.3, 0.14, s2 * 1.1, 1.9, fz + 0.08, VM.frameBlack); B(0.06, 0.06, 0.02, s2 * 1.1, 2.0, fz + 0.16, VM.lampOn); } // 벽등
       for (let i = 0; i < 3; i++) B(1.8 - i * 0.2, 0.12, 0.4, 0, GY + i * 0.1, fz + 0.9 - i * 0.35, VM.stone);                         // 계단
@@ -254,7 +254,7 @@ export function createVillage(colliders, myName = () => '') {
         ball(VM.shrub, s2 * (W / 2 - 0.3), 0.1, fz + 0.7, 0.7, 0.55);
       }
       B(0.6, 0.6, 0.6, -0.9, GY, fz + 0.7, VM.pot); ball(VM.shrub, -0.9, 0.7, fz + 0.7, 0.35, 0.6);
-      tree(-5, 2.8, 1.2);
+      tree(-5.1, 4.9, 1.0);
       col(-W / 2 - 0.1, bz - D / 2 - 0.1, W / 2 + 0.1, fz + 0.1);
     } else {
       // 모던 큐브 주택: 평지붕 · 얇은 짙은 테두리 · 큰 검은 창 · 짙은 현관 · 자갈 마당 · 나무 울타리
@@ -262,15 +262,15 @@ export function createVillage(colliders, myName = () => '') {
       R(W, h + 0.3, D, 0, GY, bz, wm); R(W + 0.06, 0.35, D + 0.06, 0, GY, bz, VM.trim);
       R(W + 0.12, 0.28, D + 0.12, 0, h - 0.05, bz, VM.trim);
       for (let i = 1; i < Math.floor(W / 1.2); i++) B(0.02, h, 0.03, -W / 2 + i * 1.2, 0, fz + 0.01, VM.panelG);
-      if (big) { const uw = W * 0.62, ud = D * 0.7; B(uw, 3.0, ud, -W * 0.18, h, bz - 0.6, wm); B(uw + 0.12, 0.26, ud + 0.12, -W * 0.18, h + 2.95, bz - 0.6, VM.trim); win(-W * 0.18, h + 0.1, uw * 0.8, 2.6, VM.frameBlack, bz - 0.6 + ud / 2); }
+      if (big) { const uw = W * 0.62, ud = D * 0.7; B(uw, 3.0, ud, -W * 0.18, h, bz - 0.6, wm); B(uw + 0.12, 0.26, ud + 0.12, -W * 0.18, h + 2.95, bz - 0.6, VM.trim); win(-W * 0.18, h + 0.7, uw * 0.45, 1.4, VM.frameW, bz - 0.6 + ud / 2); }
       B(1.8, h - 0.4, 0.3, 0, 0, fz - 0.1, VM.trim); B(1.0, 2.3, 0.1, 0, 0, fz + 0.03, VM.metalDk); B(0.04, 0.6, 0.06, GY, 0.9, fz + 0.1, VM.panelW); // 들어간 현관
-      win(1.1 + (W / 2 - 1.5) / 2, 0.05, W / 2 - 1.5, 2.9, VM.frameBlack); win(-1.1 - (W / 2 - 1.5) / 2, 0.05, W / 2 - 1.5, 2.9, VM.frameBlack); // 통창
+      win(W / 4 + 0.55, 0.6, 2.2, 1.7, VM.frameW); win(-W / 4 - 0.55, 0.6, 1.0, 1.7, VM.frameW);
       for (let i = 0; i < 3; i++) B(1.6, 0.12, 0.35, 0, GY + i * 0.1, fz + 1.0 - i * 0.32, VM.stone);
       B(3.4, 0.03, 4.8, -3.6, GY + 0.01, 3.0, VM.gravel); B(6.6, 0.03, 4.8, 2.4, GY + 0.01, 3.0, VM.lawn);
       for (let i = 0; i < 4; i++) B(1.2, 0.04, 0.8, -0.2, GY + 0.03, fz + 1.6 + i * 1.0, VM.stone);
       B(0.55, 0.6, 0.55, 1.2, GY, fz + 0.8, VM.pot); B(0.06, 0.8, 0.06, 1.2, 0.3, fz + 0.8, VM.cedarDk); ball(VM.leafL, 1.2, 1.25, fz + 0.8, 0.4, 0.5);
       for (const [lx, lz] of [[-4.6, 1.8], [-2.6, 4.6], [4.6, 2.4]]) ball(VM.shrub, lx, -0.05, lz, 0.55, 0.45);
-      tree(-4.6, 4.4, 1.0);
+      tree(-5.1, 4.9, 1.0);
       col(-W / 2 - 0.1, bz - D / 2 - 0.1, W / 2 + 0.1, fz + 0.1);
     }
     // 🚧 집터 둘레 울타리 (집 모양마다 다르게) · 앞 가운데 대문: 주인만 열림, 남의 집은 닫혀 있음
@@ -308,13 +308,10 @@ export function createVillage(colliders, myName = () => '') {
       const np = canvasTex(512, 160, (ctx, w, h) => { ctx.fillStyle = '#2d2a26'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#d9ad48'; ctx.lineWidth = 6; ctx.strokeRect(6, 6, w - 12, h - 12); ctx.fillStyle = '#f4e3b2'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `700 56px ${FONT}`; ctx.fillText(`${o.name}`, w / 2, h / 2 - 14); ctx.font = `400 30px ${FONT}`; ctx.fillStyle = '#c9bfa8'; ctx.fillText(`${u.n}번지 · ${o.size}평`, w / 2, h / 2 + 40); });
       const [nx, nz] = P(-0.95, fz + 0.07); panel(g, np, 0.8, 0.25, nx, 1.55 + base, nz, ry);
     } else {
-      // 분양 중: 빨간 현수막 + 길가 팻말
-      const bn = canvasTex(1024, 200, (ctx, w, h) => { ctx.fillStyle = '#c23a3a'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 92px ${FONT}`; ctx.fillText(`${u.n}번지 분양 중`, w / 2, h / 2 + 4); });
-      const [bx, bz2] = P(0, fz + 0.12); panel(g, bn, 3.2, 0.62, bx, 2.75 + base, bz2, ry);
-      B(0.1, 1.2, 0.1, -4.2, GY, 4.6, VM.post);
-      const sg = canvasTex(512, 256, (ctx, w, h) => { ctx.fillStyle = '#fffaf0'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#c23a3a'; ctx.lineWidth = 10; ctx.strokeRect(8, 8, w - 16, h - 16); ctx.fillStyle = '#c23a3a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 70px ${FONT}`; ctx.fillText('분양 중', w / 2, 90); ctx.fillStyle = '#333'; ctx.font = `600 38px ${FONT}`; ctx.fillText(`${u.n}번지 · 3층 투자 상담실`, w / 2, 180); });
-      const [sx, sz] = P(-4.2, 4.6); for (const s2 of [1, -1]) panel(g, sg, 1.2, 0.6, sx, 1.05 + base, sz + s2 * 0.06, s2 > 0 ? 0 : Math.PI);
-      cols.push({ x1: sx - 0.15, z1: sz - 0.15, x2: sx + 0.15, z2: sz + 0.15, tall: true });
+      // 분양 중: 앞마당 울타리에 건 간판 (골목에서 보임)
+      const sg = canvasTex(768, 320, (ctx, w, h) => { ctx.fillStyle = '#c23a3a'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = '#fffaf0'; ctx.fillRect(14, 14, w - 28, h - 28); ctx.fillStyle = '#c23a3a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 92px ${FONT}`; ctx.fillText(`${u.n}번지 분양 중`, w / 2, 120); ctx.fillStyle = '#444'; ctx.font = `600 44px ${FONT}`; ctx.fillText('3층 💹 투자 상담실에서 계약', w / 2, 230); });
+      B(1.75, 0.82, 0.05, -3.0, 0.32, 5.85 + 0.12, VM.frameBlack);                                           // 간판 뒤판
+      const [sx, sz] = P(-3.0, 5.85 + 0.16); panel(g, sg, 1.65, 0.7, sx, 0.73 + base, sz, ry);
     }
     hk.flush(g); rk.flush(g);
     group.add(g); colliders.push(...cols);
@@ -334,7 +331,7 @@ export function createVillage(colliders, myName = () => '') {
     // 문 앞에 서 있으면 그 물건 (아파트는 현관 하나)
     doorNear(x, z, owners) {
       if (Math.hypot(x - APT.x, z - (APT.z + APT.d / 2 + 1.0)) < 1.6) return { apt: true };
-      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), s = doorSpot(u, o?.size); if (o && o.name !== myName()) { if (Math.hypot(x - u.x, z - (u.z + u.face * 6.6)) < 1.6) return { unit: u, owner: o }; continue; } if (Math.hypot(x - s.x, z - s.z) < 1.4 || (!o && Math.hypot(x - (u.x - u.face * 4.2), z - (u.z + u.face * 4.6)) < 1.6)) return { unit: u, owner: o }; }
+      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), s = doorSpot(u, o?.size); if (o && o.name !== myName()) { if (Math.hypot(x - u.x, z - (u.z + u.face * 6.6)) < 1.6) return { unit: u, owner: o }; continue; } if (Math.hypot(x - s.x, z - s.z) < 1.4 || (!o && Math.hypot(x - (u.x - u.face * 3.0), z - (u.z + u.face * 6.8)) < 1.6)) return { unit: u, owner: o }; }
       return null;
     },
   };
