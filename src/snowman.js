@@ -76,6 +76,8 @@ export function createSnowmen(api) {
   let bodies = null, menCols = [], mode = supa ? 'wait' : 'local', mine = null /* 내가 굴리는 눈덩이 id */, lastSend = 0, seq = 0;
   const LS = 'work-snowmen';
   const BALL_GEO = new THREE.SphereGeometry(1, 20, 14);
+  // 얼굴: 머리 앞쪽을 감싸는 둥근 조각(구의 일부)에 그림을 붙임 — 평평한 판은 머리 속에 묻혀 안 보였음
+  const FACE_GEO = new THREE.SphereGeometry(1.015, 24, 18, Math.PI / 2 - 0.85, 1.7, Math.PI / 2 - 0.85, 1.7);
   // 눈사람 다시 그리기: 몸통은 한 덩어리, 얼굴 · 이름표만 따로
   function rebuild() {
     if (bodies) { group.remove(bodies); bodies.traverse((m) => m.geometry?.dispose?.()); }
@@ -87,12 +89,12 @@ export function createSnowmen(api) {
       menCols.push({ circle: true, cx: s.x, cz: s.z, r: s.r1 + 0.05, x1: s.x - s.r1, z1: s.z - s.r1, x2: s.x + s.r1, z2: s.z + s.r1, tall: true });
       if (!s.faceMesh) {
         const tex = new THREE.TextureLoader().load(s.face || defaultFace()); tex.colorSpace = THREE.SRGBColorSpace;
-        s.faceMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+        s.faceMesh = new THREE.Mesh(FACE_GEO, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
         s.label = makeSprite(`⛄ ${s.owner}의 눈사람`, { size: 40 }, 0.24);
         group.add(s.faceMesh, s.label);
       }
       const y2 = s.r1 * 1.8 + s.r2 * 0.92, fx = Math.sin(s.ry || 0), fz = Math.cos(s.ry || 0);
-      s.faceMesh.scale.setScalar(s.r2 * 1.35); s.faceMesh.position.set(s.x + fx * s.r2 * 0.93, y2 + s.r2 * 0.05, s.z + fz * s.r2 * 0.93); s.faceMesh.rotation.y = s.ry || 0;
+      void fx; void fz; s.faceMesh.scale.set(s.r2, s.r2 * 0.95, s.r2); s.faceMesh.position.set(s.x, y2, s.z); s.faceMesh.rotation.y = s.ry || 0;
       s.label.position.set(s.x, y2 + s.r2 + 0.32, s.z);
     }
     bodies = new THREE.Group(); k.flush(bodies); group.add(bodies);
