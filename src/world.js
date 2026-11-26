@@ -1,6 +1,7 @@
 // 밤하늘 · 산 · 도시 · 강 · 다리
 import * as THREE from 'three';
 import { HASH, FOG, RIVER_GLSL, RIVER_HALF, riverCenter } from './shaders.js';
+import { CONFIG } from './config.js';
 
 export const GROUND_Y = -0.3; // 건물 1층 바닥(0) 바로 아래가 땅
 export const FOG_COLOR = new THREE.Color(0.035, 0.038, 0.058);
@@ -252,7 +253,7 @@ export function createCity(uniforms) {
   for (let bx = -N; bx <= N; bx++) {
     for (let bz = -N; bz <= N; bz++) {
       if (bx === 0 && bz === 0) continue; // 우리 건물 블록
-      if (bx === 1 && bz === 0) continue; // 🏘 WORK 빌리지 (estate.js, 회사 동쪽 블록)
+      if (CONFIG.estate && bx === 1 && bz === 0) continue; // 🏘 WORK 빌리지 (estate.js, 회사 동쪽 블록) — 켤 때만 비움
       const cx = bx * B, cz = bz * B;
       for (let q = 0; q < 4; q++) {
         if (rand() < 0.1) continue;

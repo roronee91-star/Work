@@ -166,8 +166,8 @@ export function createGarden(uniforms) {
   }
   // 꽃밭을 바라보는 벤치 · 나무 그늘 벤치
   bench(-20, 9.3, Math.PI); bench(20, 9.3, Math.PI);
-  /* (-20, -12.2) · (22, -12.2) 벤치 자리는 ⛄ 눈사람 마당 · 🛋 가구점 */
-  bench(13, -20, -Math.PI / 2); /* (-13, -20)은 ⛄ 눈사람 마당 */
+  if (!CONFIG.snowman) bench(-20, -12.2, Math.PI); if (!CONFIG.estate) bench(22, -12.2, Math.PI); /* 켜면 ⛄ 눈사람 마당 · 🛋 가구점 자리 */
+  bench(13, -20, -Math.PI / 2); if (!CONFIG.snowman) bench(-13, -20, Math.PI / 2); /* 켜면 ⛄ 눈사람 마당 자리 */
   bench(-26, 2, Math.PI / 2); bench(26, 2, -Math.PI / 2);
 
   // ---------- 건물 앞 화단 (입구 양옆) ----------
@@ -193,8 +193,8 @@ export function createGarden(uniforms) {
   };
   bed(-20, 6, 4.5, 2.2, 160);
   bed(20, 6, 4.5, 2.2, 160);
-  /* bed(-20, -16) 자리는 ⛄ 눈사람 마당 (11-26) */
-  /* bed(22, -16) 자리는 🛋 가구점 (11-26) */
+  if (!CONFIG.snowman) bed(-20, -16, 3.2, 3.2, 120); /* 켜면 ⛄ 눈사람 마당 자리 */
+  if (!CONFIG.estate) bed(22, -16, 3.2, 3.2, 120); /* 켜면 🛋 가구점 자리 */
 
   // ---------- 나무 ----------
   const treeSpots = [
@@ -203,7 +203,7 @@ export function createGarden(uniforms) {
     [26, -5], [27, 12], [25, 24], [14, 24.5], [8, 23.5],
     [-16, 22], [16, 22], [-15, -6], [15, -6],
   ];
-  const shopArea = (x, z) => (x > 15.8 && x < 27.2 && z > -22.5 && z < 1.5) || (x > -24.5 && x < -10.5 && z > -26.5 && z < -10.5); // 👜 부티크 · 🛋 가구점 · ⛄ 눈사람 마당 자리
+  const shopArea = (x, z) => (x > 15.8 && x < 27.2 && z > (CONFIG.estate ? -22.5 : -9.5) && z < 1.5) || (CONFIG.snowman && x > -24.5 && x < -10.5 && z > -26.5 && z < -10.5); // 👜 부티크 · 🛋 가구점 · ⛄ 눈사람 마당 자리
   treeSpots.forEach(([x, z], i) => {
     if (shopArea(x, z)) return;
     const s = 0.85 + rand() * 0.4;

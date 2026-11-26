@@ -312,3 +312,9 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - 집 안: `renderFurniture(f)` — 배치(stocks.__home = [[id,x,z,r]]) + 배달 상자(산 개수 - 놓은 개수)를 한 Kit로 그림, 부딪힘(fixedTop) · 앉는 자리(F.seats). 🛋 꾸미기(#btnDeco · #decoPanel): 상자에서 꺼내기(내 앞), 바닥 누르기 = 옮기기(가구 누르면 고르기, 러그는 고른 게 없을 때만), 돌리기, 상자로. `money.homeSave`(0.8초 모아 `home_save`, 저장 전 서버 값이 와도 화면 배치 유지). 서버 `home_save`: 최대 40개 · 가진 개수까지 · 좌표 ±8.
 - **docs/furniture.sql 실행 필요.** 확인: 로컬 Postgres(no_home · bad_item · 개수 초과 · 좌표 자름), 데모 화면(사기 → 배달 → 꾸미기 → 앉기). 남은 것: 남의 집 놀러 가기 때 그 집 배치 보여 주기, 창 너머 그림에 가구 반영.
 - ✅ 11-26 사용자가 furniture.sql 실행 완료 → 가구 사기 · 배치 저장 열림.
+
+## ⏸ 11-27 부동산 · 가구점 끔 (사용자: '회사와 맞지 않아, 나중에 고민되면')
+- `config.js`에 기능 스위치 `estate: false`(🏘 마을 · 🏠 부동산 탭 · 🏠 버튼 · 🛋 가구점), `snowman: false`(⛄ 눈사람 마당 — 미리보기만 하고 사용자 결정 전). 코드는 전부 남김 → true로 바꾸면 다시 켜짐(building.js `ESTATE`/`SNOWMAN`, main.js `ESTATE_ON`/`SNOWMAN_ON`, garden.js · world.js `CONFIG.estate`).
+- 끄면: 마을 · 가구점을 그리지 않고 부딪힘 · 걸을 수 있는 땅(RECTS0)에서 빠짐, 투자 상담실 부동산 탭 버튼 제거, 원래 꽃밭 · 벤치 · 동쪽 도시 블록 되돌림. 업데이트 소식은 '분양 · 가구점 종료(환불)'로.
+- 환불: **docs/estate_refund.sql** (사용자 실행 필요) — 집은 (산 값 − 되판 값 − 이미 환불)을, 가구는 (산 값 − 이미 환불)을 지갑으로, estates 비움 · __furn/__home 지움, estate_buy · furn_buy 실행 권한 회수(public 포함). 여러 번 실행해도 차액만. 로컬 Postgres로 확인.
+- ⛄ 눈사람 마당(src/snowman.js, docs/snowman.sql)은 만들어 두었고 미리보기 그림을 보여 줌 — 켤지 사용자 답 기다리는 중. 켜려면 config `snowman: true` + snowman.sql 실행.

@@ -12,6 +12,10 @@ export const CONFIG = {
   supabaseUrl: 'https://gayvbnowiuxzfwadoqtg.supabase.co',
   supabaseAnonKey: 'sb_publishable_J1alIW63mRsTQ_MBR_7JkA_PWL8ijPG', // 공개용(Publishable) 키 — 비밀 키는 절대 넣지 않음
 
+  // 기능 스위치 (true로 바꾸면 다시 켜짐)
+  estate: false,  // 🏘 WORK 빌리지 · 🏠 부동산 분양 · 🛋 가구점 — 11-27 사용자: '회사와 맞지 않아 취소, 나중에 고민되면'
+  snowman: false, // ⛄ 눈사람 마당 — 미리보기만, 사용자 확인 전
+
   // Supabase가 없을 때 공지판에 보여 줄 기본 공지
   defaultNotices: [
     { title: '메타버스 사옥 오픈', body: '새 메타버스 사무실에 오신 것을 환영합니다. 옥상 테라스에서 야경을 즐겨 보세요.', author: '운영팀' },

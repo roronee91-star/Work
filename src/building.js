@@ -37,13 +37,13 @@ export const ZONES = {
 };
 export function zoneAt(f, x, z) {
   if (f >= 5) return 'home'; // 🏠 집 안 (estate.js HOME_BASE부터)
-  if (f === 0 && ((x > 72 && x < 168 && z > -48 && z < 48) || (x > 30 && x < 72.5 && z > 15.4 && z < 18.6))) return 'village'; // 🏘 마을 · 건널목 (estate.js VILLAGE · WALK)
+  if (ESTATE && f === 0 && ((x > 72 && x < 168 && z > -48 && z < 48) || (x > 30 && x < 72.5 && z > 15.4 && z < 18.6))) return 'village'; // 🏘 마을 · 건널목 (estate.js VILLAGE · WALK)
   if (f === 4 && x > 6.45 && x < 9.8 && z > 0.65 && z < 5.25) return 'party'; // 🪩 옥상 파티 무대 (party.js PARTY)
   if (f === 0 && (Math.abs(x) > LOT + 1 || Math.abs(z) > LOT + 1)) return 'race'; // 회사 밖 도로 (레이스 중)
   if (f === 0 && x > SNOW.x0 && x < SNOW.x1 && z > SNOW.z0 && z < SNOW.z1) return 'snow';
-  if (f === 0 && x > -23 && x < -11.5 && z > -25 && z < -11.5) return 'yard'; /* ⛄ 눈사람 마당 (snowman.js YARD) */
+  if (SNOWMAN && f === 0 && x > -23 && x < -11.5 && z > -25 && z < -11.5) return 'yard'; /* ⛄ 눈사람 마당 (snowman.js YARD) */
   if (f === 0 && x > 17.5 && x < 25.5 && z > -8 && z < 0) return 'shop'; /* 👜 부티크 안 (shop.js SHOP) */
-  if (f === 0 && x > 17.5 && x < 25.5 && z > -21 && z < -12) return 'furn'; /* 🛋 가구점 안 (furniture.js FURN_SHOP) */
+  if (ESTATE && f === 0 && x > 17.5 && x < 25.5 && z > -21 && z < -12) return 'furn'; /* 🛋 가구점 안 (furniture.js FURN_SHOP) */
   if (f === 0 && (Math.abs(x) > HX || Math.abs(z) > HZ)) return 'garden';
   if (f === 2 && z < -2) return x < 1.5 ? 'meetA' : 'meetB';
   if (f === 2 && x > 4.6 && z > 0.2 && z < 3.8) return 'invest'; /* 💹 투자 상담실 (INVEST 둘레 카펫) */
@@ -115,6 +115,7 @@ const ICO = new THREE.IcosahedronGeometry(1, 0); // 아주 작은 구슬 (전구
 
 // ---------- 🎄 크리스마스 장식 (config.js의 xmas: false 로 끌 수 있음) ----------
 export const XMAS = CONFIG.xmas !== false;
+export const ESTATE = CONFIG.estate === true, SNOWMAN = CONFIG.snowman === true; // 기능 스위치 (config.js)
 export const XM = {
   pine: new THREE.MeshStandardMaterial({ color: 0x1f5c34, roughness: 0.85, flatShading: true }),
   pineLight: new THREE.MeshStandardMaterial({ color: 0x2d7a42, roughness: 0.85, flatShading: true }),
