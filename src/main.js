@@ -222,7 +222,7 @@ function showToast(text, onClick) {
 }
 // 💰 월급 · 지갑 · 💹 투자
 const money = createMoney({ $, me, priceOf: (id) => ITEMS.find((it) => it.id === id && !it.limited)?.price, canGrant: (id) => !!advent?.earned(id), openItems: () => shopUI.open('mine'), openModal: (id) => openModal(id), sys: (t) => sysMessage(t), toast: (t) => toast(t, () => money.openWallet()),
-  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior'), rate: () => (WORK_BONUS && player.sit && player.working ? 2 : 1) /* 💼 시급 2배 이벤트(일하기 중) — 11-26 종료, 다시 하려면 WORK_BONUS = true */, get board() { return bld.investBoard; }, estateTab: (el) => estate.render(el) });
+  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior') && player.floor < 5 && player.zone !== 'village', /* 🏘 일급은 사옥(정원 포함)에서만 — 집 · 마을은 퇴근 후 공간 */ rate: () => (WORK_BONUS && player.sit && player.working ? 2 : 1) /* 💼 시급 2배 이벤트(일하기 중) — 11-26 종료, 다시 하려면 WORK_BONUS = true */, get board() { return bld.investBoard; }, estateTab: (el) => estate.render(el) });
 $('workChip').onclick = () => money.openWallet();
 // 👜 WORK BOUTIQUE (1층 정원 동쪽): 아이템 사서 착용
 const shop = createShop(bld.floors[0].colliders);
@@ -231,6 +231,7 @@ scene.add(shop.group);
 const village = createVillage(bld.floors[0].colliders);
 scene.add(village.group);
 const BLDG_N = 5; // 사옥 층 수 (그 뒤 번호는 집 안)
+let villageTold = false;
 for (const u of UNITS) { // 집마다 '층 번호' 하나 → 같은 집에 있는 사람끼리만 보임, 안은 들어갈 때 그림
   const i = FLOORS.length;
   FLOORS.push({ label: '🏠', name: u.label, y: HOME_Y, home: u.id });
@@ -267,7 +268,7 @@ function goHome(id = estate.mine()?.unit.id) {
     player.floor = f; player.x = F.door.x; player.z = F.door.z; player.ry = Math.PI; cam.yaw = 0; cam.pitch = 0.28;
     bld.setFloor(f); player.zone = 'home'; showFloorHud(); sendState(true);
     officeCamPose(null, pose); fade.classList.remove('on');
-    sysMessage('🏠 우리 집에 왔어요! 가구는 곧 생길 🛋 가구점에서 사면 배달돼요. 나갈 땐 현관문 앞에서 E (또는 위쪽 🏠 버튼)');
+    sysMessage('🏠 우리 집에 왔어요! 집에서는 일급이 쌓이지 않아요(퇴근 후 공간). 가구는 곧 생길 🛋 가구점에서 사면 배달돼요. 나갈 땐 현관문 앞에서 E (또는 위쪽 🏠 버튼)');
   }, 450);
 }
 function leaveHome() {
@@ -780,6 +781,7 @@ function updatePlayer(dt) {
 
   const z = zoneAt(player.floor, player.x, player.z);
   if (z !== player.zone) {
+    if (z === 'village' && !villageTold) { villageTold = true; sysMessage('🏘 WORK 빌리지예요. 여기와 집에서는 일급이 쌓이지 않아요 — 일급은 사옥(정원 포함)에서만!'); }
     player.zone = z;
     showFloorHud();
     sendState(true);
