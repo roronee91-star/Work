@@ -305,3 +305,9 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - ⚠️ 작업 메모: `node --check`는 ESM 문법 오류(줄 끝 `//` 설명이 뒤 코드까지 주석으로 만든 것)를 못 잡음 → **`node --input-type=module --check < 파일`** 로 검사할 것.
 - ⚡ 11-26 가볍게(사용자: '최대한 가벼워야 해'): 집 16채 · 바닥 판 · 대문 돌길을 한 Kit에 합쳐 재질별로 그림(`buildAll`, 주인 바뀌면 통째로 다시 만듦), 분양 간판 · 문패는 아틀라스 한 장(`saleTex`/`nameCanvas` 4×4칸, `cellQuad`). 마을 조각 344 → 58, 화면 전체 1096 → 810. 사옥 2층 이상 · 집 안에서는 `village.group.visible = false`. 확인용: 스크래치 `count.cjs`(마을/전체 조각 수).
 - ✅ 11-26 사용자가 estate.sql 실행 완료 → 부동산 분양 계약 열림.
+
+## 🛋 WORK HOME 가구점 · 집 꾸미기 (11-26 밤, `src/furniture.js`)
+- 가구점 `FURN_SHOP` x 17.5~25.5, z -21~-12(부티크 북쪽, 서쪽 문). garden.js 꽃밭(22,-16) · 벤치(22,-12.2) 뺌, shopArea 넓힘. 구역 'furn'. 계산대 E → #furnModal.
+- 가구 `FURN` 16종(w · d · h · seats), `drawFurn(kit, id, x, y, z, r)` (r = 90도 단위). 사면 `money.furnBuy` → 서버 `furn_buy`(집 있어야 함, stocks.__furn = {id: 개수}) → 4초 뒤 '배달 완료' 알림(묶어서 한 번).
+- 집 안: `renderFurniture(f)` — 배치(stocks.__home = [[id,x,z,r]]) + 배달 상자(산 개수 - 놓은 개수)를 한 Kit로 그림, 부딪힘(fixedTop) · 앉는 자리(F.seats). 🛋 꾸미기(#btnDeco · #decoPanel): 상자에서 꺼내기(내 앞), 바닥 누르기 = 옮기기(가구 누르면 고르기, 러그는 고른 게 없을 때만), 돌리기, 상자로. `money.homeSave`(0.8초 모아 `home_save`, 저장 전 서버 값이 와도 화면 배치 유지). 서버 `home_save`: 최대 40개 · 가진 개수까지 · 좌표 ±8.
+- **docs/furniture.sql 실행 필요.** 확인: 로컬 Postgres(no_home · bad_item · 개수 초과 · 좌표 자름), 데모 화면(사기 → 배달 → 꾸미기 → 앉기). 남은 것: 남의 집 놀러 가기 때 그 집 배치 보여 주기, 창 너머 그림에 가구 반영.
