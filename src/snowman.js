@@ -45,16 +45,37 @@ export function createSnowYard(colliders) {
 }
 
 // 눈사람 몸통 (두 덩이 · 돌단추 · 나뭇가지 팔 · 목도리) — 여럿을 kit 하나에 합쳐 그림
+// 머리는 몸통 위에 살짝 파묻히게 (11-27 '두 덩이가 떨어져 얼굴이 뜬 것 같다')
+const SMOOTH = new THREE.SphereGeometry(1, 22, 16);
+export const bodyY = (s) => s.r1 * 0.95;                                   // 몸통 가운데
+export const headY = (s) => bodyY(s) + s.r1 * 0.86 + s.r2 * 0.72;          // 머리 가운데 (몸통 윗부분과 겹침)
+// 모든 눈사람은 마당 입구(남쪽 문)를 바라봄 (11-27 사용자)
+export const faceGate = (x, z) => Math.atan2(GATE.x - x, YARD.z1 + 3 - z);
+function stick(k, a, b, r0, r1) { // 두 점을 잇는 나뭇가지
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A), g = new THREE.CylinderGeometry(r1, r0, d.length(), 6);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()));
+  const m = A.clone().addScaledVector(d, 0.5); k.add(g, YM.twig, m.x, m.y, m.z);
+}
 function drawBody(k, s) {
-  const { x, z, r1, r2 } = s, y1 = r1 * 0.92, y2 = r1 * 1.8 + r2 * 0.92, ry = s.ry || 0;
-  k.add(BALL, YM.snow, x, y1, z, 0, r1, r1 * 0.95, r1); k.add(BALL, YM.snow, x, y2, z, 0, r2, r2 * 0.95, r2);
+  const { x, z, r1, r2 } = s, y1 = bodyY(s), y2 = headY(s), ry = s.ry || 0;
+  k.add(SMOOTH, YM.snow, x, y1, z, 0, r1, r1 * 0.96, r1); k.add(SMOOTH, YM.snow, x, y2, z, 0, r2, r2 * 0.96, r2);
   const fx = Math.sin(ry), fz = Math.cos(ry), rx = Math.cos(ry), rz = -Math.sin(ry);
-  for (let i = 0; i < 3; i++) { const yy = y1 + r1 * (0.45 - i * 0.35), d = Math.sqrt(Math.max(0, r1 * r1 - (yy - y1) ** 2)); k.add(BALL, YM.coal, x + fx * d, yy, z + fz * d, 0, r1 * 0.07, r1 * 0.07, r1 * 0.07); }
-  const tor = new THREE.TorusGeometry(r2 * 0.9, r2 * 0.16, 8, 20); tor.rotateX(Math.PI / 2);
-  k.add(tor, YM.scarf[(s.id || 0) % YM.scarf.length], x, y2 - r2 * 0.62, z);
+  for (let i = 0; i < 3; i++) { const yy = y1 + r1 * (0.42 - i * 0.32), d = Math.sqrt(Math.max(0, r1 * r1 - (yy - y1) ** 2)); k.add(SMOOTH, YM.coal, x + fx * d * 0.99, yy, z + fz * d * 0.99, 0, r1 * 0.065, r1 * 0.065, r1 * 0.065); }
+  const neck = y1 + r1 * 0.86, tor = new THREE.TorusGeometry(r2 * 0.82, r2 * 0.2, 10, 24); tor.rotateX(Math.PI / 2);
+  k.add(tor, YM.scarf[(+s.id || 0) % YM.scarf.length], x, neck + r2 * 0.08, z);
+  // 나뭇가지 팔: 어깨에서 바깥 · 살짝 위로, 끝은 세 갈래 손가락
   for (const side of [-1, 1]) {
-    const len = r1 * 1.4, g = new THREE.CylinderGeometry(0.018, 0.028, len, 5); g.rotateZ(side * (Math.PI / 2 - 0.55)); g.rotateY(ry);
-    k.add(g, YM.twig, x + rx * side * (r1 * 0.95 + len * 0.35), y1 + r1 * 0.6, z + rz * side * (r1 * 0.95 + len * 0.35));
+    const sh = [x + rx * side * r1 * 0.8, y1 + r1 * 0.38, z + rz * side * r1 * 0.8];
+    const L = r1 * 1.05, out = [rx * side, 0.42, rz * side], n = Math.hypot(...out);
+    const end = [sh[0] + out[0] / n * L, sh[1] + out[1] / n * L, sh[2] + out[2] / n * L];
+    stick(k, sh, end, 0.026, 0.018);
+    for (const [ang, up, len] of [[0.5, 0.35, 0.3], [-0.45, 0.25, 0.26], [0, 0.6, 0.22]]) {
+      const c = Math.cos(ang), sn = Math.sin(ang), dx = out[0] / n, dz = out[2] / n, ddx = dx * c - (fx * sn) * side, ddz = dz * c - (fz * sn) * side;
+      const tip = [end[0] + ddx * r1 * len, end[1] + up * r1 * len, end[2] + ddz * r1 * len];
+      stick(k, end, tip, 0.016, 0.01);
+    }
+    const mid = [sh[0] + out[0] / n * L * 0.55, sh[1] + out[1] / n * L * 0.55, sh[2] + out[2] / n * L * 0.55]; // 중간 잔가지
+    stick(k, mid, [mid[0] + out[0] / n * r1 * 0.18, mid[1] + r1 * 0.22, mid[2] + out[2] / n * r1 * 0.18], 0.014, 0.008);
   }
 }
 // 기본 얼굴 (그리지 않았을 때): 숯 눈 · 당근 코 · 웃는 입
@@ -93,7 +114,7 @@ export function createSnowmen(api) {
         s.label = makeSprite(`⛄ ${s.owner}의 눈사람`, { size: 40 }, 0.24);
         group.add(s.faceMesh, s.label);
       }
-      const y2 = s.r1 * 1.8 + s.r2 * 0.92, fx = Math.sin(s.ry || 0), fz = Math.cos(s.ry || 0);
+      const y2 = headY(s), fx = Math.sin(s.ry || 0), fz = Math.cos(s.ry || 0);
       void fx; void fz; s.faceMesh.scale.set(s.r2, s.r2 * 0.95, s.r2); s.faceMesh.position.set(s.x, y2, s.z); s.faceMesh.rotation.y = s.ry || 0;
       s.label.position.set(s.x, y2 + s.r2 + 0.32, s.z);
     }
@@ -104,7 +125,7 @@ export function createSnowmen(api) {
   function setMen(rows) {
     const keep = new Set(rows.map((r) => String(r.id)));
     for (const id of [...men.keys()]) if (!keep.has(id)) { const s = men.get(id); for (const o of [s.faceMesh, s.label]) if (o) { group.remove(o); o.material.map?.dispose(); o.material.dispose(); } men.delete(id); }
-    for (const r of rows) { const id = String(r.id); if (!men.has(id)) men.set(id, { id, owner: r.owner, x: +r.x, z: +r.z, r1: +r.r1, r2: +r.r2, ry: +r.ry || 0, face: r.face }); }
+    for (const r of rows) { const id = String(r.id); if (!men.has(id)) men.set(id, { id, owner: r.owner, x: +r.x, z: +r.z, r1: +r.r1, r2: +r.r2, ry: faceGate(+r.x, +r.z), face: r.face }); } // 얼굴은 늘 입구 쪽
     rebuild();
   }
   const localAll = () => { try { return JSON.parse(localStorage.getItem(LS) || '[]'); } catch { return []; } };
@@ -155,7 +176,7 @@ export function createSnowmen(api) {
       if (myCount() >= SM_LIMIT.mine) { hint(`⛄ 눈사람은 한 사람에 ${SM_LIMIT.mine}개까지예요. 내 눈사람을 부수면 또 만들 수 있어요.`); return; }
       if (men.size >= SM_LIMIT.all) { hint(`⛄ 마당이 꽉 찼어요 (${SM_LIMIT.all}개).`); return; }
       stacking = true; mine = null;
-      const p = api.player(), ry = Math.atan2(p.x - o.x, p.z - o.z); // 만든 사람 쪽을 바라봄
+      const ry = faceGate(o.x, o.z); // 마당 입구 쪽을 바라봄
       const s = { x: +o.x.toFixed(2), z: +o.z.toFixed(2), r1: +o.r.toFixed(2), r2: +b.r.toFixed(2), ry: +ry.toFixed(2) };
       dropBall(b.id); dropBall(o.id); api.send({ t: 'sm', k: 'gone', ids: [b.id, o.id] });
       api.beep(); openDraw(s);
