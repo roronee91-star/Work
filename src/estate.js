@@ -93,6 +93,8 @@ const VM = {
   slabL: new THREE.MeshStandardMaterial({ color: 0xd9cfbd, roughness: 0.6 }),
   podium: new THREE.MeshStandardMaterial({ color: 0x8a6e52, roughness: 0.5, metalness: 0.2 }),
 };
+// 땅바닥(-0.3)과 거의 같은 높이라 멀리서 깜빡이지 않게 앞으로 당겨 그림
+for (const [m, k] of [[VM.lawn, -2], [VM.path, -4], [VM.stripe, -6], [VM.gravel, -4], [VM.stone, -5]]) { m.polygonOffset = true; m.polygonOffsetFactor = k; m.polygonOffsetUnits = k; }
 // 박공(삼각) 기둥: 앞뒤로 기운 지붕 아래 벽 (x 방향으로 길게)
 function gablePrism(w, d, rh) { const sh = new THREE.Shape(); sh.moveTo(-d / 2, 0); sh.lineTo(d / 2, 0); sh.lineTo(0, rh); sh.closePath(); const g = new THREE.ExtrudeGeometry(sh, { depth: w, bevelEnabled: false }); g.rotateY(Math.PI / 2); g.translate(-w / 2, 0, 0); return g; }
 
