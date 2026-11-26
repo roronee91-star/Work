@@ -324,3 +324,4 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - ⛄ 버튼(#btnRoll, 컴퓨터 F)/안내 누르기 = 만들기 · 잡기 · 내려놓기. 굴린 거리 × 0.03만큼 커짐(처음 반지름 0.1, 최대 0.45). 굴리는 작은 덩이(≥0.16)가 놓인 큰 덩이(≥0.26, 작은 것 ≤ 큰 것×0.92)에 닿으면 쌓임 → 🖊 얼굴 그리기(#smModal, 320 캔버스 → 160px PNG) → 서버 `snowman_add`(지갑 키 · 한 사람 3 · 전체 30 · 마당 안 · 크기 · PNG만). 얼굴은 머리 앞 구면 조각(FACE_GEO)에 붙임. 이름표 '○○의 눈사람'(makeSprite). 부수기는 만든 사람만 `snowman_smash`. 몸통은 한 Kit로 합쳐 그림.
 - 실시간: 이벤트 {t:'sm', k:roll|drop|grab|gone|man|smash}. 놓인 눈덩이는 저장 안 함(10분 뒤 녹음, 늦게 들어온 사람은 못 봄).
 - **docs/snowman.sql 실행 필요.** 이상한 그림은 Supabase Table Editor → snowmen에서 줄 삭제. 확인: 로컬 Postgres(too_many · bad_place · bad_size · bad_face · not_yours · 직접 삭제 거부), 데모 화면 전 과정. 두 사람 동시 · 휴대폰 손맛은 확인 못 함.
+- ✅ 11-27 사용자가 snowman.sql 실행 완료 → 눈사람 저장 열림. (estate_refund.sql 실행 여부는 따로 확인 필요)
