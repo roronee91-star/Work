@@ -228,7 +228,7 @@ $('workChip').onclick = () => money.openWallet();
 const shop = createShop(bld.floors[0].colliders);
 scene.add(shop.group);
 // 🏘 WORK 빌리지 (레이스 도로 동쪽 새 땅): 3층 투자 상담실에서 분양 → 우리 집
-const village = createVillage(bld.floors[0].colliders);
+const village = createVillage(bld.floors[0].colliders, () => me.name); // 내 집 대문만 열림
 scene.add(village.group);
 const BLDG_N = 5; // 사옥 층 수 (그 뒤 번호는 집 안)
 let villageTold = false;

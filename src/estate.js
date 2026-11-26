@@ -97,7 +97,7 @@ const VM = {
 function gablePrism(w, d, rh) { const sh = new THREE.Shape(); sh.moveTo(-d / 2, 0); sh.lineTo(d / 2, 0); sh.lineTo(0, rh); sh.closePath(); const g = new THREE.ExtrudeGeometry(sh, { depth: w, bevelEnabled: false }); g.rotateY(Math.PI / 2); g.translate(-w / 2, 0, 0); return g; }
 
 // ---------- 마을 (밖) ----------
-export function createVillage(colliders) {
+export function createVillage(colliders, myName = () => '') {
   const group = new THREE.Group();
   const k = new Kit(false);
   const { x0, x1, z0, z1 } = VILLAGE;
@@ -171,7 +171,7 @@ export function createVillage(colliders) {
     nameplate.needsUpdate = true;
   }
   // 🏡 집 한 채 (앞 = +z 기준으로 만들고, 북쪽을 보는 집은 위치만 뒤집음)
-  function house(hk, cols, u, size, x, z, face) {
+  function house(hk, cols, u, size, x, z, face, gateClosed) {
     const st = styleOf(u), big = size >= 50, alt = u.n % 2 === 0, [W, D] = dims(u, size), bz = -1, fz = bz + D / 2;
     const P = (lx, lz) => [x + face * lx, z + face * lz];
     const B = (w, h, d, lx, y, lz, m) => { const [wx, wz] = P(lx, lz); hk.box(w, h, d, wx, y, wz, m); };
@@ -217,9 +217,7 @@ export function createVillage(colliders) {
       for (let i = 0; i < 3; i++) B(1.8 - i * 0.2, 0.12, 0.4, 0, -0.3 + i * 0.1, fz + 0.9 - i * 0.35, VM.stone);                         // 계단
       for (let i = 0; i < 5; i++) B(0.9, 0.04, 0.5, (i % 2 ? 0.15 : -0.1), -0.28, fz + 1.5 + i * 0.75, VM.stone);                     // 디딤돌
       for (const s2 of [-1, 1]) {                                                                                                           // 낮은 담장 + 철제 울타리 (가운데 열림)
-        const cx = s2 * 3.6; B(4.6, 0.55, 0.3, cx, -0.3, 5.6, VM.stucco); B(4.6, 0.06, 0.08, cx, 0.75, 5.6, VM.frameBlack);
-        for (let i = 0; i < 8; i++) B(0.05, 0.5, 0.05, cx - 2.2 + i * 0.63, 0.25, 5.6, VM.frameBlack);
-        col(cx - 2.3, 5.4, cx + 2.3, 5.8, false, 0.85);
+        const cx = s2 * 3.6;
         for (let i = 0; i < 7; i++) { ball(VM.lavender, cx - 2 + i * 0.66, 0.0, 4.9, 0.28, 0.4); ball(VM.flowerW, cx - 1.7 + i * 0.66, -0.05, 4.5, 0.2, 0.25); }
         ball(VM.shrub, s2 * (W / 2 - 0.3), 0.1, fz + 0.7, 0.7, 0.55);
       }
@@ -238,21 +236,38 @@ export function createVillage(colliders) {
       for (let i = 0; i < 3; i++) B(1.6, 0.12, 0.35, 0, -0.3 + i * 0.1, fz + 1.0 - i * 0.32, VM.stone);
       B(3.4, 0.03, 4.8, -3.6, -0.29, 3.0, VM.gravel); B(6.6, 0.03, 4.8, 2.4, -0.29, 3.0, VM.lawn);
       for (let i = 0; i < 4; i++) B(1.2, 0.04, 0.8, -0.2, -0.27, fz + 1.6 + i * 1.0, VM.stone);
-      for (let i = 0; i < 14; i++) B(0.14, 1.5, 0.05, 5.7, -0.3, -4.8 + i * 0.32, VM.slat);                                               // 옆 나무 울타리
-      col(5.6, -5, 5.8, -0.4, true);
       B(0.55, 0.6, 0.55, 1.2, -0.3, fz + 0.8, VM.pot); B(0.06, 0.8, 0.06, 1.2, 0.3, fz + 0.8, VM.cedarDk); ball(VM.leafL, 1.2, 1.25, fz + 0.8, 0.4, 0.5);
       for (const [lx, lz] of [[-4.6, 1.8], [-2.6, 4.6], [4.6, 2.4]]) ball(VM.shrub, lx, -0.05, lz, 0.55, 0.45);
       tree(-4.6, 4.4, 1.0);
       col(-W / 2 - 0.1, bz - D / 2 - 0.1, W / 2 + 0.1, fz + 0.1);
     }
+    // 🚧 집터 둘레 울타리 (집 모양마다 다르게) · 앞 가운데 대문: 주인만 열림, 남의 집은 닫혀 있음
+    const E = 5.85, GW = 0.95;
+    const seg = (ax, az, bx, bz2) => {
+      const len = Math.hypot(bx - ax, bz2 - az), mx = (ax + bx) / 2, mz = (az + bz2) / 2, alongX = Math.abs(bx - ax) > Math.abs(bz2 - az);
+      const sb = (l, h, t, y, m) => B(alongX ? l : t, h, alongX ? t : l, mx, y, mz, m);
+      const posts = (h, m, step, w = 0.12) => { const n = Math.max(1, Math.round(len / step)); for (let i = 0; i <= n; i++) { const t = i / n; B(w, h, w, ax + (bx - ax) * t, -0.3, az + (bz2 - az) * t, m); } };
+      if (st === 'cabin') { posts(1.15, VM.cedarDk, 1.5); for (const y of [0.15, 0.55]) sb(len, 0.08, 0.06, y, VM.cedar); }
+      else if (st === 'stucco') { sb(len, 0.55, 0.3, -0.3, VM.stucco); sb(len, 0.06, 0.08, 0.75, VM.frameBlack); posts(1.1, VM.frameBlack, 0.6, 0.05); }
+      else { posts(1.45, VM.cedarDk, 1.8, 0.14); for (let i = 0; i < 5; i++) sb(len, 0.16, 0.05, -0.15 + i * 0.26, VM.slat); }
+      col(Math.min(ax, bx) - 0.12, Math.min(az, bz2) - 0.12, Math.max(ax, bx) + 0.12, Math.max(az, bz2) + 0.12, true);
+    };
+    seg(-E, -E, E, -E); seg(-E, -E, -E, E); seg(E, -E, E, E); seg(-E, E, -GW, E); seg(GW, E, E, E);
+    const gm = st === 'stucco' ? VM.frameBlack : st === 'cabin' ? VM.cedarDk : VM.trim;
+    for (const s2 of [-1, 1]) B(0.22, 1.5, 0.22, s2 * GW, -0.3, E, gm);                                          // 대문 기둥
+    const gate = (lx, lz, alongX) => { for (let i = 0; i < 7; i++) B(alongX ? 0.05 : 0.05, 0.9, alongX ? 0.05 : 0.05, alongX ? lx - 0.75 + i * 0.25 : lx, 0.05, alongX ? lz : lz - 0.75 + i * 0.25, gm); B(alongX ? 1.7 : 0.06, 0.07, alongX ? 0.06 : 1.7, lx, 0.9, lz, gm); B(alongX ? 1.7 : 0.06, 0.07, alongX ? 0.06 : 1.7, lx, 0.1, lz, gm); };
+    if (gateClosed) { gate(0, E, true); col(-GW, E - 0.12, GW, E + 0.12, true); }
+    else gate(GW - 0.05, E - 0.85, false);                                                                       // 열린 대문 (안쪽으로 젖혀짐)
+    B(0.3, 0.35, 0.22, GW + 0.5, 0.75, E + 0.05, gm); B(0.06, 1.0, 0.06, GW + 0.5, -0.3, E + 0.05, gm);           // 우편함
     return { fz, P, B };
   }
+  const lotKey = (o) => (o ? `${o.name}|${o.size}|${o.name === myName() ? 'mine' : 'other'}` : '');
   function buildLot(u, o) {
     const old = lots.get(u.id);
     if (old) { group.remove(old.g); old.g.traverse((m) => m.geometry?.dispose?.()); for (const c of old.cols) { const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); } }
     const g = new THREE.Group(), hk = new Kit(false), cols = [];
     const { x, z, face } = u, size = o?.size || 30;
-    const { fz, P, B } = house(hk, cols, u, size, x, z, face);
+    const { fz, P, B } = house(hk, cols, u, size, x, z, face, !!o && o.name !== myName());
     const ry = face > 0 ? 0 : Math.PI;
     if (o) {
       // 문패
@@ -269,7 +284,7 @@ export function createVillage(colliders) {
     }
     hk.flush(g);
     group.add(g); colliders.push(...cols);
-    lots.set(u.id, { g, cols, key: o ? `${o.name}|${o.size}` : '' });
+    lots.set(u.id, { g, cols, key: lotKey(o) });
   }
   for (const u of UNITS) if (u.kind === 'house') buildLot(u, null);
   drawAptBoard(new Map());
@@ -278,14 +293,14 @@ export function createVillage(colliders) {
     // 주인이 바뀐 집만 다시 그림 → 바뀌었으면 true (길찾기 격자를 다시 만들어야 함)
     update(owners) {
       let changed = false;
-      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), key = o ? `${o.name}|${o.size}` : ''; if (lots.get(u.id)?.key !== key) { buildLot(u, o); changed = true; } }
+      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), key = lotKey(o); if (lots.get(u.id)?.key !== key) { buildLot(u, o); changed = true; } }
       drawAptBoard(owners);
       return changed;
     },
     // 문 앞에 서 있으면 그 물건 (아파트는 현관 하나)
     doorNear(x, z, owners) {
       if (Math.hypot(x - APT.x, z - (APT.z + APT.d / 2 + 1.0)) < 1.6) return { apt: true };
-      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), s = doorSpot(u, o?.size); if (Math.hypot(x - s.x, z - s.z) < 1.4 || (!o && Math.hypot(x - (u.x - u.face * 4.2), z - (u.z + u.face * 4.6)) < 1.6)) return { unit: u, owner: o }; }
+      for (const u of UNITS) if (u.kind === 'house') { const o = owners.get(u.id), s = doorSpot(u, o?.size); if (o && o.name !== myName()) { if (Math.hypot(x - u.x, z - (u.z + u.face * 6.6)) < 1.6) return { unit: u, owner: o }; continue; } if (Math.hypot(x - s.x, z - s.z) < 1.4 || (!o && Math.hypot(x - (u.x - u.face * 4.2), z - (u.z + u.face * 4.6)) < 1.6)) return { unit: u, owner: o }; }
       return null;
     },
   };
