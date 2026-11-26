@@ -166,7 +166,7 @@ export function createGarden(uniforms) {
   }
   // 꽃밭을 바라보는 벤치 · 나무 그늘 벤치
   bench(-20, 9.3, Math.PI); bench(20, 9.3, Math.PI);
-  bench(-20, -12.2, Math.PI); bench(22, -12.2, Math.PI);
+  bench(-20, -12.2, Math.PI); /* (22, -12.2) 벤치 자리는 🛋 가구점 */
   bench(-13, -20, Math.PI / 2); bench(13, -20, -Math.PI / 2);
   bench(-26, 2, Math.PI / 2); bench(26, 2, -Math.PI / 2);
 
@@ -194,7 +194,7 @@ export function createGarden(uniforms) {
   bed(-20, 6, 4.5, 2.2, 160);
   bed(20, 6, 4.5, 2.2, 160);
   bed(-20, -16, 3.2, 3.2, 120);
-  bed(22, -16, 3.2, 3.2, 120);
+  /* bed(22, -16) 자리는 🛋 가구점 (11-26) */
 
   // ---------- 나무 ----------
   const treeSpots = [
@@ -203,7 +203,7 @@ export function createGarden(uniforms) {
     [26, -5], [27, 12], [25, 24], [14, 24.5], [8, 23.5],
     [-16, 22], [16, 22], [-15, -6], [15, -6],
   ];
-  const shopArea = (x, z) => x > 15.8 && x < 27.2 && z > -9.5 && z < 1.5; // 👜 부티크 자리
+  const shopArea = (x, z) => x > 15.8 && x < 27.2 && z > -22.5 && z < 1.5; // 👜 부티크 · 🛋 가구점 자리
   treeSpots.forEach(([x, z], i) => {
     if (shopArea(x, z)) return;
     const s = 0.85 + rand() * 0.4;

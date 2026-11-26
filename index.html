@@ -141,6 +141,13 @@
     <button id="btnSnow" hidden>❄<span>던지기</span></button>
     <button id="btnKick" hidden>🛴<span>타기</span></button>
     <button id="btnDance" hidden>💃<span>춤추기</span></button>
+    <button id="btnDeco" hidden>🛋<span>꾸미기</span></button>
+    <div id="decoPanel" hidden>
+      <header><b>🛋 집 꾸미기</b><button type="button" id="decoDone">✔ 다 했어요</button></header>
+      <div id="decoBox"></div>
+      <div id="decoSel"></div>
+      <p class="deco-hint">📦 상자에서 가구를 고르면 내 앞에 놓여요 · <b>바닥을 누르면</b> 고른 가구가 그 자리로 옮겨져요 · 놓인 가구를 누르면 골라져요</p>
+    </div>
     <div id="raceHud" hidden></div>
     <div id="raceCount" hidden></div>
     <div id="raceSpeed" hidden></div>
@@ -234,6 +241,16 @@
     </div>
   </div>
 
+  <!-- 🛋 WORK HOME 가구점 (furniture.js) -->
+  <div id="furnModal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>🛋 WORK HOME 가구점</h2><button class="close" data-close>✕</button></header>
+      <p id="furnCash" class="inv-cash"></p>
+      <p id="furnNote" class="sub"></p>
+      <div id="furnCats" class="chips shop-cats"></div>
+      <ul id="furnGrid"></ul>
+    </div>
+  </div>
   <!-- 📝 부동산 분양 계약서 (estate.js) -->
   <div id="contractModal" class="modal" hidden>
     <div class="modal-card">

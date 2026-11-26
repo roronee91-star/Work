@@ -57,7 +57,7 @@ export function createMoney(api) {
   const { $, me } = api;
   let w = null, owner = '', dirty = false, useLocal = !supa, tab = 'stock';
   // 🛡 서버 모드: Supabase에 security.sql을 실행했으면 돈은 서버 함수로만 바뀜 (사이트는 화면만 먼저 바꾸고, 서버가 돌려준 값으로 맞춤)
-  let server = false, lastTickCall = 0, lastPriceFetch = 0;
+  let server = false, lastTickCall = 0, lastPriceFetch = 0, homePending = false;
   const KEYS_LS = 'work-keys';
   const keys = () => { try { return JSON.parse(localStorage.getItem(KEYS_LS) || '{}'); } catch { return {}; } };
   function keyFor(name) {
@@ -74,7 +74,8 @@ export function createMoney(api) {
   }
   function apply(row) {
     if (!row || !owner || row.name !== owner) return;
-    w = fromRow(row); chip();
+    const keepHome = homePending && w ? w.stocks.__home : null; // 🛋 꾸미는 중 저장 전이면 화면 배치를 지킴
+    w = fromRow(row); if (keepHome) w.stocks.__home = keepHome; chip();
     if (!$('walletModal').hidden) renderWallet();
     if (!$('investModal').hidden) renderInvest();
   }
@@ -303,6 +304,20 @@ export function createMoney(api) {
     if (!w || !(price > 0) || w.cash < price || items().includes(id)) return false;
     w.cash -= price; w.stocks.__items = [...items(), id]; if (server) sv('shop_buy', { p_id: id }); save(); chip(); return true;
   }
+  // 🛋 가구 (stocks 안에 __furn = {id: 개수} 산 것 · __home = [[id, x, z, r], ...] 집 안에 놓은 것)
+  const furnOwned = () => ({ ...(w?.stocks?.__furn || {}) });
+  const homeLayout = () => (w?.stocks?.__home || []).map((a) => [...a]);
+  async function furnBuy(id) {
+    const price = api.furnPrice?.(id);
+    if (!w || !(price > 0) || w.cash < price) return false;
+    if (server) { try { await rpc('furn_buy', { p_id: id }).then(apply); return true; } catch (e) { alert(/no_home/.test(e.message) ? '🏠 집이 있어야 배달할 수 있어요.' : /no_cash/.test(e.message) ? '💸 현금이 모자라요.' : '가구를 사지 못했어요: ' + e.message); rpc('wallet_get').then(apply).catch(() => {}); return false; } }
+    w.cash -= price; w.stocks.__furn = { ...furnOwned(), [id]: (furnOwned()[id] || 0) + 1 }; save(); chip(); return true;
+  }
+  let homeTimer = 0;
+  function homeSave(layout) { // 꾸미는 동안 자주 바뀌니 0.8초 모았다가 저장
+    if (!w) return; w.stocks.__home = layout.map((a) => [...a]); homePending = true;
+    clearTimeout(homeTimer); homeTimer = setTimeout(() => { if (server) sv('home_save', { p_layout: w.stocks.__home }, () => { homePending = false; }); else { save(); homePending = false; } }, 800);
+  }
   // ⚔️ 결투 판돈
   function spend(n) { if (!w || n <= 0 || w.cash < n) return false; w.cash -= n; save(); chip(); return true; }
   function earn(n) { if (!w || n <= 0 || server) return; w.cash += n; save(); chip(); } // 서버 모드에선 아래 reward · duelReport로만
@@ -330,5 +345,5 @@ export function createMoney(api) {
   function stampDay(day) { if (!w || xmasDays().includes(day)) return false; w.stocks.__xmas = [...xmasDays(), day]; save(); return true; }
   // 🛡 출석 조건을 채운 선물만 (api.canGrant)
   function grant(id) { if (!w || items().includes(id) || !api.canGrant?.(id)) return false; w.stocks.__items = [...items(), id]; save(); return true; }
-  return { call: (fn, args) => rpc(fn, args).then((row) => { apply(row); return row; }), get tab() { return tab; }, reward, stake, duelReport, linkCode, keyFor, adventCheckin, get server() { return server; }, xmasDays, stampDay, grant, today, items, wear, buy, setWear, spend, earn, cash: () => (w ? w.cash : 0), load, greeting, openWallet, openInvest, save, get ready() { return !!w; }, get mode() { return useLocal ? 'local' : 'server'; } };
+  return { furnOwned, homeLayout, furnBuy, homeSave, call: (fn, args) => rpc(fn, args).then((row) => { apply(row); return row; }), get tab() { return tab; }, reward, stake, duelReport, linkCode, keyFor, adventCheckin, get server() { return server; }, xmasDays, stampDay, grant, today, items, wear, buy, setWear, spend, earn, cash: () => (w ? w.cash : 0), load, greeting, openWallet, openInvest, save, get ready() { return !!w; }, get mode() { return useLocal ? 'local' : 'server'; } };
 }

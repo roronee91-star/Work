@@ -5,7 +5,8 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
 import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, createTraffic, FOG_NIGHT, FOG_DAY } from './world.js';
-import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA, INVEST } from './building.js';
+import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA, INVEST, Kit } from './building.js';
+import { createFurnShop, createFurnUI, furnById, drawFurn, drawBoxes, footprint, MAX_FURN, FURN_SHOP } from './furniture.js';
 import { createGarden, STREAM } from './garden.js';
 import { createDuel, SWORD, BOT_NAME } from './duel.js';
 import { createRequests } from './requests.js';
@@ -222,11 +223,16 @@ function showToast(text, onClick) {
 }
 // 💰 월급 · 지갑 · 💹 투자
 const money = createMoney({ $, me, priceOf: (id) => ITEMS.find((it) => it.id === id && !it.limited)?.price, canGrant: (id) => !!advent?.earned(id), openItems: () => shopUI.open('mine'), openModal: (id) => openModal(id), sys: (t) => sysMessage(t), toast: (t) => toast(t, () => money.openWallet()),
-  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior') && player.floor < 5 && player.zone !== 'village', /* 🏘 일급은 사옥(정원 포함)에서만 — 집 · 마을은 퇴근 후 공간 */ rate: () => (WORK_BONUS && player.sit && player.working ? 2 : 1) /* 💼 시급 2배 이벤트(일하기 중) — 11-26 종료, 다시 하려면 WORK_BONUS = true */, get board() { return bld.investBoard; }, estateTab: (el) => estate.render(el) });
+  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior') && player.floor < 5 && player.zone !== 'village', /* 🏘 일급은 사옥(정원 포함)에서만 — 집 · 마을은 퇴근 후 공간 */ rate: () => (WORK_BONUS && player.sit && player.working ? 2 : 1) /* 💼 시급 2배 이벤트(일하기 중) — 11-26 종료, 다시 하려면 WORK_BONUS = true */, get board() { return bld.investBoard; }, estateTab: (el) => estate.render(el), furnPrice: (id) => furnById(id)?.price });
 $('workChip').onclick = () => money.openWallet();
 // 👜 WORK BOUTIQUE (1층 정원 동쪽): 아이템 사서 착용
 const shop = createShop(bld.floors[0].colliders);
 scene.add(shop.group);
+// 🛋 WORK HOME 가구점 (부티크 북쪽): 사면 우리 집 현관 배달 상자로
+const furnShop = createFurnShop(bld.floors[0].colliders);
+scene.add(furnShop.group);
+const furnUI = createFurnUI({ $, money, openModal: (id) => openModal(id), sys: (t) => sysMessage(t), toast: (t) => toast(t, () => goHome()), beep: () => playBeep(880, 0.15),
+  atStore: () => mode === 'office' && player.floor === 0 && furnShop.inside(player.x, player.z), myHome: () => estate.mine()?.unit.label || '', delivered: () => { if (player.floor >= BLDG_N) renderFurniture(player.floor); } });
 // 🏘 WORK 빌리지 (레이스 도로 동쪽 새 땅): 3층 투자 상담실에서 분양 → 우리 집
 const village = createVillage(bld.floors[0].colliders, () => me.name); // 내 집 대문만 열림
 scene.add(village.group);
@@ -254,9 +260,81 @@ function buildHome(f) {
   F.group.add(h.group); F.colliders.push(...h.colliders);
   Object.assign(F, { hx: h.hx, hz: h.hz, ceil: h.ceil, door: h.door, spawn: h.spawn, built: key });
   Object.assign(FLOORS[f], { hx: h.hx, hz: h.hz, name: o ? `${o.name}님 집` : u.label });
+  F.box = h.box; F.furn = null; F.furnCols = [];
   GRIDS.delete(f);
   return F;
 }
+// ---------- 🛋 우리 집 가구 (배치는 지갑 stocks.__home, 산 가구는 __furn) ----------
+const homeIsMine = (f) => { const u = unitOfFloor(f), o = u && estate.owners.get(u.id); return !!o && o.name === me.name; };
+function boxCounts() { // 배달 상자에 남은 가구 = 산 개수 - 놓은 개수
+  const left = money.furnOwned(); for (const [id] of money.homeLayout()) left[id] = (left[id] || 0) - 1;
+  return Object.fromEntries(Object.entries(left).filter(([, n]) => n > 0));
+}
+const deco = { on: false, sel: -1 };
+const selMark = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, opacity: 0.32, depthWrite: false }));
+selMark.rotation.x = -Math.PI / 2; selMark.visible = false; selMark.renderOrder = 5; scene.add(selMark);
+// 집 안 가구를 한 덩어리로 다시 그림 (가구 · 배달 상자 · 부딪힘 · 앉는 자리)
+function renderFurniture(f) {
+  const F = bld.floors[f]; if (!F || !F.door) return;
+  if (F.furn) { F.group.remove(F.furn); F.furn.traverse((m) => m.geometry?.dispose?.()); F.furn = null; }
+  for (const c of F.furnCols || []) { const i = F.colliders.indexOf(c); if (i >= 0) F.colliders.splice(i, 1); }
+  F.furnCols = []; F.seats = [];
+  const mine = homeIsMine(f), layout = mine ? money.homeLayout() : [], k = new Kit(true);
+  layout.forEach(([id, x, z, r]) => {
+    const it = furnById(id); if (!it) return;
+    drawFurn(k, id, x, 0.0, z, r);
+    const [fw, fd] = footprint(id, r);
+    if (!it.flat) F.furnCols.push({ x1: x - fw / 2, z1: z - fd / 2, x2: x + fw / 2, z2: z + fd / 2, tall: false, top: it.h, fixedTop: true });
+    const th = r * Math.PI / 2, c = Math.round(Math.cos(th)), s2 = Math.round(Math.sin(th));
+    for (const [sx, sz, h, dir] of it.seats || []) F.seats.push({ x: x + sx * c + sz * s2, z: z - sx * s2 + sz * c, ry: th + dir * Math.PI / 2, h });
+  });
+  const n = Object.values(mine ? boxCounts() : {}).reduce((a, b) => a + b, 0);
+  if (n && F.box) drawBoxes(k, n, F.box.x, 0, F.box.z);
+  const g = new THREE.Group(); k.flush(g); F.group.add(g); F.furn = g;
+  F.colliders.push(...F.furnCols); GRIDS.delete(f);
+  // 고른 가구 표시
+  const sel = deco.on && layout[deco.sel];
+  if (sel) { const [fw, fd] = footprint(sel[0], sel[3]); selMark.scale.set(fw + 0.2, fd + 0.2, 1); selMark.position.set(sel[1], FLOORS[f].y + 0.03, sel[2]); }
+  selMark.visible = !!sel;
+}
+function clampFurn(f, id, r, x, z) {
+  const F = bld.floors[f], [fw, fd] = footprint(id, r), hx = (F.hx || 3) - fw / 2 - 0.05, hz = (F.hz || 3) - fd / 2 - 0.05;
+  const sn = (v) => Math.round(v * 10) / 10;
+  return [sn(Math.max(-hx, Math.min(hx, x))), sn(Math.max(-hz, Math.min(hz, z)))];
+}
+function decoSet(layout) { money.homeSave(layout); renderFurniture(player.floor); renderDeco(); }
+function renderDeco() {
+  const box = boxCounts();
+  $('decoBox').innerHTML = Object.keys(box).length ? Object.entries(box).map(([id, n]) => { const it = furnById(id); return it ? `<button type="button" data-take="${id}">${it.icon} ${it.name}<b>×${n}</b></button>` : ''; }).join('') : '<span class="empty">📦 배달 상자가 비었어요. 🛋 가구점(부티크 북쪽)에서 가구를 사면 여기로 와요.</span>';
+  $('decoBox').querySelectorAll('[data-take]').forEach((b) => (b.onclick = () => decoTake(b.dataset.take)));
+  const layout = money.homeLayout(), sel = layout[deco.sel], it = sel && furnById(sel[0]);
+  $('decoSel').innerHTML = it ? `<span>${it.icon} <b>${it.name}</b></span><button type="button" id="decoRot">⟲ 돌리기</button><button type="button" id="decoBack">📦 상자로</button>` : '';
+  if (it) { $('decoRot').onclick = decoRotate; $('decoBack').onclick = decoStore; }
+}
+function decoOpen() {
+  if (player.floor < BLDG_N || !homeIsMine(player.floor)) return;
+  closeModals(); if (player.sit) standUp();
+  deco.on = true; deco.sel = -1; $('decoPanel').hidden = false; renderDeco(); renderFurniture(player.floor);
+}
+function decoClose() { deco.on = false; deco.sel = -1; $('decoPanel').hidden = true; if (player.floor >= BLDG_N) renderFurniture(player.floor); selMark.visible = false; }
+function decoTake(id) {
+  const layout = money.homeLayout();
+  if (layout.length >= MAX_FURN) { alert(`한 집에 가구는 ${MAX_FURN}개까지 놓을 수 있어요.`); return; }
+  const [x, z] = clampFurn(player.floor, id, 0, player.x + Math.sin(player.ry) * 1.4, player.z + Math.cos(player.ry) * 1.4);
+  layout.push([id, x, z, 0]); deco.sel = layout.length - 1; decoSet(layout);
+}
+function decoRotate() { const layout = money.homeLayout(), s3 = layout[deco.sel]; if (!s3) return; s3[3] = (s3[3] + 1) % 4; [s3[1], s3[2]] = clampFurn(player.floor, s3[0], s3[3], s3[1], s3[2]); decoSet(layout); }
+function decoStore() { const layout = money.homeLayout(); if (!layout[deco.sel]) return; layout.splice(deco.sel, 1); deco.sel = -1; decoSet(layout); }
+// 꾸미는 중 바닥을 누르면: 가구를 누르면 고르고, 빈 바닥이면 고른 가구를 그 자리로
+function decoTap(x, z) {
+  const layout = money.homeLayout();
+  const hit = layout.findIndex(([id, fx, fz, r]) => { const [fw, fd] = footprint(id, r); return Math.abs(x - fx) < fw / 2 && Math.abs(z - fz) < fd / 2; });
+  if (hit >= 0 && hit !== deco.sel) { deco.sel = hit; renderFurniture(player.floor); renderDeco(); return; }
+  if (deco.sel < 0 || !layout[deco.sel]) return;
+  const s3 = layout[deco.sel]; [s3[1], s3[2]] = clampFurn(player.floor, s3[0], s3[3], x, z); decoSet(layout);
+}
+$('btnDeco').onclick = () => (deco.on ? decoClose() : decoOpen());
+$('decoDone').onclick = decoClose;
 // 🏠 우리 집으로 (어디서든 순간이동) / 집에서 나가면 그 집 문 앞으로
 function goHome(id = estate.mine()?.unit.id) {
   if (!id || mode !== 'office' || race.driving || duel.active) return;
@@ -264,7 +342,7 @@ function goHome(id = estate.mine()?.unit.id) {
   const f = homeFloor(id), fade = $('fade');
   fade.classList.add('on');
   setTimeout(() => {
-    const F = buildHome(f);
+    const F = buildHome(f); renderFurniture(f);
     player.floor = f; player.x = F.spawn.x; player.z = F.spawn.z; player.ry = 0; cam.yaw = Math.PI; cam.pitch = 0.3; cam.dist = 2.6; // 남쪽 통창(한강)을 바라보며 시작
     bld.setFloor(f); player.zone = 'home'; showFloorHud(); sendState(true);
     officeCamPose(null, pose); fade.classList.remove('on');
@@ -273,6 +351,7 @@ function goHome(id = estate.mine()?.unit.id) {
 }
 function leaveHome() {
   const u = unitOfFloor(player.floor); if (!u) return;
+  if (deco.on) decoClose();
   const s = doorSpot(u, estate.owners.get(u.id)?.size), fade = $('fade');
   closeModals(); clearTarget(); if (player.sit) standUp();
   fade.classList.add('on');
@@ -805,6 +884,8 @@ function updatePlayer(dt) {
   else if (what === 'npc') { pr.textContent = isTouch ? '💬 비서에게 말 걸기 (누르기)' : 'E  💬 비서에게 말 걸기'; pr.hidden = false; }
   else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
+  else if (what === 'furn') { pr.textContent = isTouch ? '🛋 가구 쇼핑하기 (누르기)' : 'E  🛋 가구 쇼핑하기'; pr.hidden = false; }
+  else if (what === 'homeBox') { pr.textContent = isTouch ? '📦 배달 상자 열기 · 꾸미기 (누르기)' : 'E  📦 배달 상자 열기 · 꾸미기'; pr.hidden = false; }
   else if (what === 'homeExit') { pr.textContent = isTouch ? '🚪 밖으로 나가기 (누르기)' : 'E  🚪 밖으로 나가기'; pr.hidden = false; }
   else if (what && what.door) { pr.textContent = doorText(what.door); pr.hidden = false; }
   else if (what === 'race') { pr.textContent = race.lobbyText; pr.hidden = false; }
@@ -825,13 +906,20 @@ function seatTaken(s) {
   return false;
 }
 function nearWhat() {
-  if (player.floor >= BLDG_N) { const F = bld.floors[player.floor]; return F.door && Math.hypot(player.x - F.door.x, player.z - F.door.z) < 1.1 ? 'homeExit' : null; } // 🏠 집 안: 현관문
+  if (player.floor >= BLDG_N) { // 🏠 집 안: 현관문 · 배달 상자 · 가구 의자
+    const F = bld.floors[player.floor];
+    if (F.door && Math.hypot(player.x - F.door.x, player.z - F.door.z) < 1.1) return 'homeExit';
+    if (!deco.on && F.box && homeIsMine(player.floor) && Object.keys(boxCounts()).length && Math.hypot(player.x - F.box.x, player.z - F.box.z) < 1.3) return 'homeBox';
+    if (!deco.on) { let best = null, bd = 1.0; for (const s3 of F.seats || []) { const d = Math.hypot(player.x - s3.x, player.z - s3.z); if (d < bd && !seatTaken(s3)) { bd = d; best = s3; } } if (best) return { seat: best }; }
+    return null;
+  }
   if (player.floor === 0 && inVillage(0, player.x, player.z)) { const d = village.doorNear(player.x, player.z, estate.owners); if (d) return { door: d }; }
   if (player.floor === NOTICE.floor && Math.hypot(player.x - NOTICE.x, player.z - NOTICE.z) < 2.4) return 'notice';
   if (player.floor === 0 && Math.hypot(player.x - (NPC_SPOT.x + 1.4), player.z - NPC_SPOT.z) < 1.3) return 'npc';
   if (player.floor === ARENA.floor && Math.hypot(player.x - HOST.x, player.z - (HOST.z + 0.8)) < 1.2) return 'host';
   if (player.floor === INVEST.floor && Math.hypot(player.x - (INVEST.x + (INVEST.s ?? 1) * 1.55), player.z - INVEST.z) < 1.0) return 'invest';
   if (player.floor === 0 && Math.hypot(player.x - SHOP.counter.x, player.z - SHOP.counter.z) < 1.2) return 'shop';
+  if (player.floor === 0 && Math.hypot(player.x - FURN_SHOP.counter.x, player.z - FURN_SHOP.counter.z) < 1.2) return 'furn';
   if (sleigh && player.floor === 0 && !ride.flying && Math.hypot(player.x - (SLEIGH.x - 0.3), player.z - SLEIGH.z) < 2.0) return 'sleigh';
   if (!race.driving && inRaceZone(player.floor, player.x, player.z)) return 'race';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
@@ -863,6 +951,7 @@ function tapMove(cx, cy) {
   const fy = FLOORS[player.floor].y;
   const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -fy), new THREE.Vector3());
   if (!hit) return;
+  if (deco.on && player.floor >= BLDG_N) { decoTap(hit.x, hit.z); return; } // 🛋 꾸미는 중: 걷지 않고 가구를 옮김
   const [x, z] = clampFloor(player.floor, hit.x, hit.z);
   if (Math.hypot(x - player.x, z - player.z) > 40) return;
   if (player.sit) standUp();
@@ -1297,6 +1386,8 @@ function interact() {
   else if (what === 'notice') { refreshNotices(); openModal('noticeModal'); }
   else if (what === 'elev') openFloorMenu();
   else if (what === 'homeExit') leaveHome();
+  else if (what === 'homeBox') decoOpen();
+  else if (what === 'furn') { furnShop.clerk.say('어서 오세요, WORK HOME이에요 🛋 사시면 댁으로 바로 배달해 드려요!', now); furnUI.open(); }
   else if (what && what.door) { const d = what.door, my = estate.mine(); if (d.apt ? my?.unit.kind === 'apt' : d.owner?.name === me.name) goHome(); else if (d.owner) sysMessage(`🔒 ${d.owner.name}님 집이에요. (놀러 가기는 곧 열려요)`); else sysMessage('🏷 분양은 3층 💹 투자 상담실 → 🏠 부동산 탭에서 해요.'); }
 }
 $('btnSound').onclick = () => { setMuted(!isMuted()); $('btnSound').innerHTML = isMuted() ? '🔇' : '🔊'; startAudio(); try { localStorage.setItem('work-mute', isMuted() ? '1' : '0'); } catch {} };
@@ -1763,7 +1854,9 @@ function frame() {
   updatePeers(dt);
   updateNpc(dt); updateAdvisor(dt);
   shop.update(dt, now, player.x, player.z, mode === 'office' && player.floor === 0);
-  village.group.visible = !(mode === 'office' && player.floor !== 0); // 🏘 사옥 2층 이상 · 집 안에서는 마을을 그리지 않음 (휴대폰 가볍게)
+  village.group.visible = !(mode === 'office' && player.floor !== 0);
+  furnShop.update(dt, now, player.x, player.z, mode === 'office' && player.floor === 0);
+  $('btnDeco').hidden = !(mode === 'office' && player.floor >= BLDG_N && homeIsMine(player.floor)) || deco.on; // 🏘 사옥 2층 이상 · 집 안에서는 마을을 그리지 않음 (휴대폰 가볍게)
   if (mode === 'office' && player.floor === 0 && shop.inside(player.x, player.z) && now - clerkGreetAt > 90) { clerkGreetAt = now; shop.clerk.say('어서 오세요! 오늘 새로 들어온 왕관 보셨어요? 👑', now); }
   if (XMAS) updateRide(dt);
   updateCamera(dt);
@@ -1794,5 +1887,5 @@ requestAnimationFrame(() => {
 
 // 테스트용 훅
 // 🛡 11-26: 개발자 콘솔에서 돈 · 결투를 건드릴 수 있던 통로 → 서버 없는 로컬 데모(점검용)에서만 열어 둠
-if (!supa || /^(127\.0\.0\.1|localhost)$/.test(location.hostname)) window.__work = { estate, goHome, leaveHome, village, danceTap, sitDown, race, advent, snowFight, shop, shopUI, money, ride, rideJoin, sleigh, FLY, duel, findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
+if (!supa || /^(127\.0\.0\.1|localhost)$/.test(location.hostname)) window.__work = { estate, goHome, leaveHome, village, furnShop, furnUI, decoOpen, decoClose, decoTake, decoTap, decoRotate, nearWhat, danceTap, sitDown, race, advent, snowFight, shop, shopUI, money, ride, rideJoin, sleigh, FLY, duel, findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
 window.__workMain = true;

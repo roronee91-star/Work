@@ -502,3 +502,27 @@ dl.wal small { color: var(--muted); font-size: 11px; margin-left: 4px; }
 #ctSeal { position: absolute; right: 22px; bottom: 34px; width: 74px; height: 74px; border-radius: 50%; border: 4px solid #c8102e; color: #c8102e; font-weight: 900; font-size: 15px; display: grid; place-content: center; text-align: center; line-height: 1.1; transform: rotate(-14deg); animation: ctStamp .45s cubic-bezier(.2,1.6,.4,1); background: rgba(200,16,46,.06); }
 #ctSeal[hidden] { display: none; }
 @keyframes ctStamp { from { transform: rotate(-14deg) scale(2.4); opacity: 0; } to { transform: rotate(-14deg) scale(1); opacity: 1; } }
+
+/* 🛋 가구점 · 집 꾸미기 (furniture.js) */
+#furnGrid { list-style: none; padding: 0; margin: 12px 0 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+#furnGrid li { display: grid; justify-items: center; gap: 4px; padding: 12px 8px; border-radius: 14px; border: 1px solid rgba(143,170,140,.45); background: linear-gradient(180deg, rgba(143,170,140,.12), rgba(255,255,255,.02)); text-align: center; }
+#furnGrid i { font-style: normal; font-size: 34px; line-height: 1.1; }
+#furnGrid b { font-size: 14px; }
+#furnGrid small { color: var(--muted); font-size: 11px; }
+#furnGrid button { margin-top: 4px; width: 100%; padding: 8px 6px; border-radius: 10px; border: 1px solid #9fc39a; background: rgba(159,195,154,.14); color: #cfe8c9; font-weight: 700; font-size: 13px; }
+#furnGrid button.poor { opacity: .5; }
+@media (max-width: 420px) { #furnGrid { grid-template-columns: repeat(2, 1fr); } }
+#btnDeco { position: absolute; right: 22px; bottom: 150px; width: 78px; height: 78px; border-radius: 50%; border: 2px solid #fff; background: linear-gradient(135deg, rgba(122,160,110,.96), rgba(70,110,80,.96)); color: #fff; font-size: 30px; line-height: 1; display: grid; place-content: center; touch-action: manipulation; user-select: none; -webkit-user-select: none; box-shadow: 0 4px 18px rgba(80,140,90,.45); z-index: 5; }
+#btnDeco span { font-size: 12px; font-weight: 700; margin-top: 2px; }
+@media (hover: hover) and (pointer: fine) { #btnDeco { bottom: 80px; right: 24px; } }
+#decoPanel { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 7; width: min(560px, calc(100vw - 24px)); max-height: 46vh; overflow: auto; padding: 12px 14px; border-radius: 16px; background: rgba(16,20,28,.92); border: 1px solid rgba(159,195,154,.5); box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+#decoPanel header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+#decoPanel header button { padding: 7px 14px; border-radius: 10px; border: 1px solid #9fc39a; background: #9fc39a; color: #10180f; font-weight: 800; }
+#decoBox { display: flex; flex-wrap: wrap; gap: 6px; }
+#decoBox button { padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--fg); font-size: 13px; }
+#decoBox button b { color: #9fc39a; margin-left: 4px; }
+#decoBox .empty { color: var(--muted); font-size: 13px; }
+#decoSel { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 14px; }
+#decoSel:empty { display: none; }
+#decoSel button { padding: 8px 12px; border-radius: 10px; border: 1px solid var(--gold); background: rgba(232,211,160,.14); color: var(--gold); font-weight: 700; }
+.deco-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
