@@ -112,14 +112,17 @@ const VM = {
 // 집 앞면 폭 전체에 걸친 '하나의 빈 거실' (11-26 사용자: 실제로 들어가면 빈 방이니 밖에서도 빈 공간이 보이게)
 // 뒷벽 · 나무 바닥 · 천장 · 양 끝 옆벽 모서리(원근) · 천장 등 불빛만. 창마다 자기 자리 부분만 보여 줌 → 창 여러 개로 한 공간이 이어져 보임
 VM.room = new THREE.MeshBasicMaterial({ color: 0xdcd5c9, map: canvasTex(1024, 256, (ctx, w, h) => {
-  const fy = h * 0.74, cy = h * 0.1, side = 70; // 바닥선 · 천장선 · 옆벽 깊이
+  const fy = h * 0.6, cy = h * 0.12, side = 90; // 바닥선 · 천장선 · 옆벽 깊이 (창 높이에서 바닥이 넉넉히 보이게)
   let g = ctx.createLinearGradient(0, 0, 0, fy); g.addColorStop(0, '#f6efe2'); g.addColorStop(1, '#ece2cf'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, fy);
   ctx.fillStyle = '#fbf8f2'; ctx.fillRect(0, 0, w, cy);                                                     // 천장
   g = ctx.createLinearGradient(0, fy, 0, h); g.addColorStop(0, '#c09a70'); g.addColorStop(1, '#9c7651'); ctx.fillStyle = g; ctx.fillRect(0, fy, w, h - fy); // 나무 바닥
   ctx.fillStyle = 'rgba(0,0,0,.05)'; for (let x = 0; x < w; x += 46) ctx.fillRect(x, fy, 2, h - fy);
   ctx.fillStyle = '#e3d9c6'; ctx.fillRect(0, fy - 6, w, 6);                                                 // 걸레받이
+  g = ctx.createLinearGradient(0, fy, 0, fy + 30); g.addColorStop(0, 'rgba(60,40,20,.25)'); g.addColorStop(1, 'rgba(60,40,20,0)'); ctx.fillStyle = g; ctx.fillRect(0, fy, w, 30); // 벽 밑 그림자
+  for (const x of [w * 0.25, w * 0.5, w * 0.75]) { const q = ctx.createRadialGradient(x, fy + 40, 4, x, fy + 40, 90); q.addColorStop(0, 'rgba(255,240,210,.35)'); q.addColorStop(1, 'rgba(255,240,210,0)'); ctx.fillStyle = q; ctx.fillRect(x - 90, fy, 180, 100); } // 바닥에 비친 불빛
+  g = ctx.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(90,70,40,.18)'); g.addColorStop(0.2, 'rgba(90,70,40,0)'); g.addColorStop(0.8, 'rgba(90,70,40,0)'); g.addColorStop(1, 'rgba(90,70,40,.18)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); // 양 끝이 조금 어둡게 (깊이감)
   // 양 끝 옆벽 (원근으로 비스듬히)
-  for (const [x0, dir] of [[0, 1], [w, -1]]) { ctx.fillStyle = '#e6dccb'; ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0 + dir * side, cy); ctx.lineTo(x0 + dir * side, fy); ctx.lineTo(x0, h); ctx.fill(); ctx.fillStyle = 'rgba(0,0,0,.06)'; ctx.fillRect(x0 + dir * side - (dir > 0 ? 0 : 2), cy, 2, fy - cy); }
+  for (const [x0, dir] of [[0, 1], [w, -1]]) { ctx.fillStyle = '#d9ccb4'; ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0 + dir * side, cy); ctx.lineTo(x0 + dir * side, fy); ctx.lineTo(x0, h); ctx.fill(); ctx.fillStyle = 'rgba(0,0,0,.06)'; ctx.fillRect(x0 + dir * side - (dir > 0 ? 0 : 2), cy, 2, fy - cy); }
   ctx.fillStyle = 'rgba(0,0,0,.05)'; ctx.fillRect(side, cy, w - side * 2, 2);                               // 천장 모서리선
   // 천장 등 불빛 (은은하게)
   for (const x of [w * 0.25, w * 0.5, w * 0.75]) { const q = ctx.createRadialGradient(x, cy + 4, 2, x, cy + 4, 70); q.addColorStop(0, 'rgba(255,238,200,.9)'); q.addColorStop(1, 'rgba(255,238,200,0)'); ctx.fillStyle = q; ctx.fillRect(x - 70, cy - 66, 140, 140); ctx.fillStyle = '#fffaf0'; ctx.fillRect(x - 16, cy, 32, 3); }
