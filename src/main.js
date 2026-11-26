@@ -17,7 +17,7 @@ import { createSnowField, createSnowFight } from './snow.js';
 import { createXmas } from './advent.js';
 import { createRace, createRaceTrack, RACE, inRaceZone } from './race.js';
 import { createPartyStage, inParty, DANCES } from './party.js';
-import { createVillage, createEstate, createHomeInterior, inVillage, VILLAGE, WALK, UNITS, homeFloor, unitOfFloor, doorSpot, HOME_Y } from './estate.js';
+import { createVillage, createEstate, createHomeInterior, inVillage, VILLAGE, WALK, UNITS, homeFloor, unitOfFloor, doorSpot, HOME_Y, GY } from './estate.js';
 import { startAudio, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar, WorkMonster, HAIR_STYLES, HAIR_COLORS, OUTFITS, BOTTOMS, BOTTOM_COLORS, ACC_SLOTS, parseLook, lookKey } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
@@ -947,7 +947,7 @@ function walkTo(tx, tz, extra = {}) {
 // ---------- 가구 위에 서기 ----------
 // 발밑에 있는 가구 중 발보다 낮은(또는 같은) 가장 높은 윗면 = 서 있을 높이
 function groundAt(x, z, feet) {
-  let g = player.floor === 0 && (z > LOT + 0.05 || x > LOT + 0.05) ? -0.3 : 0; // 정문 앞 광장 · 건널목 · 🏘 마을은 부지보다 30cm 낮음
+  let g = player.floor === 0 && inVillage(0, x, z) ? GY : player.floor === 0 && (z > LOT + 0.05 || x > LOT + 0.05) ? -0.3 : 0; // 🏘 마을 · 건널목은 GY, 정문 앞 광장은 부지보다 30cm 낮음
   for (const c of bld.floors[player.floor].colliders) {
     if (c.tall || c.noStand) continue;
     const top = c.top ?? 0.6;
