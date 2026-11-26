@@ -325,3 +325,4 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - 실시간: 이벤트 {t:'sm', k:roll|drop|grab|gone|man|smash}. 놓인 눈덩이는 저장 안 함(10분 뒤 녹음, 늦게 들어온 사람은 못 봄).
 - **docs/snowman.sql 실행 필요.** 이상한 그림은 Supabase Table Editor → snowmen에서 줄 삭제. 확인: 로컬 Postgres(too_many · bad_place · bad_size · bad_face · not_yours · 직접 삭제 거부), 데모 화면 전 과정. 두 사람 동시 · 휴대폰 손맛은 확인 못 함.
 - ✅ 11-27 사용자가 snowman.sql 실행 완료 → 눈사람 저장 열림. (estate_refund.sql 실행 여부는 따로 확인 필요)
+- 11-27 사용자: 부동산 산 사람 없음 → estate_refund.sql은 실행 안 해도 됨(사이트에서 살 길이 없고, API로 직접 사도 제 돈만 줄어듦). 나중에 부동산을 다시 켤 때 estates 표는 비어 있는 상태.
