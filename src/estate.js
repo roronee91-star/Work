@@ -146,7 +146,7 @@ export function createVillage(colliders, myName = () => '') {
   panel(group, sign, 4.6, 1.0, 73.18, 3.4, GZ, -Math.PI / 2);
   panel(group, sign, 4.6, 1.0, 73.82, 3.4, GZ, Math.PI / 2);
   // 가로등 · 나무 (길가)
-  for (const x of [110, 126, 142, 158]) for (const z of [-28.2, -23.8, 23.8, 28.2]) { // 골목 가로등 (집 사이) const t = terrainH(x, z); k.box(0.12, 3.6, 0.12, x, GY + t, z, VM.aptBand); k.add(BALL, M.lamp || VM.win, x, 3.4 + t, z, 0, 0.22, 0.22, 0.22); }
+  for (const x of [110, 126, 142, 158]) for (const z of [-28.2, -23.8, 23.8, 28.2]) { /* 골목 가로등 (집 사이) */ const t = terrainH(x, z); k.box(0.12, 3.6, 0.12, x, GY + t, z, VM.aptBand); k.add(BALL, M.lamp || VM.win, x, 3.4 + t, z, 0, 0.22, 0.22, 0.22); }
   for (const [x, z] of [[78, 12], [90, 10], [78, -14], [90, -16], [164, 0], [164, -26], [164, 26], [76, -44], [92, 44]]) { const t = terrainH(x, z); k.box(0.3, 1.6, 0.3, x, GY + t, z, M.oak); k.add(BALL, M.leaf, x, 2.2 + t, z, 0, 1.3, 1.5, 1.3); colliders.push({ x1: x - 0.35, z1: z - 0.35, x2: x + 0.35, z2: z + 0.35, tall: true }); }
   // 🏢 아파트 '레지던스': 따뜻한 베이지 석재 · 층마다 깊은 발코니(유리 난간 · 나무 천장 · 화분) · 옥상 퍼걸러 정원
   {
