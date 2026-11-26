@@ -6,6 +6,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG, AVATAR_COLORS } from './config.js';
 import { sharedUniforms, createSky, createMountains, createGround, createCity, createBridges, createSite, createTraffic, FOG_NIGHT, FOG_DAY } from './world.js';
 import { createBuilding, FLOORS, ZONES, zoneAt, HX, HZ, LOT, CEIL, ROOF, ELEV, NOTICE, SPAWN, BOOTHS, ARENA, INVEST, Kit } from './building.js';
+import { createSnowYard, createSnowmen, inYard } from './snowman.js';
 import { createFurnShop, createFurnUI, furnById, drawFurn, drawBoxes, footprint, MAX_FURN, FURN_SHOP } from './furniture.js';
 import { createGarden, STREAM } from './garden.js';
 import { createDuel, SWORD, BOT_NAME } from './duel.js';
@@ -237,6 +238,7 @@ const furnUI = createFurnUI({ $, money, openModal: (id) => openModal(id), sys: (
 const village = createVillage(bld.floors[0].colliders, () => me.name); // 내 집 대문만 열림
 scene.add(village.group);
 const BLDG_N = 5; // 사옥 층 수 (그 뒤 번호는 집 안)
+let yardWas = false;
 let villageTold = false;
 for (const u of UNITS) { // 집마다 '층 번호' 하나 → 같은 집에 있는 사람끼리만 보임, 안은 들어갈 때 그림
   const i = FLOORS.length;
@@ -367,6 +369,13 @@ $('btnHome').onclick = () => (player.floor >= BLDG_N ? leaveHome() : goHome());
 // ⛄ 눈싸움장 (사옥 뒤쪽 정원)
 const snowField = createSnowField(bld.floors[0].colliders);
 scene.add(snowField.group);
+// ⛄ 눈사람 마당 (눈싸움장 서쪽): 굴리기 · 쌓기 · 얼굴 그리기 · 부수기(만든 사람만)
+const snowYard = createSnowYard(bld.floors[0].colliders);
+scene.add(snowYard.group);
+const snowmen = createSnowmen({ $, scene, me, supa, colliders: bld.floors[0].colliders, player: () => player, forward: () => [Math.sin(player.ry), Math.cos(player.ry)],
+  send: (e) => net?.sendEvent(e), sys: (t) => sysMessage(t), beep: () => playBeep(990, 0.18), thump: () => playThump(), openModal: (id) => openModal(id), closeModals: () => closeModals(),
+  walletKey: (n) => money.keyFor(n), near: () => mode !== 'office' || player.floor === 0, changed: () => GRIDS.delete(0) });
+$('btnRoll').addEventListener('pointerdown', (e) => { e.preventDefault(); document.activeElement?.blur?.(); snowmen.action(); });
 const snowFight = createSnowFight({
   scene, field: snowField, me, peers, $, isTouch,
   player: () => player, avatar: () => myAvatar, now: () => now, camYaw: () => cam.yaw,
@@ -641,6 +650,7 @@ function enter() {
   if (duel.level > 1 || duel.loser) myAvatar.setName(lvName(me.name, duel.level, duel.loser));
   duel.load(me.name); // 결투 레벨 · 칭호 (Supabase)
   estate.load(); // 🏘 집 분양 현황
+  snowmen.load(); // ⛄ 눈사람 마당
   money.load(me.name).then((notes) => { applyWear(); // 입구에 도착하면(날아 들어오는 장면이 끝나면) 오늘의 일급 알림
     const t = setInterval(() => { if (mode !== 'office') return; clearInterval(t); showNews(); setTimeout(() => { notes.forEach((n) => toast(n, () => money.openWallet())); toast(money.greeting(), () => money.openWallet()); }, 300); setTimeout(adventCheckIn, 900); }, 200);
   });
@@ -649,7 +659,7 @@ function enter() {
   placeAvatar(myAvatar, player);
   me.jt = Date.now();
   net = connect(me, {
-    onState, onChat: receiveChat, onLeave: removePeer, onSync: (scope) => { sendState(true, scope === 'all'); race.announce(); } /* 새로 온 사람에게 내 레이스 참가도 알림 */, onEvent: (e) => { duel.onEvent(e); reqs.onEvent(e); rideEvent(e); snowFight.onEvent(e); race.onEvent(e); estate.onEvent(e); },
+    onState, onChat: receiveChat, onLeave: removePeer, onSync: (scope) => { sendState(true, scope === 'all'); race.announce(); } /* 새로 온 사람에게 내 레이스 참가도 알림 */, onEvent: (e) => { duel.onEvent(e); reqs.onEvent(e); rideEvent(e); snowFight.onEvent(e); race.onEvent(e); estate.onEvent(e); snowmen.onEvent(e); },
     onStatus(text, online) { $('netText').textContent = text; $('netDot').classList.toggle('on', online); },
   });
   sysMessage(returning
@@ -683,6 +693,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Enter') { e.preventDefault(); setChatOpen(true); $('chatInput').focus(); }
   if (e.code === 'KeyE') interact();
   if (e.code === 'KeyF' && snowFight.inField) { e.preventDefault(); if (!e.repeat) snowFight.throw(); }
+  if (e.code === 'KeyF' && mode === 'office' && inYard(player.floor, player.x, player.z)) { e.preventDefault(); if (!e.repeat) snowmen.action(); } // ⛄ 굴리기 · 내려놓기
   if (e.code === 'KeyR' && !e.repeat && myAvatar) toggleKick();
   if (e.code === 'KeyG' && !e.repeat) danceTap();
   if (e.code === 'Space') { e.preventDefault(); doJump(); }
@@ -886,6 +897,8 @@ function updatePlayer(dt) {
   else if (what === 'npc') { pr.textContent = isTouch ? '💬 비서에게 말 걸기 (누르기)' : 'E  💬 비서에게 말 걸기'; pr.hidden = false; }
   else if (what === 'notice') { pr.textContent = isTouch ? '공지판 보기 (누르기)' : 'E  공지판 보기'; pr.hidden = false; }
   else if (what === 'elev') { pr.textContent = isTouch ? '엘리베이터 타기 (누르기)' : 'E  엘리베이터 타기'; pr.hidden = false; }
+  else if (what === 'smash') { pr.textContent = isTouch ? '💥 내 눈사람 부수기 (누르기)' : 'E  💥 내 눈사람 부수기'; pr.hidden = false; }
+  else if (what === 'yard') { pr.textContent = snowmen.prompt(player.x, player.z); pr.hidden = false; }
   else if (what === 'furn') { pr.textContent = isTouch ? '🛋 가구 쇼핑하기 (누르기)' : 'E  🛋 가구 쇼핑하기'; pr.hidden = false; }
   else if (what === 'homeBox') { pr.textContent = isTouch ? '📦 배달 상자 열기 · 꾸미기 (누르기)' : 'E  📦 배달 상자 열기 · 꾸미기'; pr.hidden = false; }
   else if (what === 'homeExit') { pr.textContent = isTouch ? '🚪 밖으로 나가기 (누르기)' : 'E  🚪 밖으로 나가기'; pr.hidden = false; }
@@ -922,6 +935,7 @@ function nearWhat() {
   if (player.floor === INVEST.floor && Math.hypot(player.x - (INVEST.x + (INVEST.s ?? 1) * 1.55), player.z - INVEST.z) < 1.0) return 'invest';
   if (player.floor === 0 && Math.hypot(player.x - SHOP.counter.x, player.z - SHOP.counter.z) < 1.2) return 'shop';
   if (player.floor === 0 && Math.hypot(player.x - FURN_SHOP.counter.x, player.z - FURN_SHOP.counter.z) < 1.2) return 'furn';
+  if (inYard(player.floor, player.x, player.z)) return snowmen.nearMine(player.x, player.z) && !snowmen.rolling ? 'smash' : 'yard'; // ⛄ 눈사람 마당
   if (sleigh && player.floor === 0 && !ride.flying && Math.hypot(player.x - (SLEIGH.x - 0.3), player.z - SLEIGH.z) < 2.0) return 'sleigh';
   if (!race.driving && inRaceZone(player.floor, player.x, player.z)) return 'race';
   if (Math.hypot(player.x - ELEV.x, player.z - ELEV.z) < 1.9) return 'elev';
@@ -1389,6 +1403,8 @@ function interact() {
   else if (what === 'elev') openFloorMenu();
   else if (what === 'homeExit') leaveHome();
   else if (what === 'homeBox') decoOpen();
+  else if (what === 'smash') snowmen.smash();
+  else if (what === 'yard') snowmen.action();
   else if (what === 'furn') { furnShop.clerk.say('어서 오세요, WORK HOME이에요 🛋 사시면 댁으로 바로 배달해 드려요!', now); furnUI.open(); }
   else if (what && what.door) { const d = what.door, my = estate.mine(); if (d.apt ? my?.unit.kind === 'apt' : d.owner?.name === me.name) goHome(); else if (d.owner) sysMessage(`🔒 ${d.owner.name}님 집이에요. (놀러 가기는 곧 열려요)`); else sysMessage('🏷 분양은 3층 💹 투자 상담실 → 🏠 부동산 탭에서 해요.'); }
 }
@@ -1844,6 +1860,8 @@ function frame() {
   duel.update(dt);
   updateSparks(dt);
   snowFight.update(dt);
+  snowmen.update(dt);
+  { const y = mode === 'office' && inYard(player.floor, player.x, player.z); $('btnRoll').hidden = !(y && isTouch); if (y !== yardWas) { yardWas = y; if (y) sysMessage('⛄ 눈사람 마당이에요! F 키(휴대폰은 ⛄ 버튼)로 눈덩이를 만들어 굴려요. 큰 덩이를 놓고 작은 덩이를 굴려 와서 부딪히면 눈사람!'); } }
   race.tick(); raceTrack.update(now); partyStage.update(now);
   if (myAvatar && !race.driving && !race.running) { const inZ = inRaceZone(player.floor, player.x, player.z); if (inZ !== race.joined) inZ ? race.join() : race.leave(); } // 🏁 칸 안 = 참가
   duelHost.root.visible = !(mode === 'office' && player.floor !== ARENA.floor); duelHost.animate(dt, 0, now);
@@ -1889,5 +1907,5 @@ requestAnimationFrame(() => {
 
 // 테스트용 훅
 // 🛡 11-26: 개발자 콘솔에서 돈 · 결투를 건드릴 수 있던 통로 → 서버 없는 로컬 데모(점검용)에서만 열어 둠
-if (!supa || /^(127\.0\.0\.1|localhost)$/.test(location.hostname)) window.__work = { estate, goHome, leaveHome, village, furnShop, furnUI, decoOpen, decoClose, decoTake, decoTap, decoRotate, nearWhat, danceTap, sitDown, race, advent, snowFight, shop, shopUI, money, ride, rideJoin, sleigh, FLY, duel, findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
+if (!supa || /^(127\.0\.0\.1|localhost)$/.test(location.hostname)) window.__work = { snowmen, estate, goHome, leaveHome, village, furnShop, furnUI, decoOpen, decoClose, decoTake, decoTap, decoRotate, nearWhat, danceTap, sitDown, race, advent, snowFight, shop, shopUI, money, ride, rideJoin, sleigh, FLY, duel, findPath, get mode() { return mode; }, get av() { return myAvatar; }, toggleDay, game, bld, collide, get day() { return dayVal; }, player, cam, orbit, peers, enter, keys, goFloor, chooseFloor };
 window.__workMain = true;

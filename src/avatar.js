@@ -27,7 +27,7 @@ function labelTexture(text, { bg = 'rgba(10,12,18,0.72)', fg = '#fff', font = 60
   tex.colorSpace = THREE.SRGBColorSpace;
   return { tex, aspect: c.width / c.height };
 }
-function makeSprite(text, opt, height) {
+export function makeSprite(text, opt, height) {
   const { tex, aspect } = labelTexture(text, opt);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
   s.scale.set(height * aspect, height, 1);

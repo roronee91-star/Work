@@ -141,6 +141,7 @@
     <button id="btnSnow" hidden>❄<span>던지기</span></button>
     <button id="btnKick" hidden>🛴<span>타기</span></button>
     <button id="btnDance" hidden>💃<span>춤추기</span></button>
+    <button id="btnRoll" hidden>⛄<span>굴리기</span></button>
     <button id="btnDeco" hidden>🛋<span>꾸미기</span></button>
     <div id="decoPanel" hidden>
       <header><b>🛋 집 꾸미기</b><button type="button" id="decoDone">✔ 다 했어요</button></header>
@@ -241,6 +242,19 @@
     </div>
   </div>
 
+  <!-- ⛄ 눈사람 얼굴 그리기 (snowman.js) -->
+  <div id="smModal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>🖊 눈사람 얼굴 그리기</h2></header>
+      <p class="sub">손가락(마우스)으로 얼굴을 그려요. 다 그리면 [완성!]</p>
+      <div class="sm-face"><canvas id="smCanvas" width="320" height="320"></canvas></div>
+      <div id="smPens" class="sm-pens">
+        <button type="button" data-pen="#1e1e22" class="on" style="--c:#1e1e22"></button><button type="button" data-pen="#f08a24" style="--c:#f08a24"></button><button type="button" data-pen="#d8283c" style="--c:#d8283c"></button><button type="button" data-pen="#ff8fb8" style="--c:#ff8fb8"></button><button type="button" data-pen="#3b6fd8" style="--c:#3b6fd8"></button><button type="button" id="smErase">지우개</button>
+      </div>
+      <label class="sm-size">펜 굵기 <input type="range" id="smSize" min="3" max="18" value="7"></label>
+      <div class="g-btns"><button type="button" id="smClear">모두 지우기</button><button type="button" id="smDefault">기본 얼굴</button><button type="button" id="smDone" class="primary">⛄ 완성!</button></div>
+    </div>
+  </div>
   <!-- 🛋 WORK HOME 가구점 (furniture.js) -->
   <div id="furnModal" class="modal" hidden>
     <div class="modal-card">
