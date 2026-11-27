@@ -345,3 +345,4 @@ docs/HANDOFF.md 를 먼저 읽고 그대로 이어서 해줘.
 - 서버: **docs/work_bonus.sql** — `wallet_tick(p_name, p_key, p_work boolean default false)`로 바꿈(옛 2인자 함수 drop). p_work이고 서버 시계로 KST 11~17시면 2배. money.js `serverTick`: 지난 서버 기록 뒤로 계속 2배 상태였을 때만 p_work = true. SQL 실행 전이면(옛 함수, PGRST202) p_work 없이 다시 불러 1배로 계속 받음 → 배포 순서 상관없음.
 - 한계: '일하기 중'은 화면이 알려 주는 값이라 서버가 확인 못 함(시간대 · 1회 최대 90초 · 하루 12시간은 서버가 막음).
 - 확인: 로컬 Postgres 60초 → 일하기 344원 / 아님 172원 / 옛 호출 172원, 두 번 실행 OK. 화면(서버 없는 데모)에서 일하기 중 ×2 칩 · 약 2배 적립.
+- ✅ 11-27 사용자가 work_bonus.sql 실행 완료 → 서버도 2배 지급.
