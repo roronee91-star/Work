@@ -25,7 +25,9 @@ import { startAudio, setMuted, isMuted, playThump, playBeep } from './audio.js';
 import { Avatar, WorkMonster, HAIR_STYLES, HAIR_COLORS, OUTFITS, BOTTOMS, BOTTOM_COLORS, ACC_SLOTS, parseLook, lookKey } from './avatar.js';
 import { connect, makeId, supa } from './net.js';
 import { listNotices, addNotice, drawNoticeBoard } from './notices.js';
-const WORK_BONUS = false; // 💼 시급 2배 이벤트 (11-25 시작 → 11-26 사용자 요청으로 종료: '사람들이 즐기질 못해서')
+const WORK_BONUS = true; // 💼 시급 2배 이벤트 (11-25 시작 → 11-26 종료 → 11-27 다시: 2층 '일하기' 중 + 오전 11시~오후 5시만)
+const BONUS_HOURS = [11, 17]; /* 한국 시간 11:00 ~ 16:59 (서버 docs/work_bonus.sql도 같은 시간) */
+const bonusTime = () => { const h = new Date(Date.now() + 9 * 3600e3).getUTCHours(); return h >= BONUS_HOURS[0] && h < BONUS_HOURS[1]; };
 
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches;
@@ -225,7 +227,7 @@ function showToast(text, onClick) {
 }
 // 💰 월급 · 지갑 · 💹 투자
 const money = createMoney({ $, me, priceOf: (id) => ITEMS.find((it) => it.id === id && !it.limited)?.price, canGrant: (id) => !!advent?.earned(id), openItems: () => shopUI.open('mine'), openModal: (id) => openModal(id), sys: (t) => sysMessage(t), toast: (t) => toast(t, () => money.openWallet()),
-  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior') && player.floor < 5 && player.zone !== 'village', /* 🏘 일급은 사옥(정원 포함)에서만 — 집 · 마을은 퇴근 후 공간 */ rate: () => (WORK_BONUS && player.sit && player.working ? 2 : 1) /* 💼 시급 2배 이벤트(일하기 중) — 11-26 종료, 다시 하려면 WORK_BONUS = true */, get board() { return bld.investBoard; }, estateTab: (el) => estate.render(el), furnPrice: (id) => furnById(id)?.price });
+  atWork: () => !!myAvatar && (mode === 'office' || mode === 'exterior') && player.floor < 5 && player.zone !== 'village', /* 🏘 일급은 사옥(정원 포함)에서만 — 집 · 마을은 퇴근 후 공간 */ rate: () => (WORK_BONUS && player.sit && player.working && bonusTime() ? 2 : 1) /* 💼 시급 2배: 일하기 중 + 11~17시 */, get board() { return bld.investBoard; }, estateTab: (el) => estate.render(el), furnPrice: (id) => furnById(id)?.price });
 $('workChip').onclick = () => money.openWallet();
 // 👜 WORK BOUTIQUE (1층 정원 동쪽): 아이템 사서 착용
 const shop = createShop(bld.floors[0].colliders);
@@ -1079,7 +1081,7 @@ function sitDown(seat) {
   myAvatar.setSit(true, seat.h);
   player.working = !!seat.desk;
   myAvatar.setWorking(player.working);
-  if (player.working) sysMessage(WORK_BONUS ? '💻 일하는 중이에요. 지금 시급 2배(20,640원)! 다른 사람 화면에 "일하는 중..." 풍선이 보여요.' : '💻 일하는 중이에요. 다른 사람 화면에 "일하는 중..." 풍선이 보여요.');
+  if (player.working) sysMessage(WORK_BONUS && bonusTime() ? '💻 일하는 중이에요. 지금 시급 2배(20,640원)! 다른 사람 화면에 "일하는 중..." 풍선이 보여요.' : WORK_BONUS ? '💻 일하는 중이에요. 시급 2배는 오전 11시 ~ 오후 5시에 일하기 할 때만이에요. 다른 사람 화면에 "일하는 중..." 풍선이 보여요.' : '💻 일하는 중이에요. 다른 사람 화면에 "일하는 중..." 풍선이 보여요.');
   cam.yaw = seat.ry + Math.PI; cam.pitch = 0.3;
   sendState(true);
 }

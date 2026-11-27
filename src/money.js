@@ -165,12 +165,18 @@ export function createMoney(api) {
   // 1초마다: 화면이 켜져 있고 사옥 안에 있으면 근무 시간 +1초
   // 실제 지난 시간(시계)으로 더함 → 다른 탭에 다녀와도(화면이 숨어 타이머가 느려져도) 멈추지 않고 이어짐
   // 단, 컴퓨터가 잠자기했던 것처럼 한 번에 5분 넘게 비면 그 사이는 빼고 셈
-  let tick = 0, last = Date.now();
+  let tick = 0, last = Date.now(), allWork = false, tickWork = true;
+  /* 💼 2배 시간(11~17시)에 계속 일하기 중이었으면 p_work = true → 서버가 시간대를 다시 확인해 2배.
+     서버에 docs/work_bonus.sql을 아직 안 넣었으면(옛 함수) p_work 없이 다시 불러 1배로 계속 받음 */
+  const serverTick = (work) => rpc('wallet_tick', tickWork ? { p_work: !!work } : {}).then(apply).catch((e) => {
+    if (tickWork && /PGRST202|p_work|function/i.test(`${e.code} ${e.message}`)) { tickWork = false; sv('wallet_tick'); } else console.warn('wallet_tick', e.message);
+  });
   setInterval(() => {
     const t = Date.now(), gap = (t - last) / 1000; last = t;
     if (server && w && t - lastPriceFetch > 30000 && (!SP || hourNow() > SP.h)) fetchPrices();
     if (!w || !api.atWork()) return;
-    if (server) { if (t - lastTickCall > 55000) { lastTickCall = t; sv('wallet_tick'); } } // 일급은 서버 시계로 (화면은 아래에서 미리 더해 보여 줌)
+    if ((api.rate?.() ?? 1) < 2) allWork = false; // 지난 서버 기록 뒤로 계속 '일하기'(2배 시간)였는지
+    if (server) { if (t - lastTickCall > 55000) { lastTickCall = t; serverTick(allWork); allWork = true; } } // 일급은 서버 시계로 (화면은 아래에서 미리 더해 보여 줌)
     else { const notes = settle(); notes.forEach((n) => api.toast(n)); }
     const add = Math.min(gap > 300 ? 0 : gap, MAX_SECS - w.day_secs);
     if (add > 0) {
