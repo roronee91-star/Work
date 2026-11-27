@@ -498,7 +498,11 @@ export function makeAcc(id) {
       break;
     case 'catears': // 고양이 귀 머리띠
       band(AM.black);
-      for (const e of [-1, 1]) { add(new THREE.ConeGeometry(0.075, 0.15, 4), AM.black, e * 0.15, H0 + 0.26, 0.0, 0, Math.PI / 4, e * -0.35); add(new THREE.ConeGeometry(0.045, 0.1, 4), AM.pinkIn, e * 0.15, H0 + 0.25, 0.03, 0, Math.PI / 4, e * -0.35); }
+      for (const e of [-1, 1]) { /* 귀는 머리띠 테 위에서 솟게 (테처럼 뒤로 0.3 기울임) */
+        const ear = new THREE.Group(); ear.position.set(e * 0.15, H0 + 0.242, -0.079); ear.rotation.set(-0.3, 0, e * -0.35); g.add(ear);
+        const o = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.15, 4), AM.black); o.position.y = 0.06; o.rotation.y = Math.PI / 4; ear.add(o);
+        const i = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.1, 4), AM.pinkIn); i.position.set(0, 0.05, 0.03); i.rotation.y = Math.PI / 4; ear.add(i);
+      }
       break;
     case 'santa': { // 산타 모자
       // 빨간 둥근 몸통이 흰 테 안을 꽉 채워서 뒤에서 봐도 머리카락이 비치지 않게 (똥머리 · 뽀글 파마까지 덮음)
