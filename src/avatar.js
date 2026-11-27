@@ -490,8 +490,11 @@ export function makeAcc(id) {
       break;
     case 'ribbon': // 큰 리본 머리띠
       band(AM.pink);
-      for (const e of [-1, 1]) add(new THREE.ConeGeometry(0.075, 0.13, 4), AM.pink, 0.12 + e * 0.07, H0 + 0.25, 0.04, 0, 0, e * Math.PI / 2);
-      add(new THREE.SphereGeometry(0.03, 10, 8), AM.pink, 0.12, H0 + 0.25, 0.05);
+      { /* 리본은 머리띠 테 위에 (테가 뒤로 0.3 기운 것에 맞춰 같이 기울임) */
+        const bow = new THREE.Group(); bow.position.set(0.15, H0 + 0.252, -0.075); bow.rotation.set(-0.3, 0, -0.5); g.add(bow);
+        for (const e of [-1, 1]) { const m = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.13, 4), AM.pink); m.position.set(e * 0.07, 0, 0); m.rotation.z = e * Math.PI / 2; bow.add(m); }
+        const k = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), AM.pink); bow.add(k);
+      }
       break;
     case 'catears': // 고양이 귀 머리띠
       band(AM.black);
