@@ -468,7 +468,7 @@ export const ACC_SLOTS = { face: '얼굴', head: '머리', top: '머리 위', ba
 export function makeAcc(id) {
   const g = new THREE.Group(); g.userData.id = id;
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.set(sx, sy, sz); g.add(m); return m; };
-  const band = (mat) => add(new THREE.TorusGeometry(0.262, 0.014, 6, 32, Math.PI), mat, 0, H0 + 0.02, 0.02, 0, Math.PI / 2, 0, 1, 1.08, 1);
+  const band = (mat) => add(new THREE.TorusGeometry(0.262, 0.016, 6, 32, Math.PI), mat, 0, H0 + 0.02, -0.01, -0.3, 0, 0, 1.07, 1.05, 1.07); /* 귀에서 귀로 (예전엔 앞뒤로 써져 이마에 세로줄) */
   switch (id) {
     case 'glasses': // 동그란 금테 안경
       // 테가 얼굴 속에 반쯤 묻히던 것 → 얼굴 앞으로 꺼내고 바깥쪽을 얼굴 곡선 따라 살짝 뒤로

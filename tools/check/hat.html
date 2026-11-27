@@ -12,10 +12,11 @@ const s = new THREE.Scene(); s.background = new THREE.Color(0x2a3140);
 s.add(new THREE.HemisphereLight(0xdfe6ff, 0x3a3028, 2.2)); const k = new THREE.DirectionalLight(0xffffff, 2); k.position.set(2, 3, 4); s.add(k);
 const cam = new THREE.PerspectiveCamera(22, W / H, 0.1, 50); cam.position.set(0, 6.5, 12); cam.lookAt(0, 0.2, 0);
 const views = [Math.PI, Math.PI / 2, 0];
-for (let hs = 0; hs < 8; hs++) views.forEach((ry, v) => {
-  const a = new Avatar('', '#4f8cff', 'f', `${hs}1010`); a.label.visible = false; a.setAcc([acc]);
-  a.root.position.set((hs - 3.5) * 0.82, 1.6 - v * 1.45, 0); a.root.rotation.y = ry; s.add(a.root);
-});
+const HS = (q.get('hs') || '0,1,2,3,4,5,6,7').split(',').map(Number);
+HS.forEach((hs, i) => views.forEach((ry, v) => {
+  const a = new Avatar('', '#4f8cff', 'f', `${hs.toString(36)}7010`); a.label.visible = false; a.setAcc([acc]);
+  a.root.position.set((i - (HS.length - 1) / 2) * 0.82, 1.6 - v * 1.45, 0); a.root.rotation.y = ry; s.add(a.root);
+}));
 if (q.get('zoom') === '2') { cam.fov = 14; cam.position.set(0, 2.2, 9); cam.lookAt(0, 0.6, 0); cam.updateProjectionMatrix(); } else if (q.get('zoom')) { cam.fov = 12; cam.position.set(0, -0.2, 9); cam.lookAt(0, -0.55, 0); cam.updateProjectionMatrix(); }
 r.render(s, cam); window.done = true;
 </script></body></html>
