@@ -534,10 +534,15 @@ export function makeAcc(id) {
       for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2; add(new THREE.SphereGeometry(0.022, 10, 8), i % 2 ? AM.sapphire : AM.ruby, Math.sin(a) * 0.158, H0 + 0.27, Math.cos(a) * 0.158 - 0.01); }
       break;
     }
-    case 'diacrown': { // 다이아몬드 티아라
-      add(new THREE.TorusGeometry(0.2, 0.014, 8, 32, Math.PI), AM.gold, 0, H0 + 0.1, 0.04, -0.2, 0, 0);
-      for (let i = 0; i < 9; i++) { const t = (i / 8) * Math.PI, hgt = 0.06 + 0.07 * Math.sin(t); add(new THREE.OctahedronGeometry(0.025 + 0.012 * Math.sin(t), 0), AM.diamond, Math.cos(t) * 0.2, H0 + 0.11 + Math.sin(t) * 0.2 * 0.2 + hgt, 0.04 + Math.sin(t) * 0.06); }
-      add(new THREE.OctahedronGeometry(0.045, 0), AM.sapphire, 0, H0 + 0.36, 0.1, 0, 0, 0, 0.8, 1.2, 0.8);
+    case 'diacrown': { // 다이아몬드 티아라 — 머리띠처럼 귀에서 귀로 (예전엔 테가 머리보다 작아 머리카락에 묻힘)
+      const tg = new THREE.Group(); tg.position.set(0, H0 + 0.02, -0.01); tg.rotation.x = -0.3; tg.scale.set(1.07, 1.05, 1.07); g.add(tg);
+      const R = 0.262, put = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); tg.add(m); return m; };
+      tg.add(new THREE.Mesh(new THREE.TorusGeometry(R, 0.016, 8, 32, Math.PI), AM.gold));
+      for (let i = 0; i < 9; i++) { /* 테 위로 솟은 다이아 (가운데로 갈수록 크고 높게) */
+        const t = 0.5 + (i / 8) * (Math.PI - 1), k = Math.sin(t), r = R + 0.02 + 0.045 * k * k;
+        put(new THREE.OctahedronGeometry(0.02 + 0.014 * k * k, 0), AM.diamond, Math.cos(t) * r, Math.sin(t) * r, 0.012);
+      }
+      put(new THREE.OctahedronGeometry(0.045, 0), AM.sapphire, 0, R + 0.12, 0.015).scale.set(0.8, 1.2, 0.8);
       break;
     }
     case 'halo': // 천사 고리 (머리 위에 둥실)
