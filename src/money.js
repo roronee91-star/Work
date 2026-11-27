@@ -124,8 +124,20 @@ export function createMoney(api) {
     if (!old) return; /* 새로 온 사람은 옮길 것 없음 */
     const st = old.stocks || {};
     const sv = STOCKS.reduce((s, x) => s + (st[x.code]?.q || 0) * price(x), 0);
-    rpc('wallet_import', { p_cash: (+old.cash || 0) + (+old.unpaid || 0) + sv, p_savings: +old.savings || 0, p_items: st.__items || [], p_wear: st.__wear || {}, p_xmas: st.__xmas || [] })
+    return rpc('wallet_import', { p_cash: (+old.cash || 0) + (+old.unpaid || 0) + sv, p_savings: +old.savings || 0, p_items: st.__items || [], p_wear: st.__wear || {}, p_xmas: st.__xmas || [] })
       .then((r) => { apply(r); api.toast?.('📦 이 기기에 있던 지갑과 아이템을 옮겨 왔어요.'); }).catch(() => {});
+  }
+  // 📦 11-27 되찾기: 옮길 때 빠진 예전 아이템(300만 원 한도 · 다른 기기)을 이 기기의 예전 지갑에서 다시 받음 (서버 wallet_restore_items, 12/4까지)
+  function restoreOld(name) {
+    const old = localAll()[name], items = old?.stocks?.__items;
+    if (!Array.isArray(items) || !w) return;
+    const have = new Set(w.stocks?.__items || []), miss = items.filter((id) => typeof id === 'string' && !have.has(id));
+    if (!miss.length) return;
+    rpc('wallet_restore_items', { p_items: miss, p_wear: old.stocks.__wear || {} }).then((r) => {
+      const before = new Set(w.stocks?.__items || []); apply(r);
+      const n = (w.stocks?.__items || []).filter((id) => !before.has(id)).length;
+      if (n) api.toast?.(`📦 예전에 갖고 있던 아이템 ${n}개를 되찾았어요!`);
+    }).catch(() => {});
   }
   async function load(name) {
     owner = name; w = null;
@@ -133,7 +145,7 @@ export function createMoney(api) {
       for (let tries = 0; tries < 3; tries++) {
         const { data, error } = await supa.rpc('wallet_get', { p_name: name, p_key: keyFor(name) });
         if (owner !== name) return [];
-        if (!error) { server = true; w = fromRow(data); chip(); importOld(name, data); fetchPrices(); rpc('wallet_tick').then(apply).catch(() => {}); lastTickCall = Date.now(); return []; }
+        if (!error) { server = true; w = fromRow(data); chip(); Promise.resolve(importOld(name, data)).then(() => owner === name && restoreOld(name)); fetchPrices(); rpc('wallet_tick').then(apply).catch(() => {}); lastTickCall = Date.now(); return []; }
         if (!/not_owner/.test(error.message)) { if (/function|PGRST202|404/i.test(error.message + error.code)) break; console.warn('지갑 불러오기 실패', error.message); break; }
         server = true;
         const code = prompt(`💳 "${name}" 지갑은 다른 기기에 연결돼 있어요.\n\n그 기기에서 👛 지갑 → [📱 다른 기기에서도 쓰기]를 누르면 나오는 12자리 연결 코드를 입력하세요.\n(다른 분이라면 [취소]를 누르고 👤 내 캐릭터에서 이름을 바꿔 주세요)`);
