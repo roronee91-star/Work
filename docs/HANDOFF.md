@@ -1,6 +1,13 @@
-# WORK 메타버스 사옥 — 인수인계 (2026-11-24 갱신)
+# WORK 메타버스 사옥 — 인수인계 (2026-11-27 갱신)
 
 > 새 채팅에서 **이 문서 하나만 먼저 읽으면** 이어서 작업할 수 있게 정리했다.
+
+### 🗓 지금 상태 한눈에 (11-27 기준 — 자세한 건 맨 아래 날짜별 절)
+- **켜진 것**: 서버 지갑(돈 · 아이템은 서버 함수로만) · 💼 시급 2배(2층 💻 일하기 + 한국 시간 11~17시, work_bonus.sql ✅) · ⛄ 눈사람 마당(snowman.sql ✅) · 📦 예전 아이템 되찾기(restore_all_1127.sql ✅, **12/4 0시까지**) · 🎄 크리스마스 출석 · 눈싸움(하루 5만) · 레이스 · 결투 · 부티크(남성 칸 포함).
+- **꺼 둔 것**: 🏘 부동산 분양 · 🛋 가구점(config `estate: false`, 코드는 남김 · 산 사람 없음). 다시 켜지 말 것 — 사용자가 '나중에 고민되면'.
+- **사용자가 Supabase에서 실행 완료한 SQL**: security.sql · snow50k.sql · security_patch1.sql · menswear.sql · estate.sql · furniture.sql · snowman.sql · restore_items_1127.sql · work_bonus.sql · restore_all_1127.sql. (estate_refund.sql은 필요 없음, check_items_1127.sql은 읽기 전용 · 결과 못 받음)
+- **남은 것 / 지켜볼 것**: 아이템 사라짐 추가 제보 → restore_items_1127.sql의 values 줄만 바꿔 실행 안내. 12/4 이후 되찾기 자동으로 닫힘. 시급 2배는 '일하기 중' 여부를 화면이 알려 주는 값이라 서버가 확인 못 함.
+- **배포 습관**: `python3 tools/stamp.py` → `node --input-type=module --check < 파일` → 작업 브랜치 push → `git push origin HEAD:main`. SQL은 사용자에게 붙여 넣기용 내용 또는 raw 링크로.
 
 ---
 
